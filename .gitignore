@@ -1,3 +1,44 @@
+bin
+.vscode
+.idea
+META-INF
+
+*.test.mx
+
+## For ANTLR
+*.interp
+*.tokens
+*BaseListener.java
+*Listener.java
+*BaseVisitor.java
+*Lexer.java
+*Parser.java
+*Visitor.java
+
+## For Gradle
+.gradle
+**/build/
+!src/**/build/
+
+# Ignore Gradle GUI config
+gradle-app.setting
+
+# Avoid ignoring Gradle wrapper jar file (.jar files are usually ignored)
+!gradle-wrapper.jar
+
+# Avoid ignore Gradle wrappper properties
+!gradle-wrapper.properties
+
+# Cache of project
+.gradletasknamecache
+
+# Eclipse Gradle plugin generated files
+# Eclipse Core
+.project
+# JDT-specific (Eclipse Java Development Tools)
+.classpath
+
+## For Java
 # Compiled class file
 *.class
 
