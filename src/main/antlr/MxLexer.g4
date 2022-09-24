@@ -58,7 +58,7 @@ Comma: ',';
 
 // fragments
 fragment Digit: [0-9];
-fragment Symbol: [!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~];
+fragment Symbol: [!"#$%&'()*+,\-./:;<=>?@[\]^_`{|}~];
 fragment DigitExceptZero: [1-9];
 fragment Letter: [a-zA-Z];
 fragment IdentifierCharacter: [a-zA-Z0-9_];
