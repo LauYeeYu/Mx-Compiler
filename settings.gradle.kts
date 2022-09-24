@@ -1,3 +1,3 @@
 
-rootProject.name = "compiler"
+rootProject.name = "Mx-Compiler"
 
