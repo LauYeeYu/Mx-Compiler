@@ -23,6 +23,7 @@ Continue: 'continue';
 Return:   'return';
 
 // Operators
+OpArrow: '->';
 OpIncre: '++';
 OpDecre: '--';
 OpAnd: '&&';
