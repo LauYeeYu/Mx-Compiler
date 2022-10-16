@@ -68,9 +68,7 @@ fragment EscapeCharacter
     | '\\'
     | '"';
 fragment StringCharacter
-    : Digit
-    | Letter
-    | Symbol
+    : ~["\\\n]
     | '\\' EscapeCharacter;
 
 // Identifier
@@ -78,7 +76,7 @@ Identifier : Letter IdentifierCharacter*;
 
 // Literals
 LogicalLiteral: True | False;
-IntegerLiteral: ('0' | DigitExceptZero Digit);
+IntegerLiteral: ('0' | DigitExceptZero Digit*);
 StringLiteral: '"' StringCharacter* '"';
 NullLiteral: Null;
 

@@ -15,13 +15,13 @@ declaration
     ;
 
 // Function
-functionDeclaration: typename identifier '(' functionDeclParamList ')' body=blockStatement;
+functionDeclaration: typename identifier '(' functionDeclParamList? ')' body=blockStatement;
 functionDeclParamList: (functionDeclParam ',')* functionDeclParam;
 functionDeclParam: typename identifier;
 functionCallParamList: (expression ',')* expression;
 
 // Class
-classDeclaration: 'class' identifier '{' classComponents '}' ';';
+classDeclaration: 'class' identifier '{' classComponents* '}' ';';
 
 classComponents
     : variableDeclaration    # ClassMemberDeclar
@@ -42,7 +42,7 @@ statement
     | emptyStatement       # EmptyStmt
     ;
 
-blockStatement: '{' statement '}';
+blockStatement: '{' statement* '}';
 
 variableDeclaration: typename (initDeclarator ',')* initDeclarator ';';
 initDeclarator: identifier ('=' initializer=expression)?;
@@ -62,9 +62,9 @@ controlFlowStatement
     | breakStatement
     | returnStatement
     ;
-continueStatement: Continue          ';';
-breakStatement:    Break             ';';
-returnStatement:   Return expression ';';
+continueStatement: Continue           ';';
+breakStatement:    Break              ';';
+returnStatement:   Return expression? ';';
 
 emptyStatement: ';';
 
@@ -94,18 +94,18 @@ expression
     : lvalueExpression                                                     # LvalueExpr
     | lambdaExpression                                                     # LambdaExpr
     | newExpression                                                        # NewExpr
-    | l=lvalueExpression '='                                  r=expression # AssignExpr
-    | l=expression op='||'                                    r=expression # BinaryExpr
-    | l=expression op='&&'                                    r=expression # BinaryExpr
-    | l=expression op='^'                                     r=expression # BinaryExpr
-    | l=expression op='|'                                     r=expression # BinaryExpr
-    | l=expression op='&'                                     r=expression # BinaryExpr
-    | l=expression op=('<' | '>' | '<=' | '>=' | '==' | '!=') r=expression # BinaryExpr
-    | l=expression op=('<<' | '>>')                           r=expression # BinaryExpr
-    | l=expression op=('+' | '-')                             r=expression # BinaryExpr
-    | l=expression op=('*' | '/' | '%')                       r=expression # BinaryExpr
-    | l=expression op=('!' | '-' | '~')                       r=expression # UnaryExpr
     | lvalueExpression ('++' | '--')                                       # PostfixUpdateExpr
+    | op=('!' | '-' | '~')                                    r=expression # UnaryExpr
+    | l=expression op=('*' | '/' | '%')                       r=expression # BinaryExpr
+    | l=expression op=('+' | '-')                             r=expression # BinaryExpr
+    | l=expression op=('<<' | '>>')                           r=expression # BinaryExpr
+    | l=expression op=('<' | '>' | '<=' | '>=' | '==' | '!=') r=expression # BinaryExpr
+    | l=expression op='&'                                     r=expression # BinaryExpr
+    | l=expression op='|'                                     r=expression # BinaryExpr
+    | l=expression op='^'                                     r=expression # BinaryExpr
+    | l=expression op='&&'                                    r=expression # BinaryExpr
+    | l=expression op='||'                                    r=expression # BinaryExpr
+    | l=lvalueExpression '='                                  r=expression # AssignExpr
     ;
 
 newExpression: 'new' newTypename ('(' ')')?;
@@ -119,13 +119,13 @@ literalExpression
     ;
 
 lvalueExpression
-    : identifier                                                    # IdentifierExpr
-    | literalExpression                                             # LiteralExpr
-    | '(' expression ')'                                            # ParenthesesExpr
-    | lvalueExpression '.' identifier                               # MemberAccessExpr
-    | lvalueExpression '[' expression ']'                           # ArrayExpr
-    | ('++' | '--') lvalueExpression                                # PrefixUpdateExpr
-    | (identifier | lambdaExpression) '(' functionCallParamList ')' # FunCallExpr
+    : identifier                                                                                 # IdentifierExpr
+    | literalExpression                                                                          # LiteralExpr
+    | '(' expression ')'                                                                         # ParenthesesExpr
+    | lvalueExpression '.' (function=identifier | data=identifier'(' functionCallParamList? ')') # MemberAccessExpr
+    | lvalueExpression '[' expression ']'                                                        # ArrayExpr
+    | ('++' | '--') lvalueExpression                                                             # PrefixUpdateExpr
+    | (identifier | lambdaExpression) '(' functionCallParamList? ')'                             # FunCallExpr
     ;
 
 lambdaExpression: '[' capture='&'? ']' '(' functionDeclParamList ')' '->' ;
