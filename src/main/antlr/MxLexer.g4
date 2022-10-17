@@ -1,7 +1,8 @@
 lexer grammar MxLexer;
 
 // Comments
-SingleLineComment: '//' ~[\r\n\u2028\u2029]* -> channel(HIDDEN);
+LineComment: '//' ~[\r\n\u2028\u2029]* -> channel(HIDDEN);
+BlockComment: '/*' .*? '*/' -> channel(HIDDEN);
 
 // Keywords
 Void:     'void';
