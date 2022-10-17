@@ -69,7 +69,7 @@ fragment EscapeCharacter
     | '\\'
     | '"';
 fragment StringCharacter
-    : ~["\\\n]
+    : ~["\\\n\r\u2028\u2029]
     | '\\' EscapeCharacter;
 
 // Identifier
