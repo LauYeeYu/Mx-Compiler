@@ -26,6 +26,10 @@ tasks.withType<KotlinCompile> {
     kotlinOptions.jvmTarget = "18"
 }
 
+tasks.compileKotlin {
+  dependsOn("generateGrammarSource")
+}
+
 application {
     mainClass.set("MainKt")
 }
