@@ -30,6 +30,11 @@ tasks.compileKotlin {
   dependsOn("generateGrammarSource")
 }
 
+tasks.getByName("generateGrammarSource") {
+    this as AntlrTask
+    arguments = arguments + listOf("-visitor")
+}
+
 application {
     mainClass.set("MainKt")
 }
