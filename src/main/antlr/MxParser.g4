@@ -117,13 +117,15 @@ literalExpression
     ;
 
 lhsExpression
-    : identifier                                                                            # IdentifierExpr
-    | literalExpression                                                                     # LiteralExpr
-    | '(' expression ')'                                                                    # ParenthesesExpr
-    | lhsExpression '.' (function=identifier | data=identifier'(' functionCallArgList? ')') # MemberAccessExpr
-    | lhsExpression '[' expression ']'                                                      # ArrayExpr
-    | ('++' | '--') lhsExpression                                                           # PrefixUpdateExpr
-    | (identifier | lambdaExpression) '(' functionCallArgList? ')'                          # FunCallExpr
+    : identifier                                                      # IdentifierExpr
+    | literalExpression                                               # LiteralExpr
+    | '(' expression ')'                                              # ParenthesesExpr
+    | lhsExpression '.' variable=identifier                           # MemberVariableAccessExpr
+    | lhsExpression '.' method=identifier'(' functionCallArgList? ')' # MemberFunctionAccessExpr
+    | lhsExpression '[' expression ']'                                # ArrayExpr
+    | (op='++' | op='--') lhsExpression                               # PrefixUpdateExpr
+    | identifier '(' functionCallArgList? ')'                         # FunCallExpr
+    | lambdaExpression '(' functionCallArgList? ')'                   # LambdaCallExpr
     ;
 
 lambdaExpression: '[' capture='&'? ']' '(' functionDeclParamList ')' '->' ;
