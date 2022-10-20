@@ -56,9 +56,9 @@ loopStatement
     ;
 
 controlFlowStatement
-    : continueStatement
-    | breakStatement
-    | returnStatement
+    : continueStatement # ContinueStmt
+    | breakStatement    # BreakStmt
+    | returnStatement   # ReturnStmt
     ;
 continueStatement: Continue           ';';
 breakStatement:    Break              ';';
@@ -109,21 +109,21 @@ expression
 newExpression: 'new' newTypename ('(' ')')?;
 
 literalExpression
-    : stringLiteral
-    | thisLiteral
-    | logicLiteral
-    | nullLiteral
-    | numberLiteral
+    : stringLiteral # LiteralString
+    | thisLiteral   # LiteralThis
+    | logicLiteral  # LiteralLogic
+    | nullLiteral   # LiteralNull
+    | numberLiteral # LiteralNumber
     ;
 
 lhsExpression
-    : identifier                                                                               # IdentifierExpr
-    | literalExpression                                                                        # LiteralExpr
-    | '(' expression ')'                                                                       # ParenthesesExpr
+    : identifier                                                                            # IdentifierExpr
+    | literalExpression                                                                     # LiteralExpr
+    | '(' expression ')'                                                                    # ParenthesesExpr
     | lhsExpression '.' (function=identifier | data=identifier'(' functionCallArgList? ')') # MemberAccessExpr
     | lhsExpression '[' expression ']'                                                      # ArrayExpr
     | ('++' | '--') lhsExpression                                                           # PrefixUpdateExpr
-    | (identifier | lambdaExpression) '(' functionCallArgList? ')'                             # FunCallExpr
+    | (identifier | lambdaExpression) '(' functionCallArgList? ')'                          # FunCallExpr
     ;
 
 lambdaExpression: '[' capture='&'? ']' '(' functionDeclParamList ')' '->' ;
