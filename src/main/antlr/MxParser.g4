@@ -4,9 +4,7 @@ options {
   tokenVocab=MxLexer;
 }
 
-translationUnit: declarationSequence? EOF;
-
-declarationSequence: declaration+;
+translationUnit: declaration* EOF;
 
 declaration
     : functionDeclaration # FunctionDeclar
@@ -18,7 +16,7 @@ declaration
 functionDeclaration: typename identifier '(' functionDeclParamList? ')' body=blockStatement;
 functionDeclParamList: (functionDeclParam ',')* functionDeclParam;
 functionDeclParam: typename identifier;
-functionCallParamList: (expression ',')* expression;
+functionCallArgList: (expression ',')* expression;
 
 // Class
 classDeclaration: 'class' identifier '{' classComponents* '}' ';';
@@ -91,10 +89,10 @@ numberLiteral: IntegerLiteral;
 
 // Expressions
 expression
-    : lvalueExpression                                                     # LvalueExpr
+    : lhsExpression                                                        # LhsExpr
     | lambdaExpression                                                     # LambdaExpr
     | newExpression                                                        # NewExpr
-    | lvalueExpression ('++' | '--')                                       # PostfixUpdateExpr
+    | lhsExpression ('++' | '--')                                          # PostfixUpdateExpr
     | op=('!' | '-' | '~')                                    r=expression # UnaryExpr
     | l=expression op=('*' | '/' | '%')                       r=expression # BinaryExpr
     | l=expression op=('+' | '-')                             r=expression # BinaryExpr
@@ -105,7 +103,7 @@ expression
     | l=expression op='^'                                     r=expression # BinaryExpr
     | l=expression op='&&'                                    r=expression # BinaryExpr
     | l=expression op='||'                                    r=expression # BinaryExpr
-    | l=lvalueExpression '='                                  r=expression # AssignExpr
+    | l=lhsExpression '='                                     r=expression # AssignExpr
     ;
 
 newExpression: 'new' newTypename ('(' ')')?;
@@ -118,21 +116,21 @@ literalExpression
     | numberLiteral
     ;
 
-lvalueExpression
-    : identifier                                                                                 # IdentifierExpr
-    | literalExpression                                                                          # LiteralExpr
-    | '(' expression ')'                                                                         # ParenthesesExpr
-    | lvalueExpression '.' (function=identifier | data=identifier'(' functionCallParamList? ')') # MemberAccessExpr
-    | lvalueExpression '[' expression ']'                                                        # ArrayExpr
-    | ('++' | '--') lvalueExpression                                                             # PrefixUpdateExpr
-    | (identifier | lambdaExpression) '(' functionCallParamList? ')'                             # FunCallExpr
+lhsExpression
+    : identifier                                                                               # IdentifierExpr
+    | literalExpression                                                                        # LiteralExpr
+    | '(' expression ')'                                                                       # ParenthesesExpr
+    | lhsExpression '.' (function=identifier | data=identifier'(' functionCallArgList? ')') # MemberAccessExpr
+    | lhsExpression '[' expression ']'                                                      # ArrayExpr
+    | ('++' | '--') lhsExpression                                                           # PrefixUpdateExpr
+    | (identifier | lambdaExpression) '(' functionCallArgList? ')'                             # FunCallExpr
     ;
 
 lambdaExpression: '[' capture='&'? ']' '(' functionDeclParamList ')' '->' ;
 
 primitiveTypename
-    : Void
-    | Bool
-    | Int
-    | String
+    : Void   # VoidType
+    | Bool   # BoolType
+    | Int    # IntType
+    | String # StringType
     ;
