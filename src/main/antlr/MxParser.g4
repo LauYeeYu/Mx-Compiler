@@ -95,7 +95,7 @@ expression
     : lhsExpression                                                        # LhsExpr
     | lambdaExpression                                                     # LambdaExpr
     | newExpression                                                        # NewExpr
-    | lhsExpression ('++' | '--')                                          # PostfixUpdateExpr
+    | lhsExpression op=('++' | '--')                                       # PostfixUpdateExpr
     | op=('!' | '-' | '~')                                    r=expression # UnaryExpr
     | l=expression op=('*' | '/' | '%')                       r=expression # BinaryExpr
     | l=expression op=('+' | '-')                             r=expression # BinaryExpr
@@ -131,7 +131,7 @@ lhsExpression
     | lambdaExpression '(' functionCallArgList? ')'                   # LambdaCallExpr
     ;
 
-lambdaExpression: '[' capture='&'? ']' '(' functionDeclParamList ')' '->' body=blockStatement;
+lambdaExpression: '[' capture='&'? ']' ('(' functionDeclParamList? ')')? '->' body=blockStatement;
 
 primitiveTypename
     : Void   # VoidType
