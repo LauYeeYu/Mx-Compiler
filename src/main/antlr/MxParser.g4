@@ -128,7 +128,7 @@ lhsExpression
     | lambdaExpression '(' functionCallArgList? ')'                   # LambdaCallExpr
     ;
 
-lambdaExpression: '[' capture='&'? ']' '(' functionDeclParamList ')' '->' ;
+lambdaExpression: '[' capture='&'? ']' '(' functionDeclParamList ')' '->' body=blockStatement;
 
 primitiveTypename
     : Void   # VoidType
