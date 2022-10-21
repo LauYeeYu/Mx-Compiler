@@ -14,17 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import ast.parse
-import ast.Source
-import ast.buildAst
-import exceptions.MxException
+package ast
 
-fun main(args: Array<String>) {
-    try {
-        val source = Source("input", System.`in`.readAllBytes().decodeToString())
-        val program = parse(source)
-        val ast = buildAst(program)
-    } catch (e: MxException) {
-        System.err.println(e.toString())
-    }
+import org.antlr.v4.runtime.*
+
+class Source(val fileName: String, val sourceCode: String) {
+    val lines = sourceCode.split("\n")
 }
+
+open class SourceContext(val source: Source, val parsed: ParserRuleContext?)

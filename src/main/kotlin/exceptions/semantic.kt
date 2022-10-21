@@ -14,17 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import ast.parse
-import ast.Source
-import ast.buildAst
-import exceptions.MxException
+package exceptions
 
-fun main(args: Array<String>) {
-    try {
-        val source = Source("input", System.`in`.readAllBytes().decodeToString())
-        val program = parse(source)
-        val ast = buildAst(program)
-    } catch (e: MxException) {
-        System.err.println(e.toString())
+open class MxException(private val msg: String) : Exception(msg) {
+    override fun toString(): String {
+        val className = this::class.simpleName
+        return "$className: $message"
     }
 }
