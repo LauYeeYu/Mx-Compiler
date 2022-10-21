@@ -74,10 +74,13 @@ typename
     ;
 
 newTypename
-    : identifier                                         # NewClass
-    | identifier ('[' expression ']')+ ('[' ']')*        # NewClassArray
-    | primitiveTypename ('[' expression ']')+ ('[' ']')* # NewPrimitiveArray
+    : identifier                                               # NewClass
+    | identifier newArrayExprCount+ newArrayEmptyCount*        # NewClassArray
+    | primitiveTypename newArrayExprCount+ newArrayEmptyCount* # NewPrimitiveArray
     ;
+
+newArrayExprCount: '[' expression ']';
+newArrayEmptyCount: '[' ']';
 
 identifier: Identifier;
 
