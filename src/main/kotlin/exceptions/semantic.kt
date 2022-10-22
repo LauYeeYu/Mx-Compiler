@@ -27,4 +27,4 @@ open class MxException(private val msg: String, private val ctx: SourceContext?)
     }
 }
 
-open class SemanticException(msg: String, private val ctx: SourceContext?) : MxException(msg, ctx)
+open class SemanticException(msg: String, ctx: SourceContext?) : MxException(msg, ctx)

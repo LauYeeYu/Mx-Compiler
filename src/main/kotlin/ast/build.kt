@@ -17,7 +17,7 @@
 package ast
 
 import MxParser.*
-import exceptions.MxException
+import exceptions.*
 import org.antlr.v4.runtime.ParserRuleContext
 
 fun buildAst(parseResult: ParseResult) = Ast(parseResult).build()
@@ -31,7 +31,7 @@ fun unEscapeString(str: String, ctx: SourceContext): String {
                 'n' -> sb.append('\n')
                 '\\' -> sb.append('\\')
                 '"' -> sb.append('"')
-                else -> throw MxException("Invalid escape sequence: ${str[i + 1]}", ctx)
+                else -> throw SemanticException("Invalid escape sequence: ${str[i + 1]}", ctx)
             }
             i += 2
         } else {
@@ -58,7 +58,7 @@ class Ast(private val parseResult: ParseResult) {
             is ClassDeclarContext -> buildNode(input)
             is FunctionDeclarContext -> buildNode(input)
             is GlobalVariableDeclarContext -> buildNode(input)
-            else -> throw MxException("Unknown declaration type", input.ctx)
+            else -> throw SemanticException("Unknown declaration type", input.ctx)
         }
 
     private fun buildNode(input: FunctionDeclarContext) =
@@ -93,7 +93,7 @@ class Ast(private val parseResult: ParseResult) {
             is ClassMemberDeclarContext -> buildNode(input)
             is ClassMethodDeclarContext -> buildNode(input)
             is ConstructorDeclarContext -> buildNode(input)
-            else -> throw MxException("Unknown class component type", input.ctx)
+            else -> throw SemanticException("Unknown class component type", input.ctx)
         }
 
     private fun buildNode(input: ClassMemberDeclarContext) =
@@ -141,7 +141,7 @@ class Ast(private val parseResult: ParseResult) {
             is LoopStmtContext -> buildNode(input)
             is CtrlFlowStmtContext -> buildNode(input)
             is EmptyStmtContext -> buildNode(input)
-            else -> throw MxException("Unknown statement type", input.ctx)
+            else -> throw SemanticException("Unknown statement type", input.ctx)
         }
 
     private fun buildNode(input: BlockStatementContext) =
@@ -177,7 +177,7 @@ class Ast(private val parseResult: ParseResult) {
             is WhileLoopContext -> buildNode(input.loopStatement() as WhileLoopContext)
             is DeclForLoopContext -> buildNode(input.loopStatement() as DeclForLoopContext)
             is ExprForLoopContext -> buildNode(input.loopStatement() as ExprForLoopContext)
-            else -> throw MxException("Unknown loop statement type", input.ctx)
+            else -> throw SemanticException("Unknown loop statement type", input.ctx)
         }
 
     private fun buildNode(input: WhileLoopContext) =
@@ -216,7 +216,7 @@ class Ast(private val parseResult: ParseResult) {
             is ContinueStmtContext ->
                 buildNode((input.controlFlowStatement() as ContinueStmtContext).continueStatement())
 
-            else -> throw MxException("Unknown control flow statement type", input.ctx)
+            else -> throw SemanticException("Unknown control flow statement type", input.ctx)
         }
 
     private fun buildNode(input: ReturnStatementContext) =
@@ -233,7 +233,7 @@ class Ast(private val parseResult: ParseResult) {
         is PrimitiveTypeContext -> buildNode(input.primitiveTypename())
         is ArrayTypeContext -> buildNode(input)
         is ClassTypeContext -> buildNode(input)
-        else -> throw MxException("Unknown type", input.ctx)
+        else -> throw SemanticException("Unknown type", input.ctx)
     }
 
     private fun buildNode(input: PrimitiveTypenameContext): PrimitiveType =
@@ -242,7 +242,7 @@ class Ast(private val parseResult: ParseResult) {
             is BoolTypeContext -> BoolType(input.ctx)
             is StringTypeContext -> StringType(input.ctx)
             is VoidTypeContext -> VoidType(input.ctx)
-            else -> throw MxException("Unknown primitive type", input.ctx)
+            else -> throw SemanticException("Unknown primitive type", input.ctx)
         }
 
     private fun buildNode(input: ArrayTypeContext): ArrayType {
@@ -267,7 +267,7 @@ class Ast(private val parseResult: ParseResult) {
             is UnaryExprContext -> buildNode(input)
             is BinaryExprContext -> buildNode(input)
             is AssignExprContext -> buildNode(input)
-            else -> throw MxException("Unknown expression type", input.ctx)
+            else -> throw SemanticException("Unknown expression type", input.ctx)
         }
 
     private fun buildNode(input: LhsExpressionContext): Expression =
@@ -281,7 +281,7 @@ class Ast(private val parseResult: ParseResult) {
             is PrefixUpdateExprContext -> buildNode(input)
             is FunCallExprContext -> buildNode(input)
             is LambdaCallExprContext -> buildNode(input)
-            else -> throw MxException("Unknown lhs expression type", input.ctx)
+            else -> throw SemanticException("Unknown lhs expression type", input.ctx)
         }
 
     private fun buildNode(input: IdentifierExprContext) =
@@ -309,7 +309,7 @@ class Ast(private val parseResult: ParseResult) {
                 (input.literalExpression() as LiteralNumberContext).numberLiteral().IntegerLiteral().text.toInt()
             )
 
-            else -> throw MxException("Unknown literal type", input.literalExpression().ctx)
+            else -> throw SemanticException("Unknown literal type", input.literalExpression().ctx)
         }
 
     private fun buildNode(input: MemberVariableAccessExprContext) =
@@ -343,7 +343,7 @@ class Ast(private val parseResult: ParseResult) {
             when (input.op.text) {
                 "++" -> UpdateOperator.INCREMENT
                 "--" -> UpdateOperator.DECREMENT
-                else -> throw MxException("Unknown prefix update operator", input.ctx)
+                else -> throw SemanticException("Unknown prefix update operator", input.ctx)
             },
             buildNode(input.lhsExpression())
         )
@@ -393,7 +393,7 @@ class Ast(private val parseResult: ParseResult) {
                 buildNode(input.newTypename() as NewClassArrayContext)
             is NewPrimitiveArrayContext ->
                 buildNode(input.newTypename() as NewPrimitiveArrayContext)
-            else -> throw MxException("Unknown new expression type", input.newTypename().ctx)
+            else -> throw SemanticException("Unknown new expression type", input.newTypename().ctx)
         }
 
     private fun buildNode(input: NewClassContext) =
@@ -434,7 +434,7 @@ class Ast(private val parseResult: ParseResult) {
             when (input.op.text) {
                 "++" -> UpdateOperator.INCREMENT
                 "--" -> UpdateOperator.DECREMENT
-                else -> throw MxException("Unknown postfix update operator", input.ctx)
+                else -> throw SemanticException("Unknown postfix update operator", input.ctx)
             },
             buildNode(input.lhsExpression())
         )
@@ -446,7 +446,7 @@ class Ast(private val parseResult: ParseResult) {
                 "-" -> UnaryOperator.NEGATIVE
                 "!" -> UnaryOperator.LOGICAL_NOT
                 "~" -> UnaryOperator.BITWISE_NOT
-                else -> throw MxException("Unknown unary operator", input.ctx)
+                else -> throw SemanticException("Unknown unary operator", input.ctx)
             },
             buildNode(input.expression())
         )
@@ -473,7 +473,7 @@ class Ast(private val parseResult: ParseResult) {
                 "|" -> BinaryOperator.BITWISE_OR
                 "&&" -> BinaryOperator.LOGICAL_AND
                 "||" -> BinaryOperator.LOGICAL_OR
-                else -> throw MxException("Unknown binary operator", input.ctx)
+                else -> throw SemanticException("Unknown binary operator", input.ctx)
             },
             buildNode(input.l),
             buildNode(input.r)
