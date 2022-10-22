@@ -16,7 +16,4 @@
 
 package exceptions
 
-import ast.SourceContext
-
-open class SemanticException(msg: String, ctx: SourceContext?) : MxException(msg, ctx)
-class TypeMismatchException(msg: String, ctx: SourceContext?) : SemanticException(msg, ctx)
+class InternalException(msg: String) : MxException(msg, null)
