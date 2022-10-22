@@ -22,4 +22,11 @@ class Source(val fileName: String, val sourceCode: String) {
     val lines = sourceCode.split("\n")
 }
 
-open class SourceContext(val source: Source, val parsed: ParserRuleContext?)
+data class Position(val source: Source, val line: Int, val col: Int) {
+    override fun toString() = "$source:$line:$col"
+}
+
+open class SourceContext(private val source: Source, private val parsed: ParserRuleContext?) {
+    open val loc: Position
+        get() = Position(source, parsed!!.start.line, parsed.start.charPositionInLine)
+}

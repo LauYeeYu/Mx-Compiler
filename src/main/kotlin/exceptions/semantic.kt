@@ -16,9 +16,15 @@
 
 package exceptions
 
-open class MxException(private val msg: String) : Exception(msg) {
+import ast.SourceContext
+
+open class MxException(private val msg: String, private val ctx: SourceContext?) : Exception(msg) {
     override fun toString(): String {
         val className = this::class.simpleName
-        return "$className: $message"
+        val msg = "$className: $message"
+        if (ctx == null) return msg
+        return "In ${ctx.loc}: $msg"
     }
 }
+
+open class SemanticException(msg: String, private val ctx: SourceContext?) : MxException(msg, ctx)
