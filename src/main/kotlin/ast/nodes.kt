@@ -65,7 +65,7 @@ class VariableDeclaration(
     ctx: SourceContext,
     val name: String,
     val body: Expression,
-) : AstNode(ctx), ClassElement
+) : AstNode(ctx)
 
 // Nodes for Statements
 open class Statement(ctx: SourceContext) : AstNode(ctx)
