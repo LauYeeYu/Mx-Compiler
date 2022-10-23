@@ -191,17 +191,17 @@ class Ast(private val parseResult: ParseResult) {
         ForDeclarationStatement(
             input.ctx,
             buildNode(input.init),
-            buildNode(input.condition),
-            buildNode(input.step),
+            buildMaybeNullExpression(input.condition),
+            buildMaybeNullExpression(input.step),
             buildNode(input.body),
         )
 
     private fun buildNode(input: ExprForLoopContext) =
         ForExpressionStatement(
             input.ctx,
-            buildNode(input.init),
-            buildNode(input.condition),
-            buildNode(input.step),
+            buildMaybeNullExpression(input.init),
+            buildMaybeNullExpression(input.condition),
+            buildMaybeNullExpression(input.step),
             buildNode(input.body),
         )
 
@@ -220,7 +220,7 @@ class Ast(private val parseResult: ParseResult) {
         }
 
     private fun buildNode(input: ReturnStatementContext) =
-        ReturnStatement(input.ctx, buildNode(input.expression()))
+        ReturnStatement(input.ctx, buildMaybeNullExpression(input.expression()))
 
     private fun buildNode(input: BreakStatementContext) = BreakStatement(input.ctx)
 
@@ -257,6 +257,13 @@ class Ast(private val parseResult: ParseResult) {
 
     private fun buildNode(input: ClassTypeContext) =
         ClassType(input.ctx, input.identifier().text)
+
+    private fun buildMaybeNullExpression(input: ExpressionContext?): Expression? =
+        if (input == null) {
+            null
+        } else {
+            buildNode(input)
+        }
 
     private fun buildNode(input: ExpressionContext): Expression =
         when (input) {
