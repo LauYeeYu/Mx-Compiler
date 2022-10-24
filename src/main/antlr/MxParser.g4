@@ -112,7 +112,7 @@ expression
     | lambdaExpression                                                     # LambdaExpr
     | newExpression                                                        # NewExpr
     | lhsExpression op=('++' | '--')                                       # PostfixUpdateExpr
-    | op=('!' | '-' | '~')                                    r=expression # UnaryExpr
+    | <assoc=right> op=('!' | '-' | '~' | '+')                r=expression # UnaryExpr
     | l=expression op=('*' | '/' | '%')                       r=expression # BinaryExpr
     | l=expression op=('+' | '-')                             r=expression # BinaryExpr
     | l=expression op=('<<' | '>>')                           r=expression # BinaryExpr
@@ -122,7 +122,7 @@ expression
     | l=expression op='^'                                     r=expression # BinaryExpr
     | l=expression op='&&'                                    r=expression # BinaryExpr
     | l=expression op='||'                                    r=expression # BinaryExpr
-    | l=lhsExpression '='                                     r=expression # AssignExpr
+    | <assoc=right> l=lhsExpression '='                       r=expression # AssignExpr
     ;
 
 newExpression: 'new' newTypename;
