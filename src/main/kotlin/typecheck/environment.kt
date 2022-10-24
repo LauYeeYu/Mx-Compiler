@@ -274,8 +274,61 @@ class ClassEnvironmentRecord(
     fun checkAndRecord(root: ast.Class): ClassEnvironmentRecord {
         for (classElement in root.body) {
             when (classElement) {
-                is ast.VariablesDeclaration -> recordVariable(classElement)
-                is ast.Function -> recordFunction(classElement)
+                is ast.VariablesDeclaration -> {
+                    for (variable in classElement.variables) {
+                        val binding = findVariableAlike(variable.name)
+                        if (binding != null) {
+                            throw SemanticException(
+                                "Variable ${variable.name} is already defined in ${binding.ctx?.loc}",
+                                variable.ctx,
+                            )
+                        }
+                        variableAlikeBindings[variable.name] = Binding(
+                            variable.ctx,
+                            variable.name,
+                            getType(classElement.type, classElement.ctx),
+                        )
+                    }
+                }
+                is ast.Function -> {
+                    val binding = findFunctionAlike(classElement.name)
+                    if (binding != null) {
+                        throw SemanticException(
+                            "Function ${classElement.name} is already defined in ${binding.ctx?.loc}",
+                            classElement.ctx,
+                        )
+                    }
+                    functionAlikeBindings[classElement.name] = Binding(
+                        classElement.ctx,
+                        classElement.name,
+                        getType(classElement.returnType, classElement.ctx),
+                    )
+                }
+                else -> {}
+            }
+        }
+        for (classElement in root.body) {
+            when (classElement) {
+                is ast.VariablesDeclaration -> {
+                    val type = getType(classElement.type, classElement.ctx)
+                    for (variable in classElement.variables) {
+                        if (checkType(variable.body, this) != type) {
+                            throw SemanticException(
+                                "Expected type $type, got ${checkType(variable.body, this)}",
+                                variable.ctx,
+                            )
+                        }
+                    }
+                }
+                is ast.Function -> {
+                    functionAlikeBindings[classElement.name]?.type?.environment =
+                    FunctionEnvironmentRecord(this,
+                        classElement.parameters.map {
+                            Binding(it.ctx, it.name, getType(it.type, it.ctx))
+                        },
+                        getType(classElement.returnType, classElement.ctx),
+                    ).checkAndRecord(classElement.body) as FunctionEnvironmentRecord
+                }
                 is ast.Constructor -> recordConstructor(classElement)
             }
         }
