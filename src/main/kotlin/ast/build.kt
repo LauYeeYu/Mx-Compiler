@@ -450,6 +450,7 @@ class Ast(private val parseResult: ParseResult) {
         UnaryExpression(
             input.ctx,
             when (input.op.text) {
+                "+" -> UnaryOperator.POSITIVE
                 "-" -> UnaryOperator.NEGATIVE
                 "!" -> UnaryOperator.LOGICAL_NOT
                 "~" -> UnaryOperator.BITWISE_NOT

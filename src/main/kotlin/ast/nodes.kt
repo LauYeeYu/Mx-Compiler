@@ -152,6 +152,7 @@ enum class BinaryOperator {
 enum class UnaryOperator {
     BITWISE_NOT, // ~
     LOGICAL_NOT, // !
+    POSITIVE,    // +
     NEGATIVE,    // -
 }
 
