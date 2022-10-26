@@ -53,8 +53,11 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
 
     open fun functionReturnType(): MxType? =
         throw InternalException("cannot call FunctionReturnType() on a base EnvironmentRecord")
+
+    open fun thisType(): MxType =
+        throw InternalException("cannot call thisType() on a base EnvironmentRecord")
     
-    protected fun getType(type: Type, ctx: SourceContext?): MxType {
+    fun getType(type: Type, ctx: SourceContext?): MxType {
         var returnType = MxType(null)
         when (type) {
             is PrimitiveType -> {
@@ -95,18 +98,39 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
                 node.ctx,
             )
         }
+        val functionEnvironmentRecord = FunctionEnvironmentRecord(
+            this,
+            node.parameters.map {
+                Binding(it.ctx, it.name, getType(it.type, it.ctx))
+            },
+            getType(node.returnType, node.ctx),
+        )
+        for (statement in node.body.statements) {
+            functionEnvironmentRecord.checkAndRecord(statement)
+        }
+        val funReturnType = getType(node.returnType, node.ctx)
+        if (funReturnType is MxVoidType) {
+            if (functionEnvironmentRecord.referredReturnType !is MxVoidType) {
+                throw SemanticException(
+                    "Function ${node.name} should not return a value",
+                    node.ctx,
+                )
+            }
+        } else {
+            if (functionEnvironmentRecord.referredReturnType != funReturnType) {
+                throw SemanticException(
+                    "Function ${node.name} should return a value of type $funReturnType",
+                    node.ctx,
+                )
+            }
+        }
         functionAlikeBindings[node.name] = Binding(
             node.ctx,
             node.name,
             MxFunctionType(
-                getType(node.returnType, node.ctx),
+                funReturnType,
                 node.parameters.map { getType(it.type, it.ctx) },
-                FunctionEnvironmentRecord(this,
-                    node.parameters.map {
-                        Binding(it.ctx, it.name, getType(it.type, it.ctx))
-                    },
-                    getType(node.returnType, node.ctx),
-                ).checkAndRecord(node.body) as FunctionEnvironmentRecord,
+                functionEnvironmentRecord,
             ),
         )
     }
@@ -145,9 +169,9 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
                     variable.ctx,
                 )
             }
-            if (checkType(variable.body, this) != type) {
+            if (checkType(variable.body, this, node.ctx).type != type) {
                 throw SemanticException(
-                    "Expected type $type, got ${checkType(variable.body, this)}",
+                    "Expected type $type, got ${checkType(variable.body, this, node.ctx).type}",
                     variable.ctx,
                 )
             }
@@ -164,21 +188,29 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
 
     open fun checkAndRecord(root: Statement): EnvironmentRecord {
         when (root) {
-            is BlockStatement -> for (statement in root.statements) {
-                checkAndRecord(statement)
-                if (statement is ReturnStatement) hasReturn = true
+            is BlockStatement -> {
+                val newEnvironment = BlockEnvironmentRecord(this)
+                for (statement in root.statements) {
+                    newEnvironment.checkAndRecord(statement)
+                    if (statement is ReturnStatement) {
+                        hasReturn = true
+                        referredReturnType = newEnvironment.referredReturnType
+                    }
+                }
             }
             is VariablesDeclaration -> recordVariable(root)
-            is ExpressionStatement -> checkType(root.expression, this)
+            is ExpressionStatement -> checkType(root.expression, this, root.ctx)
             is BranchStatement -> {
-                if (checkType(root.condition, this) !is MxBoolType) {
+                if (checkType(root.condition, this, root.ctx).type !is MxBoolType) {
                     throw SemanticException("Expected a bool type", root.condition.ctx)
                 }
                 if (root.falseBranch != null) {
                     val trueBranchEnvironment = BlockEnvironmentRecord(this).checkAndRecord(root.trueBranch)
                     val falseBranchEnvironment = BlockEnvironmentRecord(this).checkAndRecord(root.falseBranch)
-                    if (trueBranchEnvironment.hasReturn && falseBranchEnvironment.hasReturn) {
+                    if (trueBranchEnvironment.hasReturn && falseBranchEnvironment.hasReturn &&
+                        trueBranchEnvironment.referredReturnType != falseBranchEnvironment.referredReturnType) {
                         hasReturn = true
+                        referredReturnType = trueBranchEnvironment.referredReturnType
                     }
                     subEnvironments.add(trueBranchEnvironment)
                     subEnvironments.add(falseBranchEnvironment)
@@ -188,7 +220,7 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
             }
 
             is WhileStatement -> {
-                if (checkType(root.condition, this) !is MxBoolType) {
+                if (checkType(root.condition, this, root.ctx).type !is MxBoolType) {
                     throw SemanticException("Expected a bool type", root.condition.ctx)
                 }
                 BlockEnvironmentRecord(this, listOf(), true).checkAndRecord(root.body)
@@ -196,14 +228,14 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
 
             is ForExpressionStatement -> {
                 if (root.init != null) {
-                    checkType(root.init, this)
+                    checkType(root.init, this, root.ctx)
                 }
                 if (root.condition != null &&
-                    (checkType(root.condition, this) !is MxBoolType)) {
+                    (checkType(root.condition, this, root.ctx).type !is MxBoolType)) {
                     throw SemanticException("Expected a bool type", root.condition.ctx)
                 }
                 if (root.step != null) {
-                    checkType(root.step, this)
+                    checkType(root.step, this, root.ctx)
                 }
                 subEnvironments.add(
                     BlockEnvironmentRecord(this, listOf(), true).checkAndRecord(root.body)
@@ -212,11 +244,11 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
             is ForDeclarationStatement -> {
                 val variableList = recordVariable(root.init)
                 if (root.condition != null &&
-                    (checkType(root.condition, this) !is MxBoolType)) {
+                    (checkType(root.condition, this, root.ctx).type !is MxBoolType)) {
                     throw SemanticException("Expected a bool type", root.condition.ctx)
                 }
                 if (root.step != null) {
-                    checkType(root.step, this)
+                    checkType(root.step, this, root.ctx)
                 }
                 subEnvironments.add(
                     BlockEnvironmentRecord(this, variableList, true).checkAndRecord(root.body)
@@ -234,31 +266,21 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
             }
             is ReturnStatement -> {
                 if (root.expression != null) {
-                    val returnType = checkType(root.expression, this)
-                    if (returnType != functionReturnType()) {
-                        throw SemanticException(
-                            "Expected return type ${functionReturnType()}, got $returnType",
-                            root.expression.ctx,
-                        )
-                    }
+                    referredReturnType = checkType(root.expression, this, root.ctx).type
                     hasReturn = true
                 } else {
-                    if (functionReturnType() !is MxVoidType) {
-                        throw SemanticException(
-                            "Expected return type ${functionReturnType()}, got void",
-                            root.ctx,
-                        )
-                    }
+                    referredReturnType = MxVoidType()
                 }
             }
         }
         return this
     }
 
-    protected var variableAlikeBindings: HashMap<String, Binding> = HashMap()
-    protected var functionAlikeBindings: HashMap<String, Binding> = HashMap()
-    protected var classBindings: HashMap<String, Binding> = HashMap()
+    var variableAlikeBindings: HashMap<String, Binding> = HashMap()
+    var functionAlikeBindings: HashMap<String, Binding> = HashMap()
+    var classBindings: HashMap<String, Binding> = HashMap()
     protected var hasReturn = false
+    var referredReturnType: MxType? = null
     protected val subEnvironments: MutableList<EnvironmentRecord> = mutableListOf()
 }
 
@@ -270,6 +292,8 @@ class ClassEnvironmentRecord(
     override fun inLoop() = false
     override fun functionReturnType() =
         throw InternalException("Class does not have a return type")
+
+    override fun thisType() = MxClassType(className, this)
 
     fun checkAndRecord(root: ast.Class): ClassEnvironmentRecord {
         for (classElement in root.body) {
@@ -312,9 +336,9 @@ class ClassEnvironmentRecord(
                 is ast.VariablesDeclaration -> {
                     val type = getType(classElement.type, classElement.ctx)
                     for (variable in classElement.variables) {
-                        if (checkType(variable.body, this) != type) {
+                        if (checkType(variable.body, this, classElement.ctx).type != type) {
                             throw SemanticException(
-                                "Expected type $type, got ${checkType(variable.body, this)}",
+                                "Expected type $type, got ${checkType(variable.body, this, classElement.ctx)}",
                                 variable.ctx,
                             )
                         }
@@ -391,8 +415,8 @@ class ClassEnvironmentRecord(
 
 class FunctionEnvironmentRecord(
     parent: EnvironmentRecord?,
-    private val parameters: List<Binding>,
-    private val returnType: MxType
+    val parameters: List<Binding>,
+    var returnType: MxType
 ) : EnvironmentRecord(parent) {
     override fun inClass(): Boolean = when (parent) {
         null -> false
@@ -402,6 +426,11 @@ class FunctionEnvironmentRecord(
     override fun inLoop(): Boolean = false
 
     override fun functionReturnType(): MxType = returnType
+
+    override fun thisType(): MxType = when (parent) {
+        null -> throw InternalException("Function does not have a this type")
+        else -> parent.thisType()
+    }
 
     init {
         for (variableBinding in parameters) {
@@ -413,6 +442,9 @@ class FunctionEnvironmentRecord(
 class GlobalEnvironmentRecord : EnvironmentRecord(null) {
     override fun inClass() = false
     override fun inLoop() = false
+
+    override fun thisType(): MxType =
+        throw InternalException("Global environment does not have a this type")
 
     init {
         val stringType = MxStringType()
@@ -489,6 +521,11 @@ class BlockEnvironmentRecord(parent: EnvironmentRecord?) : EnvironmentRecord(par
         else -> parent.functionReturnType()
     }
 
+    override fun thisType(): MxType = when (parent) {
+        null -> throw InternalException("Block does not have a this type")
+        else -> parent.thisType()
+    }
+
     constructor(parent: EnvironmentRecord?,
                 variableBindings: List<Binding>,
                 inLoop: Boolean) : this(parent) {
@@ -499,4 +536,37 @@ class BlockEnvironmentRecord(parent: EnvironmentRecord?) : EnvironmentRecord(par
     }
 
     private var inLoop = false
+}
+
+fun buildLambdaBinding(parent: EnvironmentRecord, expression: LambdaExpression): Binding {
+    val lambdaParent = when (expression.captureReference) {
+        true -> parent
+        false -> null
+    }
+    val functionEnvironmentRecord = FunctionEnvironmentRecord(
+        lambdaParent,
+        expression.parameters.map {
+            Binding(it.ctx, it.name, parent.getType(it.type, it.ctx))
+        },
+        MxType(null), // need to replace later
+    )
+
+    for (statement in expression.body.statements) {
+        functionEnvironmentRecord.checkAndRecord(statement)
+    }
+    if (functionEnvironmentRecord.referredReturnType == null ||
+        functionEnvironmentRecord.referredReturnType is MxVoidType) {
+        functionEnvironmentRecord.returnType = MxVoidType()
+    } else {
+        functionEnvironmentRecord.returnType = functionEnvironmentRecord.referredReturnType!!
+    }
+    return Binding(
+        expression.ctx,
+        "lambda",
+        MxFunctionType(
+            functionEnvironmentRecord.returnType,
+            functionEnvironmentRecord.parameters.map { it.type},
+            functionEnvironmentRecord,
+        ),
+    )
 }

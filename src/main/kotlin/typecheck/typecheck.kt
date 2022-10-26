@@ -17,13 +17,391 @@
 package typecheck
 
 import ast.*
+import exceptions.*
+import java.util.Objects
+
+enum class Status {
+    LVALUE,
+    RVALUE,
+}
+
+class TypeProperty(
+    val type: MxType,
+    val status: Status,
+)
 
 fun checkType(expression: Expression,
-              environmentRecord: EnvironmentRecord): MxType {
-    return TODO()
+              environmentRecord: EnvironmentRecord,
+              ctx: SourceContext?) =
+    when (expression) {
+        is Object -> checkType(expression, environmentRecord, ctx)
+        is Literal -> checkType(expression, environmentRecord, ctx)
+        is MemberFunctionAccess -> checkType(expression, environmentRecord, ctx)
+        is MemberVariableAccess -> checkType(expression, environmentRecord, ctx)
+        is ArrayExpression -> checkType(expression, environmentRecord, ctx)
+        is PrefixUpdateExpression -> checkType(expression, environmentRecord, ctx)
+        is FunctionCall -> checkType(expression, environmentRecord, ctx)
+        is LambdaCall -> checkType(expression, environmentRecord, ctx)
+        is LambdaExpression -> checkType(expression, environmentRecord, ctx)
+        is NewExpression -> checkType(expression, environmentRecord, ctx)
+        is PostfixUpdateExpression -> checkType(expression, environmentRecord, ctx)
+        is UnaryExpression -> checkType(expression, environmentRecord, ctx)
+        is BinaryExpression -> checkType(expression, environmentRecord, ctx)
+        is AssignExpression -> checkType(expression, environmentRecord, ctx)
+        else -> throw InternalException("Unknown expression type")
+    }
+
+fun checkType(expression: Object,
+              environmentRecord: EnvironmentRecord,
+              ctx: SourceContext?): TypeProperty {
+    return TypeProperty(
+        environmentRecord.findVariableAlike(expression.name)!!.type,
+        Status.LVALUE
+    )
 }
 
-fun checkType(statement: Statement,
-              environmentRecord: EnvironmentRecord): MxType {
-    return TODO()
+fun checkType(expression: Literal,
+              environmentRecord: EnvironmentRecord,
+              ctx: SourceContext?): TypeProperty {
+    when (expression) {
+        is IntegerLiteral -> return TypeProperty(MxIntType(), Status.RVALUE)
+        is StringLiteral -> return TypeProperty(MxStringType(), Status.RVALUE)
+        is BooleanLiteral -> return TypeProperty(MxBoolType(), Status.RVALUE)
+        is NullLiteral -> return TypeProperty(MxNullType(), Status.RVALUE)
+        is ThisLiteral -> {
+            if (environmentRecord.inClass()) {
+                return TypeProperty(environmentRecord.thisType(), Status.RVALUE)
+            } else {
+                throw MxException("Cannot use 'this' outside of a class", expression.ctx)
+            }
+        }
+        else -> throw MxException("Unknown literal type", expression.ctx)
+    }
 }
+
+fun checkType(expression: MemberVariableAccess,
+              environmentRecord: EnvironmentRecord,
+              ctx: SourceContext?): TypeProperty {
+    val objectProperty = checkType(expression.objectName, environmentRecord, ctx)
+    if (objectProperty.type !is MxClassType) {
+        throw TypeMismatchException("Cannot access member variable of non-class type", expression.ctx)
+    }
+    val memberVariable: Binding? =
+        objectProperty.type.environment?.variableAlikeBindings?.get(expression.variableName)
+    if (memberVariable == null) {
+        throw ContextException("Cannot find member variable", expression.ctx)
+    }
+    return TypeProperty(memberVariable.type, Status.LVALUE)
+}
+
+fun checkType(expression: MemberFunctionAccess,
+              environmentRecord: EnvironmentRecord,
+              ctx: SourceContext?): TypeProperty {
+    val objectProperty = checkType(expression.objectName, environmentRecord, ctx)
+    if (objectProperty.type !is MxClassType &&
+        objectProperty.type !is MxArrayType) {
+        throw TypeMismatchException("Cannot access member function of non-class type", expression.ctx)
+    }
+    val memberFunction: Binding? =
+        objectProperty.type.environment?.functionAlikeBindings?.get(expression.functionName)
+    if (memberFunction == null) {
+        throw ContextException("Cannot find member function", expression.ctx)
+    }
+    return TypeProperty(memberFunction.type, Status.RVALUE)
+}
+
+fun checkType(expression: ArrayExpression,
+              environmentRecord: EnvironmentRecord,
+              ctx: SourceContext?): TypeProperty {
+    val arrayProperty = checkType(expression.array, environmentRecord, ctx)
+    if (arrayProperty.type !is MxArrayType) {
+        throw TypeMismatchException("Cannot access array element of non-array type", expression.ctx)
+    }
+    val indexProperty = checkType(expression.index, environmentRecord, ctx)
+    if (indexProperty.type !is MxIntType) {
+        throw TypeMismatchException("Array index must be integer", expression.ctx)
+    }
+    val returnType: MxType =
+        if (arrayProperty.type.dimension == 1) {
+            arrayProperty.type
+        } else {
+            MxArrayType(
+                arrayProperty.type.elementType,
+                arrayProperty.type.dimension - 1
+            )
+        }
+    return TypeProperty(returnType, Status.LVALUE)
+}
+
+fun checkType(expression: PrefixUpdateExpression,
+              environmentRecord: EnvironmentRecord,
+              ctx: SourceContext?): TypeProperty {
+    val objectProperty = checkType(expression.operand, environmentRecord, ctx)
+    if (objectProperty.type !is MxIntType) {
+        throw TypeMismatchException("Cannot update non-integer type", expression.ctx)
+    }
+    if (objectProperty.status == Status.RVALUE) {
+        throw ValueCategoryException("Cannot update rvalue", expression.ctx)
+    }
+    return TypeProperty(MxIntType(), Status.LVALUE)
+}
+
+fun checkType(expression: PostfixUpdateExpression,
+              environmentRecord: EnvironmentRecord,
+              ctx: SourceContext?): TypeProperty {
+    val objectProperty = checkType(expression.operand, environmentRecord, ctx)
+    if (objectProperty.type !is MxIntType) {
+        throw TypeMismatchException("Cannot update non-integer type", expression.ctx)
+    }
+    if (objectProperty.status == Status.RVALUE) {
+        throw ValueCategoryException("Cannot update rvalue", expression.ctx)
+    }
+    return TypeProperty(MxIntType(), Status.RVALUE)
+}
+
+fun checkType(expression: FunctionCall,
+              environmentRecord: EnvironmentRecord,
+              ctx: SourceContext?): TypeProperty {
+    val functionBinding: Binding? =
+        environmentRecord.findFunctionAlike(expression.functionName)
+    if (functionBinding == null) {
+        throw ContextException("Cannot find function", expression.ctx)
+    }
+    if (expression.arguments.size !=
+        (functionBinding.type.environment as FunctionEnvironmentRecord).parameters.size) {
+        throw ContextException("Argument number mismatch", expression.ctx)
+    }
+    for (i in 0 until expression.arguments.size) {
+        if (checkType(expression.arguments[i], environmentRecord, ctx).type !=
+            (functionBinding.type.environment as FunctionEnvironmentRecord).parameters[i].type) {
+            throw TypeMismatchException("Argument type mismatch", expression.ctx)
+        }
+    }
+    return TypeProperty(
+        (functionBinding.type.environment as FunctionEnvironmentRecord).returnType,
+        Status.RVALUE
+    )
+}
+
+fun checkType(expression: LambdaCall,
+              environmentRecord: EnvironmentRecord,
+              ctx: SourceContext?): TypeProperty {
+    val lambdaProperty = checkType(expression.lambda, environmentRecord, ctx)
+    if (expression.arguments.size !=
+        (lambdaProperty.type.environment as FunctionEnvironmentRecord).parameters.size) {
+        throw ContextException("Argument number mismatch", expression.ctx)
+    }
+    for (i in 0 until expression.arguments.size) {
+        if (checkType(expression.arguments[i], environmentRecord, ctx).type !=
+            (lambdaProperty.type.environment as FunctionEnvironmentRecord).parameters[i].type) {
+            throw TypeMismatchException("Argument type mismatch", expression.ctx)
+        }
+    }
+    return TypeProperty(
+        (lambdaProperty.type.environment as FunctionEnvironmentRecord).returnType,
+        Status.RVALUE
+    )
+}
+
+fun checkType(expression: LambdaExpression,
+              environmentRecord: EnvironmentRecord,
+              ctx: SourceContext?): TypeProperty =
+    TypeProperty(
+        buildLambdaBinding(environmentRecord, expression).type,
+        Status.RVALUE
+    )
+
+fun checkType(expression: NewExpression,
+              environmentRecord: EnvironmentRecord,
+              ctx: SourceContext?): TypeProperty =
+    TypeProperty(
+        MxArrayType(
+            environmentRecord.getType(expression.type, null),
+            expression.dimension
+        ),
+        Status.RVALUE,
+    )
+
+fun checkType(expression: UnaryExpression,
+              environmentRecord: EnvironmentRecord,
+              ctx: SourceContext?): TypeProperty =
+    TypeProperty(
+        getUnaryExpressionReturn(
+            expression.operator,
+            checkType(expression.operand, environmentRecord, ctx).type,
+            ctx,
+        ),
+        Status.RVALUE,
+    )
+
+fun checkType(expression: BinaryExpression,
+              environmentRecord: EnvironmentRecord,
+              ctx: SourceContext?): TypeProperty =
+    TypeProperty(
+        getBinaryExpressionReturn(
+            checkType(expression.left, environmentRecord, ctx).type,
+            expression.operator,
+            checkType(expression.right, environmentRecord, ctx).type,
+            ctx,
+        ),
+        Status.RVALUE,
+    )
+
+fun checkType(expression: AssignExpression,
+              environmentRecord: EnvironmentRecord,
+              ctx: SourceContext?): TypeProperty {
+    val leftProperty = checkType(expression.left, environmentRecord, ctx)
+    val rightProperty = checkType(expression.right, environmentRecord, ctx)
+    if (leftProperty.type != rightProperty.type) {
+        throw TypeMismatchException("Assign type mismatch", expression.ctx)
+    }
+    if (leftProperty.status == Status.RVALUE) {
+        throw ValueCategoryException("Cannot assign to rvalue", expression.ctx)
+    }
+    return TypeProperty(leftProperty.type, Status.RVALUE)
+}
+
+fun getUnaryExpressionReturn(operator: UnaryOperator,
+                             inputType: MxType,
+                             ctx: SourceContext?): MxType =
+    when (operator) {
+        UnaryOperator.NEGATIVE -> {
+            if (inputType !is MxIntType) {
+                throw TypeMismatchException("Cannot negate non-integer type", ctx)
+            }
+            MxIntType()
+        }
+        UnaryOperator.POSITIVE -> {
+            if (inputType !is MxIntType) {
+                throw TypeMismatchException("Cannot negate non-boolean type", ctx)
+            }
+            MxIntType()
+        }
+        UnaryOperator.BITWISE_NOT -> {
+            if (inputType !is MxIntType) {
+                throw TypeMismatchException("Cannot bitwise negate non-integer type", ctx)
+            }
+            MxIntType()
+        }
+        UnaryOperator.LOGICAL_NOT -> {
+            if (inputType !is MxBoolType) {
+                throw TypeMismatchException("Cannot logical negate non-boolean type", ctx)
+            }
+            MxBoolType()
+        }
+    }
+
+fun getBinaryExpressionReturn(lhsType: MxType,
+                              operator: BinaryOperator,
+                              rhsType: MxType,
+                              ctx: SourceContext?): MxType =
+    when (operator) {
+        BinaryOperator.ADD -> {
+            if (lhsType !is MxIntType || rhsType !is MxIntType) {
+                throw TypeMismatchException("Cannot add non-integer type", ctx)
+            }
+            MxIntType()
+        }
+        BinaryOperator.SUB -> {
+            if (lhsType !is MxIntType || rhsType !is MxIntType) {
+                throw TypeMismatchException("Cannot subtract non-integer type", ctx)
+            }
+            MxIntType()
+        }
+        BinaryOperator.MUL -> {
+            if (lhsType !is MxIntType || rhsType !is MxIntType) {
+                throw TypeMismatchException("Cannot multiply non-integer type", ctx)
+            }
+            MxIntType()
+        }
+        BinaryOperator.DIV -> {
+            if (lhsType !is MxIntType || rhsType !is MxIntType) {
+                throw TypeMismatchException("Cannot divide non-integer type", ctx)
+            }
+            MxIntType()
+        }
+        BinaryOperator.MOD -> {
+            if (lhsType !is MxIntType || rhsType !is MxIntType) {
+                throw TypeMismatchException("Cannot modulo non-integer type", ctx)
+            }
+            MxIntType()
+        }
+        BinaryOperator.BITWISE_AND -> {
+            if (lhsType !is MxIntType || rhsType !is MxIntType) {
+                throw TypeMismatchException("Cannot bitwise and non-integer type", ctx)
+            }
+            MxIntType()
+        }
+        BinaryOperator.BITWISE_OR -> {
+            if (lhsType !is MxIntType || rhsType !is MxIntType) {
+                throw TypeMismatchException("Cannot bitwise or non-integer type", ctx)
+            }
+            MxIntType()
+        }
+        BinaryOperator.BITWISE_XOR -> {
+            if (lhsType !is MxIntType || rhsType !is MxIntType) {
+                throw TypeMismatchException("Cannot bitwise xor non-integer type", ctx)
+            }
+            MxIntType()
+        }
+        BinaryOperator.LEFT_SHIFT -> {
+            if (lhsType !is MxIntType || rhsType !is MxIntType) {
+                throw TypeMismatchException("Cannot bitwise left shift non-integer type", ctx)
+            }
+            MxIntType()
+        }
+        BinaryOperator.RIGHT_SHIFT -> {
+            if (lhsType !is MxIntType || rhsType !is MxIntType) {
+                throw TypeMismatchException("Cannot bitwise right shift non-integer type", ctx)
+            }
+            MxIntType()
+        }
+        BinaryOperator.LESS_THAN -> {
+            if (lhsType !is MxIntType || rhsType !is MxIntType) {
+                throw TypeMismatchException("Cannot compare non-integer type", ctx)
+            }
+            MxBoolType()
+        }
+        BinaryOperator.LESS_THAN_OR_EQUAL -> {
+            if (lhsType !is MxIntType || rhsType !is MxIntType) {
+                throw TypeMismatchException("Cannot compare non-integer type", ctx)
+            }
+            MxBoolType()
+        }
+        BinaryOperator.GREATER_THAN -> {
+            if (lhsType !is MxIntType || rhsType !is MxIntType) {
+                throw TypeMismatchException("Cannot compare non-integer type", ctx)
+            }
+            MxBoolType()
+        }
+        BinaryOperator.GREATER_THAN_OR_EQUAL -> {
+            if (lhsType !is MxIntType || rhsType !is MxIntType) {
+                throw TypeMismatchException("Cannot compare non-integer type", ctx)
+            }
+            MxBoolType()
+        }
+        BinaryOperator.EQUAL -> {
+            if (lhsType !is MxIntType || rhsType !is MxIntType) {
+                throw TypeMismatchException("Cannot compare non-integer type", ctx)
+            }
+            MxBoolType()
+        }
+        BinaryOperator.NOT_EQUAL -> {
+            if (lhsType !is MxIntType || rhsType !is MxIntType) {
+                throw TypeMismatchException("Cannot compare non-integer type", ctx)
+            }
+            MxBoolType()
+        }
+        BinaryOperator.LOGICAL_AND -> {
+            if (lhsType !is MxBoolType || rhsType !is MxBoolType) {
+                throw TypeMismatchException("Cannot logical and non-boolean type", ctx)
+            }
+            MxBoolType()
+        }
+        BinaryOperator.LOGICAL_OR -> {
+            if (lhsType !is MxBoolType || rhsType !is MxBoolType) {
+                throw TypeMismatchException("Cannot logical or non-boolean type", ctx)
+            }
+            MxBoolType()
+        }
+    }
