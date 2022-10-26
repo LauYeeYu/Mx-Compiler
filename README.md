@@ -34,6 +34,12 @@ RISC-V 32I 平臺。
 
 ## Implementation-Defined Behaviour 實現定義行爲
 
+### Method of Literals 字面量內建方法
+
+Method of Literals is supported and performs as the ordinary method call.
+
+字面量內建方法被支持，其行爲與普通方法相同。
+
 ### Comments 註釋
 
 Block comments are supported.
