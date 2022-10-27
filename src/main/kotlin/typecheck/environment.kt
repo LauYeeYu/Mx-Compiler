@@ -109,7 +109,20 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
             functionEnvironmentRecord.checkAndRecord(statement)
         }
         val funReturnType = getType(node.returnType, node.ctx)
-        if (funReturnType is MxVoidType) {
+        if (node.name == "main") {
+            if (node.parameters.isNotEmpty()) {
+                throw SemanticException("main function should not have parameters", node.ctx)
+            }
+            if (funReturnType !is MxIntType) {
+                throw SemanticException("main function should return int", node.ctx)
+            }
+            if (hasReturn && functionEnvironmentRecord.referredReturnType !is MxIntType) {
+                throw SemanticException("main function should return int", node.ctx)
+            } else {
+                hasReturn = true
+                referredReturnType = MxIntType()
+            }
+        } else if (funReturnType is MxVoidType) {
             if (functionEnvironmentRecord.referredReturnType !is MxVoidType) {
                 throw SemanticException(
                     "Function ${node.name} should not return a value",
