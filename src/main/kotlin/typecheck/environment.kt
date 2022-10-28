@@ -58,7 +58,7 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
         throw InternalException("cannot call thisType() on a base EnvironmentRecord")
 
     private fun commitReturn(returnType: MxType) {
-        if (hasReturn || referredReturnType != returnType) {
+        if (hasReturn && referredReturnType != returnType) {
             throw SemanticException("return type mismatch", null)
         }
         referredReturnType = returnType
