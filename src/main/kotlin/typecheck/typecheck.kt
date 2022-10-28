@@ -306,10 +306,10 @@ fun getBinaryExpressionReturn(lhsType: MxType,
                               ctx: SourceContext?): MxType =
     when (operator) {
         BinaryOperator.ADD -> {
-            if (lhsType !is MxIntType || rhsType !is MxIntType) {
-                throw TypeMismatchException("Cannot add non-integer type", ctx)
+            if (lhsType != rhsType && lhsType !is MxStringType && lhsType !is MxIntType) {
+                throw TypeMismatchException("Cannot add $lhsType with $rhsType", ctx)
             }
-            MxIntType()
+            lhsType
         }
         BinaryOperator.SUB -> {
             if (lhsType !is MxIntType || rhsType !is MxIntType) {
