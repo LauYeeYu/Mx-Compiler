@@ -123,7 +123,8 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
                 referredReturnType = MxIntType()
             }
         } else if (funReturnType is MxVoidType) {
-            if (functionEnvironmentRecord.referredReturnType !is MxVoidType) {
+            if (functionEnvironmentRecord.referredReturnType != null &&
+                functionEnvironmentRecord.referredReturnType !is MxVoidType) {
                 throw SemanticException(
                     "Function ${node.name} should not return a value",
                     node.ctx,
