@@ -104,12 +104,18 @@ class Ast(private val parseResult: ParseResult) {
             input.ctx,
             buildNode(input.functionDeclaration().typename()),
             input.functionDeclaration().identifier().text,
-            input.functionDeclaration().functionDeclParamList().functionDeclParam().map {
-                FunctionParameter(
-                    input.functionDeclaration().functionDeclParamList().ctx,
-                    buildNode(it.typename()),
-                    it.identifier().text,
-                )
+            when (input.functionDeclaration().functionDeclParamList()) {
+                null -> listOf()
+                else -> input.functionDeclaration()
+                    .functionDeclParamList()
+                    .functionDeclParam()
+                    .map {
+                        FunctionParameter(
+                            it.ctx,
+                            buildNode(it.typename()),
+                            it.identifier().text,
+                        )
+                    }
             },
             buildNode(input.functionDeclaration().body),
         )
