@@ -126,7 +126,7 @@ fun checkType(expression: ArrayExpression,
     }
     val returnType: MxType =
         if (arrayProperty.type.dimension == 1) {
-            arrayProperty.type
+            arrayProperty.type.elementType
         } else {
             MxArrayType(
                 arrayProperty.type.elementType,
@@ -259,7 +259,10 @@ fun checkType(expression: AssignExpression,
     val leftProperty = checkType(expression.left, environmentRecord, ctx)
     val rightProperty = checkType(expression.right, environmentRecord, ctx)
     if (leftProperty.type != rightProperty.type) {
-        throw TypeMismatchException("Assign type mismatch", expression.ctx)
+        throw TypeMismatchException(
+            "Assign type mismatch, expecting ${leftProperty.type}, but got ${rightProperty.type}",
+            expression.ctx,
+        )
     }
     if (leftProperty.status == Status.RVALUE) {
         throw ValueCategoryException("Cannot assign to rvalue", expression.ctx)

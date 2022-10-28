@@ -38,7 +38,6 @@ class MxBoolType : MxPrimitiveType(null) {
 
     override fun equals(other: Any?): Boolean = when (other) {
         is MxBoolType -> true
-        is MxNullType -> true
         else -> false
     }
 
@@ -52,7 +51,6 @@ class MxIntType : MxPrimitiveType(null) {
 
     override fun equals(other: Any?): Boolean = when (other) {
         is MxIntType -> true
-        is MxNullType -> true
         else -> false
     }
 
@@ -72,7 +70,6 @@ class MxStringType : MxClassType(
 
     override fun equals(other: Any?): Boolean = when (other) {
         is MxStringType -> true
-        is MxNullType -> true
         else -> false
     }
 
@@ -84,7 +81,12 @@ class MxStringType : MxClassType(
 class MxNullType : MxPrimitiveType(null) {
     override fun toString() = "null"
 
-    override fun equals(other: Any?): Boolean = true
+    override fun equals(other: Any?) = when (other) {
+        is MxNullType -> true
+        is MxClassType -> true
+        is MxArrayType -> true
+        else -> false
+    }
 
     override fun hashCode(): Int {
         return javaClass.hashCode()
