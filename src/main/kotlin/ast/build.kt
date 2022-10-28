@@ -172,7 +172,10 @@ class Ast(private val parseResult: ParseResult) {
             input.ctx,
             buildNode(input.branchStatement().condition),
             buildNode(input.branchStatement().ifStatement),
-            buildNode(input.branchStatement().elseStatement),
+            when (input.branchStatement().elseStatement) {
+                null -> null
+                else -> buildNode(input.branchStatement().elseStatement)
+            },
         )
 
     private fun buildNode(input: LoopStmtContext): LoopStatement =
