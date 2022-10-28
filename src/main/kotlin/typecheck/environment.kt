@@ -56,6 +56,14 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
 
     open fun thisType(): MxType =
         throw InternalException("cannot call thisType() on a base EnvironmentRecord")
+
+    private fun commitReturn(returnType: MxType) {
+        if (hasReturn || referredReturnType != returnType) {
+            throw SemanticException("return type mismatch", null)
+        }
+        referredReturnType = returnType
+        hasReturn = true
+    }
     
     fun getType(type: Type, ctx: SourceContext?): MxType {
         var returnType = MxType(null)
@@ -210,10 +218,9 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
                 val newEnvironment = BlockEnvironmentRecord(this)
                 for (statement in root.statements) {
                     newEnvironment.checkAndRecord(statement)
-                    if (statement is ReturnStatement) {
-                        hasReturn = true
-                        referredReturnType = newEnvironment.referredReturnType
-                    }
+                }
+                if (newEnvironment.referredReturnType != null) {
+                    commitReturn(newEnvironment.referredReturnType!!)
                 }
             }
             is VariablesDeclaration -> recordVariable(root)
@@ -225,10 +232,14 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
                 if (root.falseBranch != null) {
                     val trueBranchEnvironment = BlockEnvironmentRecord(this).checkAndRecord(root.trueBranch)
                     val falseBranchEnvironment = BlockEnvironmentRecord(this).checkAndRecord(root.falseBranch)
-                    if (trueBranchEnvironment.hasReturn && falseBranchEnvironment.hasReturn &&
-                        trueBranchEnvironment.referredReturnType != falseBranchEnvironment.referredReturnType) {
-                        hasReturn = true
-                        referredReturnType = trueBranchEnvironment.referredReturnType
+                    if (trueBranchEnvironment.hasReturn && falseBranchEnvironment.hasReturn) {
+                        if (trueBranchEnvironment.referredReturnType != falseBranchEnvironment.referredReturnType) {
+                            throw SemanticException(
+                                "Expected same return type, got ${trueBranchEnvironment.referredReturnType} and ${falseBranchEnvironment.referredReturnType}",
+                                root.ctx,
+                            )
+                        }
+                        commitReturn(trueBranchEnvironment.referredReturnType!!)
                     }
                     subEnvironments.add(trueBranchEnvironment)
                     subEnvironments.add(falseBranchEnvironment)
@@ -284,10 +295,9 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
             }
             is ReturnStatement -> {
                 if (root.expression != null) {
-                    referredReturnType = checkType(root.expression, this, root.ctx).type
-                    hasReturn = true
+                    commitReturn(checkType(root.expression, this, root.ctx).type)
                 } else {
-                    referredReturnType = MxVoidType()
+                    commitReturn(MxVoidType())
                 }
             }
         }
