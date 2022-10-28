@@ -125,7 +125,10 @@ class Ast(private val parseResult: ParseResult) {
         VariableDeclaration(
             input.ctx,
             input.identifier().text,
-            buildNode(input.expression()),
+            when (input.expression()) {
+                null -> null
+                else -> buildNode(input.expression())
+            },
         )
 
     private fun buildNode(input: GlobalVariableDeclarContext) =

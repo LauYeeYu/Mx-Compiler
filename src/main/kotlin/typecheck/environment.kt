@@ -182,7 +182,8 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
                     variable.ctx,
                 )
             }
-            if (checkType(variable.body, this, node.ctx).type != type) {
+            if (variable.body != null &&
+                checkType(variable.body, this, node.ctx).type != type) {
                 throw SemanticException(
                     "Expected type $type, got ${checkType(variable.body, this, node.ctx).type}",
                     variable.ctx,
@@ -349,7 +350,8 @@ class ClassEnvironmentRecord(
                 is ast.VariablesDeclaration -> {
                     val type = getType(classElement.type, classElement.ctx)
                     for (variable in classElement.variables) {
-                        if (checkType(variable.body, this, classElement.ctx).type != type) {
+                        if (variable.body != null &&
+                            checkType(variable.body, this, classElement.ctx).type != type) {
                             throw SemanticException(
                                 "Expected type $type, got ${checkType(variable.body, this, classElement.ctx)}",
                                 variable.ctx,
