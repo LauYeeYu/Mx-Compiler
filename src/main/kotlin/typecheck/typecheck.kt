@@ -218,10 +218,13 @@ fun checkType(expression: NewExpression,
               environmentRecord: EnvironmentRecord,
               ctx: SourceContext?): TypeProperty =
     TypeProperty(
-        MxArrayType(
-            environmentRecord.getType(expression.type, null),
-            expression.dimension
-        ),
+        when (expression.dimension) {
+            0 -> environmentRecord.getType(expression.type, ctx)
+            else -> MxArrayType(
+                    environmentRecord.getType(expression.type, null),
+                    expression.dimension
+            )
+        },
         Status.RVALUE,
     )
 
