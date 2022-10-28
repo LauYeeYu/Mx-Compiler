@@ -18,13 +18,22 @@ import ast.parse
 import ast.Source
 import ast.buildAst
 import exceptions.MxException
+import typecheck.checkAndRecord
 
-fun main(args: Array<String>) {
+fun useSystemInAsSource() {
     try {
         val source = Source("input", System.`in`.readAllBytes().decodeToString())
         val program = parse(source)
         val ast = buildAst(program)
+        val environment = checkAndRecord(ast)
+        if (environment.functionAlikeBindings["main"] == null) {
+            throw MxException("No main function", null)
+        }
     } catch (e: MxException) {
         System.err.println(e.toString())
     }
+}
+
+fun main(args: Array<String>) {
+    useSystemInAsSource()
 }
