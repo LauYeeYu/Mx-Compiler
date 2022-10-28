@@ -387,13 +387,13 @@ fun getBinaryExpressionReturn(lhsType: MxType,
             MxBoolType()
         }
         BinaryOperator.EQUAL -> {
-            if (lhsType !is MxIntType || rhsType !is MxIntType) {
+            if (lhsType != rhsType || lhsType is MxClassType || lhsType is MxArrayType) {
                 throw TypeMismatchException("Cannot compare non-integer type", ctx)
             }
             MxBoolType()
         }
         BinaryOperator.NOT_EQUAL -> {
-            if (lhsType !is MxIntType || rhsType !is MxIntType) {
+            if (lhsType != rhsType || lhsType is MxClassType || lhsType is MxArrayType) {
                 throw TypeMismatchException("Cannot compare non-integer type", ctx)
             }
             MxBoolType()
