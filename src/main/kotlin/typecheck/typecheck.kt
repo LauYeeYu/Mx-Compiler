@@ -55,7 +55,10 @@ fun checkType(expression: Object,
               environmentRecord: EnvironmentRecord,
               ctx: SourceContext?): TypeProperty {
     return TypeProperty(
-        environmentRecord.findVariableAlike(expression.name)!!.type,
+        when (environmentRecord.findVariableAlike(expression.name)) {
+            null -> throw MxException("Undefined variable ${expression.name}", ctx)
+            else -> environmentRecord.findVariableAlike(expression.name)!!.type
+        },
         Status.LVALUE
     )
 }
