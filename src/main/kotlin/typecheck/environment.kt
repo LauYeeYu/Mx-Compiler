@@ -178,7 +178,7 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
         val variableBindings: MutableList<Binding> = mutableListOf()
         for (variable in node.variables) {
             // the name can conflict with other variables out of this scope
-            val binding = findVariableAlike(variable.name)
+            val binding = variableAlikeBindings[variable.name]
             if (binding != null) {
                 throw SemanticException(
                     "Variable ${variable.name} is already defined in ${binding.ctx?.loc}",
@@ -317,7 +317,7 @@ class ClassEnvironmentRecord(
             when (classElement) {
                 is ast.VariablesDeclaration -> {
                     for (variable in classElement.variables) {
-                        val binding = findVariableAlike(variable.name)
+                        val binding = variableAlikeBindings[variable.name]
                         if (binding != null) {
                             throw SemanticException(
                                 "Variable ${variable.name} is already defined in ${binding.ctx?.loc}",
