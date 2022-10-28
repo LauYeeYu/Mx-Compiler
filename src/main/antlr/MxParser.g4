@@ -125,7 +125,7 @@ expression
     | <assoc=right> l=lhsExpression '='                       r=expression # AssignExpr
     ;
 
-newExpression: 'new' newTypename;
+newExpression: 'new' newTypename ('(' ')')?;
 
 literalExpression
     : stringLiteral # LiteralString
