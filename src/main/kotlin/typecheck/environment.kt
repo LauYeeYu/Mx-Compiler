@@ -534,7 +534,13 @@ class BlockEnvironmentRecord(parent: EnvironmentRecord?) : EnvironmentRecord(par
         else -> parent.inClass()
     }
 
-    override fun inLoop(): Boolean = inLoop
+    override fun inLoop(): Boolean = when (inLoop) {
+        true -> true
+        else -> when (parent) {
+            null -> false
+            else -> parent.inLoop()
+        }
+    }
     override fun functionReturnType(): MxType? = when (parent) {
         null -> throw InternalException("Block does not have a return type")
         else -> parent.functionReturnType()
@@ -545,6 +551,8 @@ class BlockEnvironmentRecord(parent: EnvironmentRecord?) : EnvironmentRecord(par
         else -> parent.thisType()
     }
 
+    private var inLoop = false
+
     constructor(parent: EnvironmentRecord?,
                 variableBindings: List<Binding>,
                 inLoop: Boolean) : this(parent) {
@@ -553,8 +561,6 @@ class BlockEnvironmentRecord(parent: EnvironmentRecord?) : EnvironmentRecord(par
         }
         this.inLoop = inLoop
     }
-
-    private var inLoop = false
 }
 
 fun buildLambdaBinding(parent: EnvironmentRecord, expression: LambdaExpression): Binding {
