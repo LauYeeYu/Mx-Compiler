@@ -411,3 +411,13 @@ fun getBinaryExpressionReturn(lhsType: MxType,
             MxBoolType()
         }
     }
+
+fun isValidVariableType(type: MxType): Boolean =
+    when (type) {
+        is MxIntType -> true
+        is MxBoolType -> true
+        is MxStringType -> true
+        is MxClassType -> true
+        is MxArrayType -> isValidVariableType(type.elementType)
+        else -> false
+    }

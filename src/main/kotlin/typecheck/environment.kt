@@ -172,6 +172,9 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
 
     protected open fun recordVariable(node: VariablesDeclaration): List<Binding> {
         val type = getType(node.type, node.ctx)
+        if (!isValidVariableType(type)) {
+            throw SemanticException("Variable type cannot be $type", node.ctx)
+        }
         val variableBindings: MutableList<Binding> = mutableListOf()
         for (variable in node.variables) {
             // the name can conflict with other variables out of this scope
