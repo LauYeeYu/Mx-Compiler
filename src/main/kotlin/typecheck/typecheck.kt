@@ -171,17 +171,17 @@ fun checkType(expression: FunctionCall,
         throw ContextException("Cannot find function", expression.ctx)
     }
     if (expression.arguments.size !=
-        (functionBinding.type.environment as FunctionEnvironmentRecord).parameters.size) {
+        (functionBinding.type as MxFunctionType).parameterTypes.size) {
         throw ContextException("Argument number mismatch", expression.ctx)
     }
     for (i in 0 until expression.arguments.size) {
         if (checkType(expression.arguments[i], environmentRecord, ctx).type !=
-            (functionBinding.type.environment as FunctionEnvironmentRecord).parameters[i].type) {
+            functionBinding.type.parameterTypes[i]) {
             throw TypeMismatchException("Argument type mismatch", expression.ctx)
         }
     }
     return TypeProperty(
-        (functionBinding.type.environment as FunctionEnvironmentRecord).returnType,
+        functionBinding.type.returnType,
         Status.RVALUE
     )
 }
