@@ -19,6 +19,7 @@ import ast.Source
 import ast.buildAst
 import exceptions.MxException
 import typecheck.checkAndRecord
+import kotlin.system.exitProcess
 
 fun useSystemInAsSource() {
     try {
@@ -31,6 +32,7 @@ fun useSystemInAsSource() {
         }
     } catch (e: MxException) {
         System.err.println(e.toString())
+        exitProcess(1)
     }
 }
 
