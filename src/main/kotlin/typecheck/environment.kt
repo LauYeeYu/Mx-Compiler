@@ -417,7 +417,7 @@ class ClassEnvironmentRecord(
                 listOf(),
                 MxVoidType(),
             ).checkAndRecord(node.body) as FunctionEnvironmentRecord
-        if (environmentRecord.hasReturn) {
+        if (environmentRecord.hasReturn && environmentRecord.referredReturnType !is MxVoidType) {
             throw SemanticException("Constructor do not a return statement", node.ctx)
         }
         functionAlikeBindings[node.name] = Binding(
