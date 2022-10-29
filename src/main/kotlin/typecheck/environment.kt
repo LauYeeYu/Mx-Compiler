@@ -326,7 +326,7 @@ class ClassEnvironmentRecord(
                             classElement.ctx,
                         )
                     }
-                    val binding = findFunctionAlike(classElement.name)
+                    val binding = functionAlikeBindings[classElement.name]
                     if (binding != null) {
                         throw SemanticException(
                             "Function ${classElement.name} is already defined in ${binding.ctx?.loc}",
