@@ -369,37 +369,37 @@ fun getBinaryExpressionReturn(lhsType: MxType,
             MxIntType()
         }
         BinaryOperator.LESS_THAN -> {
-            if (lhsType !is MxIntType || rhsType !is MxIntType) {
-                throw TypeMismatchException("Cannot compare non-integer type", ctx)
+            if (lhsType != rhsType || lhsType !is MxIntType && lhsType !is MxStringType) {
+                throw TypeMismatchException("Cannot compare $lhsType < $rhsType", ctx)
             }
             MxBoolType()
         }
         BinaryOperator.LESS_THAN_OR_EQUAL -> {
-            if (lhsType !is MxIntType || rhsType !is MxIntType) {
-                throw TypeMismatchException("Cannot compare non-integer type", ctx)
+            if (lhsType != rhsType || lhsType !is MxIntType && lhsType !is MxStringType) {
+                throw TypeMismatchException("Cannot compare $lhsType <= $rhsType", ctx)
             }
             MxBoolType()
         }
         BinaryOperator.GREATER_THAN -> {
-            if (lhsType !is MxIntType || rhsType !is MxIntType) {
-                throw TypeMismatchException("Cannot compare non-integer type", ctx)
+            if (lhsType != rhsType || lhsType !is MxIntType && lhsType !is MxStringType) {
+                throw TypeMismatchException("Cannot compare $lhsType > $rhsType", ctx)
             }
             MxBoolType()
         }
         BinaryOperator.GREATER_THAN_OR_EQUAL -> {
-            if (lhsType !is MxIntType || rhsType !is MxIntType) {
-                throw TypeMismatchException("Cannot compare non-integer type", ctx)
+            if (lhsType != rhsType || lhsType !is MxIntType && lhsType !is MxStringType) {
+                throw TypeMismatchException("Cannot compare $lhsType >= $rhsType" , ctx)
             }
             MxBoolType()
         }
         BinaryOperator.EQUAL -> {
-            if (lhsType != rhsType || lhsType is MxClassType || lhsType is MxArrayType) {
-                throw TypeMismatchException("Cannot compare non-integer type", ctx)
+            if (lhsType != rhsType) {
+                throw TypeMismatchException("Cannot compare $lhsType == $rhsType", ctx)
             }
             MxBoolType()
         }
         BinaryOperator.NOT_EQUAL -> {
-            if (lhsType != rhsType || lhsType is MxClassType || lhsType is MxArrayType) {
+            if (lhsType != rhsType) {
                 throw TypeMismatchException("Cannot compare non-integer type", ctx)
             }
             MxBoolType()
