@@ -84,7 +84,7 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
             }
             is ClassType -> {
                 val className = type.name
-                val classBinding = findVariableAlike(className)
+                val classBinding = findClass(className)
                 if (classBinding == null) {
                     throw SemanticException("Class $className not found", ctx)
                 }
