@@ -523,6 +523,9 @@ class GlobalEnvironmentRecord : EnvironmentRecord(null) {
                         null,
                     )
                 )
+                if (variableAlikeBindings.containsKey(element.name)) {
+                    throw SemanticException("Duplicate class name", element.ctx)
+                }
                 classBindings[element.name] = classBinding
                 variableAlikeBindings[element.name] = classBinding
             }
@@ -531,10 +534,9 @@ class GlobalEnvironmentRecord : EnvironmentRecord(null) {
         // register all functions
         for (element in root.content) {
             if (element is ast.Function) {
-                val binding = findFunctionAlike(element.name)
-                if (binding != null) {
+                if (findFunctionAlike(element.name) != null) {
                     throw SemanticException(
-                        "Function ${element.name} is already defined in ${binding.ctx?.loc}",
+                        "Function ${element.name} is already defined",
                         element.ctx,
                     )
                 }
