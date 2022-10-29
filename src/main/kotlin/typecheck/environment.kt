@@ -100,11 +100,8 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
 
     protected fun recordFunction(node: ast.Function) {
         val binding = findFunctionAlike(node.name)
-        if (binding != null) {
-            throw SemanticException(
-                "Function ${node.name} is already defined in ${binding.ctx?.loc}",
-                node.ctx,
-            )
+        if (binding == null) {
+            throw InternalException("Function ${node.name} not found")
         }
         val functionEnvironmentRecord = FunctionEnvironmentRecord(
             this,
@@ -146,37 +143,15 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
                 )
             }
         }
-        functionAlikeBindings[node.name] = Binding(
-            node.ctx,
-            node.name,
-            MxFunctionType(
-                funReturnType,
-                node.parameters.map { getType(it.type, it.ctx) },
-                functionEnvironmentRecord,
-            ),
-        )
+        binding.type.environment = functionEnvironmentRecord
     }
 
     protected fun recordClass(node: ast.Class) {
-        val binding = findVariableAlike(node.name)
-        if (binding != null) {
-            throw SemanticException(
-                "Class ${node.name} is already defined in ${binding.ctx?.loc}",
-                node.ctx,
-            )
+        val binding = classBindings[node.name]
+        if (binding == null) {
+            throw InternalException("Class ${node.name} is not found")
         }
-        val newBinding = Binding(
-            node.ctx,
-            node.name,
-            MxClassType(
-                node.name,
-                ClassEnvironmentRecord(this, node.name).checkAndRecord(node),
-            ),
-        )
-
-        variableAlikeBindings[node.name] = newBinding
-        functionAlikeBindings[node.name] = newBinding
-        classBindings[node.name] = newBinding
+        (binding.type.environment as ClassEnvironmentRecord).checkAndRecord(node)
     }
 
     protected open fun recordVariable(node: VariablesDeclaration): List<Binding> {
@@ -323,7 +298,7 @@ class ClassEnvironmentRecord(
 
     override fun thisType() = MxClassType(className, this)
 
-    fun checkAndRecord(root: ast.Class): ClassEnvironmentRecord {
+    fun registerClassElement(root: ast.Class): ClassEnvironmentRecord {
         for (classElement in root.body) {
             when (classElement) {
                 is ast.VariablesDeclaration -> {
@@ -342,6 +317,7 @@ class ClassEnvironmentRecord(
                         )
                     }
                 }
+
                 is ast.Function -> {
                     val binding = findFunctionAlike(classElement.name)
                     if (binding != null) {
@@ -353,12 +329,21 @@ class ClassEnvironmentRecord(
                     functionAlikeBindings[classElement.name] = Binding(
                         classElement.ctx,
                         classElement.name,
-                        getType(classElement.returnType, classElement.ctx),
+                        MxFunctionType(
+                            getType(classElement.returnType, classElement.ctx),
+                            classElement.parameters.map { getType(it.type, it.ctx) },
+                            null,
+                        ),
                     )
                 }
+
                 else -> {}
             }
         }
+        return this
+    }
+
+    fun checkAndRecord(root: ast.Class): ClassEnvironmentRecord {
         for (classElement in root.body) {
             when (classElement) {
                 is ast.VariablesDeclaration -> {
@@ -526,7 +511,56 @@ class GlobalEnvironmentRecord : EnvironmentRecord(null) {
         )
     }
 
+    fun registerSymbols(root: TranslateUnit) {
+        // register all classes
+        for (element in root.content) {
+            if (element is ast.Class) {
+                val classBinding = Binding(
+                    element.ctx,
+                    element.name,
+                    MxClassType(
+                        element.name,
+                        null,
+                    )
+                )
+                classBindings[element.name] = classBinding
+                variableAlikeBindings[element.name] = classBinding
+            }
+        }
+
+        // register all functions
+        for (element in root.content) {
+            if (element is ast.Function) {
+                val binding = findFunctionAlike(element.name)
+                if (binding != null) {
+                    throw SemanticException(
+                        "Function ${element.name} is already defined in ${binding.ctx?.loc}",
+                        element.ctx,
+                    )
+                }
+                functionAlikeBindings[element.name] = Binding(
+                    element.ctx,
+                    element.name,
+                    MxFunctionType(
+                        getType(element.returnType, element.ctx),
+                        element.parameters.map { getType(it.type, it.ctx) },
+                        null,
+                    ),
+                )
+            } else if (element is ast.Class) {
+                val classBinding = classBindings[element.name]
+                if (classBinding == null) {
+                    throw InternalException("Class ${element.name} is not registered")
+                } else {
+                    classBinding.type.environment =
+                        ClassEnvironmentRecord(this, element.name).registerClassElement(element)
+                }
+            }
+        }
+    }
+
     fun checkAndRecord(root: TranslateUnit): GlobalEnvironmentRecord {
+        registerSymbols(root)
         for (node in root.content) {
             when (node) {
                 is ast.Function -> recordFunction(node)

@@ -87,7 +87,10 @@ fun checkType(expression: MemberVariableAccess,
               ctx: SourceContext?): TypeProperty {
     val objectProperty = checkType(expression.objectName, environmentRecord, ctx)
     if (objectProperty.type !is MxClassType) {
-        throw TypeMismatchException("Cannot access member variable of non-class type", expression.ctx)
+        throw TypeMismatchException(
+            "Cannot access member variable of non-class type ${objectProperty.type}",
+            expression.ctx
+        )
     }
     val memberVariable: Binding? =
         objectProperty.type.environment?.variableAlikeBindings?.get(expression.variableName)
@@ -110,7 +113,7 @@ fun checkType(expression: MemberFunctionAccess,
     if (memberFunction == null) {
         throw ContextException("Cannot find member function", expression.ctx)
     }
-    return TypeProperty(memberFunction.type, Status.RVALUE)
+    return TypeProperty((memberFunction.type as MxFunctionType).returnType, Status.RVALUE)
 }
 
 fun checkType(expression: ArrayExpression,
