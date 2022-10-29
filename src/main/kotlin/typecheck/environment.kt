@@ -319,6 +319,12 @@ class ClassEnvironmentRecord(
                 }
 
                 is ast.Function -> {
+                    if (classElement.name == className) {
+                        throw SemanticException(
+                            "A member function cannot be the same name of class constructor",
+                            classElement.ctx,
+                        )
+                    }
                     val binding = findFunctionAlike(classElement.name)
                     if (binding != null) {
                         throw SemanticException(
