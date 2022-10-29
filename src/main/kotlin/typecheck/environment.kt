@@ -422,7 +422,7 @@ class ClassEnvironmentRecord(
             node.ctx,
             node.name,
             MxFunctionType(
-                thisType,
+                MxVoidType(),
                 listOf(),
                 FunctionEnvironmentRecord(this, listOf(), thisType)
                     .checkAndRecord(node.body) as FunctionEnvironmentRecord
