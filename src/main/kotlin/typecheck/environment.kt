@@ -121,7 +121,8 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
             if (funReturnType !is MxIntType) {
                 throw SemanticException("main function should return int", node.ctx)
             }
-            if (hasReturn && functionEnvironmentRecord.referredReturnType !is MxIntType) {
+            if (functionEnvironmentRecord.hasReturn &&
+                functionEnvironmentRecord.referredReturnType !is MxIntType) {
                 throw SemanticException("main function should return int", node.ctx)
             } else {
                 hasReturn = true
@@ -364,15 +365,7 @@ class ClassEnvironmentRecord(
                         }
                     }
                 }
-                is ast.Function -> {
-                    functionAlikeBindings[classElement.name]?.type?.environment =
-                    FunctionEnvironmentRecord(this,
-                        classElement.parameters.map {
-                            Binding(it.ctx, it.name, getType(it.type, it.ctx))
-                        },
-                        getType(classElement.returnType, classElement.ctx),
-                    ).checkAndRecord(classElement.body) as FunctionEnvironmentRecord
-                }
+                is ast.Function -> recordFunction(classElement)
                 is ast.Constructor -> recordConstructor(classElement)
             }
         }
