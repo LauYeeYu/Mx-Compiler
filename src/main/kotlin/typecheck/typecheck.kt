@@ -219,17 +219,24 @@ fun checkType(expression: LambdaExpression,
 
 fun checkType(expression: NewExpression,
               environmentRecord: EnvironmentRecord,
-              ctx: SourceContext?): TypeProperty =
-    TypeProperty(
+              ctx: SourceContext?): TypeProperty {
+    for (dimensionArgument in expression.arguments) {
+        val dimensionProperty = checkType(dimensionArgument, environmentRecord, ctx)
+        if (dimensionProperty.type !is MxIntType) {
+            throw TypeMismatchException("Array dimension must be integer", expression.ctx)
+        }
+    }
+    return TypeProperty(
         when (expression.dimension) {
             0 -> environmentRecord.getType(expression.type, ctx)
             else -> MxArrayType(
-                    environmentRecord.getType(expression.type, null),
-                    expression.dimension
+                environmentRecord.getType(expression.type, null),
+                expression.dimension
             )
         },
         Status.RVALUE,
     )
+}
 
 fun checkType(expression: UnaryExpression,
               environmentRecord: EnvironmentRecord,
