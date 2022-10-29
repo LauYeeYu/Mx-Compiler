@@ -283,7 +283,7 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
     var variableAlikeBindings: HashMap<String, Binding> = HashMap()
     var functionAlikeBindings: HashMap<String, Binding> = HashMap()
     var classBindings: HashMap<String, Binding> = HashMap()
-    protected var hasReturn = false
+    var hasReturn = false
     var referredReturnType: MxType? = null
     protected val subEnvironments: MutableList<EnvironmentRecord> = mutableListOf()
 }
@@ -411,14 +411,22 @@ class ClassEnvironmentRecord(
         if (node.name != className) {
             throw SemanticException("Constructor name must be the same as class name", node.ctx)
         }
+        val environmentRecord =
+            FunctionEnvironmentRecord(
+                this,
+                listOf(),
+                MxVoidType(),
+            ).checkAndRecord(node.body) as FunctionEnvironmentRecord
+        if (environmentRecord.hasReturn) {
+            throw SemanticException("Constructor do not a return statement", node.ctx)
+        }
         functionAlikeBindings[node.name] = Binding(
             node.ctx,
             node.name,
             MxFunctionType(
                 MxVoidType(),
                 listOf(),
-                FunctionEnvironmentRecord(this, listOf(), thisType)
-                    .checkAndRecord(node.body) as FunctionEnvironmentRecord
+                environmentRecord,
             ),
         )
     }
