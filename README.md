@@ -25,8 +25,8 @@ RISC-V 32I 平臺。
 ### Semantic
 - grammar file for Lexer and Parser (Finished)
 - build abstract syntax tree from concrete syntax tree (Finished)
-- build symbol table (Debugging)
-- type check (Debugging)
+- build symbol table (Finished)
+- type check (Finished)
 
 ### Code generating
 
