@@ -28,7 +28,9 @@ RISC-V 32I 平臺。
 - build symbol table (Finished)
 - type check (Finished)
 
-### Code generating
+### Code Generating
+- Convert the AST to IR (Developing)
+- Generate RISC-V assembly code (Not started)
 
 ### Register Allocation
 
