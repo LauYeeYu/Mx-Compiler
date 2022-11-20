@@ -1,12 +1,17 @@
 # AST
 
+An AST is an Abstract Syntax Tree. It is a tree composed of AST nodes.
+Each AST node has a source context (`ctx`) and some members that contains
+the essential information of the AST tree. Block statement nodes, function
+nodes, class nodes and the root node also have an environment (`environment`).
+
 - [Operators](#operators)
   - [Update Operators](#update-operators)
   - [Unary Operators](#unary-operators)
   - [Binary Operators](#binary-operators)
 - [Interfaces](#interfaces)
-  - [Global Elements](#global-elements)
-  - [Class Elements](#class-elements)
+  - [Global Element](#global-element)
+  - [Class Element](#class-element)
 - [Translation Unit](#translation-unit)
 - [Function](#function)
 - [Function Parameter](#function-parameter)
