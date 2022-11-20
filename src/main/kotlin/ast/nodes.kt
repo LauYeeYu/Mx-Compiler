@@ -16,7 +16,11 @@
 
 package ast
 
-abstract class AstNode(val ctx: SourceContext)
+import typecheck.EnvironmentRecord
+
+abstract class AstNode(val ctx: SourceContext) {
+    var environment: EnvironmentRecord? = null
+}
 
 class TranslateUnit(
     ctx: SourceContext,
