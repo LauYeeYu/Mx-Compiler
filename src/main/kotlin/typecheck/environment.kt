@@ -30,11 +30,13 @@ class IrInfo(
     }
 }
 
-fun checkAndRecord(ast: AstNode) {
+fun checkAndRecord(ast: AstNode): GlobalEnvironmentRecord {
     if (ast !is TranslateUnit) {
         throw SemanticException("Expected a TranslateUnit, got ${ast::class.simpleName}", ast.ctx)
     }
-    ast.environment = GlobalEnvironmentRecord().checkAndRecord(ast)
+    val rootEnvironment = GlobalEnvironmentRecord().checkAndRecord(ast)
+    ast.environment = rootEnvironment
+    return rootEnvironment
 }
 
 class Binding(
