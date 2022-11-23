@@ -22,11 +22,13 @@ const val ptrSize: Int = 4
 class Root(
     val classes: List<GlobalClass>,
     val variables: List<GlobalVariable>,
-    val globalFunctions: List<GlobalFunction>
+    val initFunctions: List<GlobalFunction>,
+    val globalFunctions: List<GlobalFunction>,
 ) {
     override fun toString(): String {
         return classes.joinToString("\n") + "\n" +
                 variables.joinToString("\n") + "\n" +
+                initFunctions.joinToString("\n") + "\n" +
                 globalFunctions.joinToString("\n")
     }
 }
@@ -127,7 +129,7 @@ enum class TypeProperty {
 abstract class Type
 
 class PrimitiveType(
-    val type: TypeProperty
+    val type: TypeProperty,
 ) : Type() {
     override fun toString() = type.toString()
 }
