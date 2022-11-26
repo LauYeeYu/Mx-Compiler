@@ -16,6 +16,6 @@
 
 package exceptions
 
-class IRBuilderException(msg: String) : MxException(msg, null)
+open class IRBuilderException(msg: String) : MxException(msg, null)
 
-class EnvironmentException(msg: String) : MxException(msg, null)
+class EnvironmentException(msg: String) : IRBuilderException(msg)
