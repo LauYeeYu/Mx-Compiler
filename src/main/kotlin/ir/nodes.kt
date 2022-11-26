@@ -189,12 +189,15 @@ class ReturnStatement(
 }
 
 class BranchStatement(
-    val condition: Variable,
+    val condition: Variable?, // null if unconditional
     val trueBlockLabel: Int,
-    val falseBlockLabel: Int,
+    val falseBlockLabel: Int?, // null if unconditional
 ) : Statement() {
     override fun toString(): String {
-        return "br i1 ${condition}, label %$trueBlockLabel, label %$falseBlockLabel"
+        return when (falseBlockLabel) {
+            null -> "br label %$trueBlockLabel"
+            else -> "br $condition, label %$trueBlockLabel, label %$falseBlockLabel"
+        }
     }
 }
 
