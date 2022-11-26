@@ -23,6 +23,7 @@ import exceptions.SemanticException
 class IrInfo(
     val name: String,
     val count: Int,
+    val isLocal: Boolean,
 ) {
     override fun toString(): String {
         if (count == 0) return name
@@ -123,10 +124,14 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
                     it.ctx,
                     it.name,
                     getType(it.type, it.ctx),
-                    IrInfo(it.name, when (findVariableAlike(it.name)) {
-                        null -> 0
-                        else -> findVariableAlike(it.name)!!.irInfo.count + 1
-                    }),
+                    IrInfo(
+                        it.name,
+                        when (findVariableAlike(it.name)) {
+                            null -> 0
+                            else -> findVariableAlike(it.name)!!.irInfo.count + 1
+                        },
+                        true,
+                    ),
                 )
             },
             getType(node.returnType, node.ctx),
@@ -207,7 +212,7 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
                 variable.ctx,
                 variable.name,
                 type,
-                IrInfo(variable.name, variableCount),
+                IrInfo(variable.name, variableCount, parent != null),
             )
             variableAlikeBindings[variable.name] = variableBinding
             variableBindings.add(variableBinding)
@@ -343,7 +348,7 @@ class ClassEnvironmentRecord(
                             variable.ctx,
                             variable.name,
                             getType(classElement.type, classElement.ctx),
-                            IrInfo(variable.name, 0),
+                            IrInfo(variable.name, 0, true),
                         )
                     }
                 }
@@ -370,7 +375,7 @@ class ClassEnvironmentRecord(
                             classElement.parameters.map { getType(it.type, it.ctx) },
                             null,
                         ),
-                        IrInfo("$className.${classElement.name}", 0),
+                        IrInfo("$className.${classElement.name}", 0, false),
                     )
                 }
 
@@ -408,25 +413,25 @@ class ClassEnvironmentRecord(
             null,
             "length",
             MxFunctionType(MxIntType(), listOf(), null),
-            IrInfo("String.length", 0),
+            IrInfo("String.length", 0, false),
         )
         functionAlikeBindings["substring"] = Binding(
             null,
             "substring",
             MxFunctionType(stringType, listOf(MxIntType(), MxIntType()), null),
-            IrInfo("String.substring", 0),
+            IrInfo("String.substring", 0, false),
         )
         functionAlikeBindings["parseInt"] = Binding(
             null,
             "parseInt",
             MxFunctionType(MxIntType(), listOf(), null),
-            IrInfo("String.parseInt", 0),
+            IrInfo("String.parseInt", 0, false),
         )
         functionAlikeBindings["ord"] = Binding(
             null,
             "ord",
             MxFunctionType(MxIntType(), listOf(MxIntType()), null),
-            IrInfo("String.ord", 0),
+            IrInfo("String.ord", 0, false),
         )
         return this
     }
@@ -437,7 +442,7 @@ class ClassEnvironmentRecord(
             null,
             "size",
             MxFunctionType(MxIntType(), listOf(), null),
-            IrInfo("Array.size", 0),
+            IrInfo("Array.size", 0, false),
         )
         return this
     }
@@ -463,7 +468,7 @@ class ClassEnvironmentRecord(
                 listOf(),
                 environmentRecord,
             ),
-            IrInfo(className + node.name, 0),
+            IrInfo(className + node.name, 0, false),
         )
     }
 
@@ -509,7 +514,7 @@ class GlobalEnvironmentRecord : EnvironmentRecord(null) {
             null,
             "string",
             stringType,
-            IrInfo("string", 0),
+            IrInfo("string", 0, false),
         )
         functionAlikeBindings["string"] = stringBinding
         variableAlikeBindings["string"] = stringBinding
@@ -522,43 +527,43 @@ class GlobalEnvironmentRecord : EnvironmentRecord(null) {
             null,
             "print",
             MxFunctionType(MxVoidType(), listOf(stringType), null),
-            IrInfo("print", 0),
+            IrInfo("print", 0, false),
         )
         functionAlikeBindings["println"] = Binding(
             null,
             "println",
             MxFunctionType(MxVoidType(), listOf(stringType), null),
-            IrInfo("println", 0),
+            IrInfo("println", 0, false),
         )
         functionAlikeBindings["printInt"] = Binding(
             null,
             "printInt",
             MxFunctionType(MxVoidType(), listOf(MxIntType()), null),
-            IrInfo("printInt", 0),
+            IrInfo("printInt", 0, false),
         )
         functionAlikeBindings["printlnInt"] = Binding(
             null,
             "printlnInt",
             MxFunctionType(MxVoidType(), listOf(MxIntType()), null),
-            IrInfo("printlnInt", 0),
+            IrInfo("printlnInt", 0, false),
         )
         functionAlikeBindings["getString"] = Binding(
             null,
             "getString",
             MxFunctionType(stringType, listOf(), null),
-            IrInfo("getString", 0),
+            IrInfo("getString", 0, false),
         )
         functionAlikeBindings["getInt"] = Binding(
             null,
             "getInt",
             MxFunctionType(MxIntType(), listOf(), null),
-            IrInfo("getInt", 0),
+            IrInfo("getInt", 0, false),
         )
         functionAlikeBindings["toString"] = Binding(
             null,
             "toString",
             MxFunctionType(stringType, listOf(MxIntType()), null),
-            IrInfo("toString", 0),
+            IrInfo("toString", 0, false),
         )
     }
 
@@ -573,7 +578,7 @@ class GlobalEnvironmentRecord : EnvironmentRecord(null) {
                         element.name,
                         null,
                     ),
-                    IrInfo(element.name, 0),
+                    IrInfo(element.name, 0, false),
                 )
                 if (variableAlikeBindings.containsKey(element.name)) {
                     throw SemanticException("Duplicate class name", element.ctx)
@@ -600,7 +605,7 @@ class GlobalEnvironmentRecord : EnvironmentRecord(null) {
                         element.parameters.map { getType(it.type, it.ctx) },
                         null,
                     ),
-                    IrInfo(element.name, 0),
+                    IrInfo(element.name, 0, false),
                 )
             } else if (element is ast.Class) {
                 val classBinding = classBindings[element.name]
@@ -676,10 +681,12 @@ fun buildLambdaBinding(parent: EnvironmentRecord, expression: LambdaExpression):
                 it.ctx,
                 it.name,
                 parent.getType(it.type, it.ctx),
-                IrInfo(it.name, when (parent.findVariableAlike(it.name)) {
-                    null -> 0
-                    else -> parent.findVariableAlike(it.name)!!.irInfo.count + 1
-                }),
+                IrInfo(it.name,
+                    when (parent.findVariableAlike(it.name)) {
+                        null -> 0
+                        else -> parent.findVariableAlike(it.name)!!.irInfo.count + 1
+                    },
+                    true),
             )
         },
         MxType(null), // need to replace later
@@ -703,6 +710,6 @@ fun buildLambdaBinding(parent: EnvironmentRecord, expression: LambdaExpression):
             functionEnvironmentRecord.parameters.map { it.type },
             functionEnvironmentRecord,
         ),
-        IrInfo("lambda$lambdaCount", 0),
+        IrInfo("lambda$lambdaCount", 0, true),
     )
 }
