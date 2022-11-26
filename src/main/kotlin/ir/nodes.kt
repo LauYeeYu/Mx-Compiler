@@ -22,13 +22,13 @@ const val ptrSize: Int = 4
 class Root(
     val classes: List<GlobalClass>,
     val variables: List<GlobalVariable>,
-    val initFunctions: List<GlobalFunction>,
+    val initFunction: GlobalFunction,
     val globalFunctions: List<GlobalFunction>,
 ) {
     override fun toString(): String {
         return classes.joinToString("\n") + "\n" +
                 variables.joinToString("\n") + "\n" +
-                initFunctions.joinToString("\n") + "\n" +
+                initFunction + "\n" +
                 globalFunctions.joinToString("\n")
     }
 }
@@ -92,7 +92,7 @@ class LocalVariableDecl(
 }
 
 class GlobalFunction(
-    val name: String,
+    val name: String, // without @
     val returnType: Type,
     val parameters: List<FunctionParameter>,
     val body: List<Block>,
