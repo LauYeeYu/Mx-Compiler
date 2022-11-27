@@ -95,7 +95,7 @@ class GlobalFunction(
     val name: String, // without @
     val returnType: Type,
     val parameters: List<FunctionParameter>,
-    val body: List<Block>,
+    val body: MutableList<Block>,
 ) {
     override fun toString(): String {
         return "define $returnType @$name(${parameters.joinToString(", ")}) {\n" +
@@ -156,7 +156,7 @@ class FunctionParameter(
 
 class Block(
     val label: Int,
-    val statements: List<Statement>,
+    val statements: MutableList<Statement>,
 ) {
     override fun toString(): String {
         return "$label:\n" + statements.joinToString("\n")
@@ -212,18 +212,18 @@ class LoadStatement(
 
 class StoreStatement(
     val dest: Variable,
-    val src: Variable,
+    val src : Variable,
 ) : Statement() {
     override fun toString(): String {
-        return "store $src, ptr $dest, align $alignValue"
+        return "store ${src.type} $src, ptr $dest, align $alignValue"
     }
 }
 
 class BinaryOperationStatement(
     val dest: LocalVariable,
-    val op: BinaryOperator,
-    val lhs: Variable,
-    val rhs: Variable,
+    val op  : BinaryOperator,
+    val lhs : Variable,
+    val rhs : Variable,
 ) : Statement() {
     override fun toString(): String {
         return "${dest.name} = $op ${lhs.type} ${lhs.name}, ${rhs.name}"
@@ -232,9 +232,9 @@ class BinaryOperationStatement(
 
 class IntCmpStatement(
     val dest: LocalVariable,
-    val op: IntCmpOperator,
-    val lhs: Variable,
-    val rhs: Variable,
+    val op  : IntCmpOperator,
+    val lhs : Variable,
+    val rhs : Variable,
 ) : Statement() {
     override fun toString(): String {
         return "${dest.name} = icmp $op ${lhs.type} ${lhs.name}, ${rhs.name}"
@@ -242,8 +242,8 @@ class IntCmpStatement(
 }
 
 class GetElementPtrStatement(
-    val dest: LocalVariable,
-    val src: Variable,
+    val dest : LocalVariable,
+    val src  : Variable,
     val index: Int,
 ) : Statement() {
     override fun toString(): String = when (src) {
