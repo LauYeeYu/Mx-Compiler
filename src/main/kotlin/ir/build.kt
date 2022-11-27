@@ -21,23 +21,25 @@ import ast.GlobalElement
 import ast.VariablesDeclaration
 import exceptions.EnvironmentException
 import exceptions.IRBuilderException
+import java.util.Locale
 
 fun buildIR(astNode: AstNode): Root = IR(astNode).buildRoot()
 
-class IR(private val astNode: AstNode) {
+class IR(private val root: AstNode) {
+    var unnamedVariableCount = 0
 
     fun buildRoot(): Root {
-        if (astNode !is ast.TranslateUnit) {
+        if (root !is ast.TranslateUnit) {
             throw IRBuilderException("The AST node in buildRoot is not a root node")
         }
-        if (astNode.environment == null) {
+        if (root.environment == null) {
             throw EnvironmentException("The AST node in buildRoot has no environment")
         }
         return Root(
-            astNode.content.filterIsInstance<ast.Class>().map { buildClass(it) },
-            buildGlobalVariableList(astNode.content),
-            buildInitFunctionList(astNode.content),
-            astNode.content.filterIsInstance<ast.Function>().map { buildFunction(it) },
+            classes         = root.content.filterIsInstance<ast.Class>().map { buildClass(it) },
+            variables       = buildGlobalVariableList(root.content),
+            initFunction    = buildInitFunctionList(root.content),
+            globalFunctions = root.content.filterIsInstance<ast.Function>().map { buildFunction(it) },
         )
     }
 
@@ -54,12 +56,12 @@ class IR(private val astNode: AstNode) {
     }
 
     private fun buildInitFunctionList(sourceList: List<ast.GlobalElement>): GlobalFunction {
-        val globalInit: MutableList<Block> = mutableListOf()
+        val globalInit: MutableList<Statement> = mutableListOf()
         for (element in sourceList) {
             if (element is ast.VariablesDeclaration) {
                 for (variable in element.variables) {
                     if (variable.body != null) {
-                        //TODO
+                        variableDeclInit(variable, irType(element.type), globalInit, false)
                     }
                 }
             }
@@ -68,7 +70,7 @@ class IR(private val astNode: AstNode) {
             "__global_init",
             PrimitiveType(TypeProperty.void),
             listOf(),
-            globalInit,
+            mutableListOf(Block(0, globalInit)),
         )
     }
 
@@ -109,14 +111,64 @@ class IR(private val astNode: AstNode) {
         return GlobalVariable(variable.name, irType(astType))
     }
 
-    fun buildInitFunction(astNode: ast.GlobalElement): GlobalFunction {
-        return TODO()
-    }
-
-    fun buildFunction(astNode: ast.Function): GlobalFunction {
+    private fun buildFunction(astNode: ast.Function): GlobalFunction {
         if (astNode.environment == null) {
             throw EnvironmentException("The AST node in buildFunction has no environment")
         }
         return TODO()
+    }
+
+    private fun variableDeclInit(
+        variable: ast.VariableDeclaration,
+        type    : Type,
+        block   : MutableList<Statement>, // variable initializing statement will not have a branch
+        local   : Boolean,
+    ) {
+        if (variable.body == null) return
+        val returnValue = addExpression(variable.body, type, block, local)
+        if (returnValue == -1) {
+            throw IRBuilderException("A variable is assigned with a void expression")
+        }
+        val binding = root.environment?.variableAlikeBindings?.get(variable.name)
+            ?: throw EnvironmentException("The AST node in variableDeclInit has no binding")
+        block.add(
+            StoreStatement(
+                dest = when (binding.irInfo.isLocal) {
+                    true  -> LocalVariable(variable.name, type)
+                    false -> GlobalVariable(variable.name, type)
+                },
+                src = LocalVariable(returnValue.toString(), type),
+            )
+        )
+    }
+
+    // Add the expression to the block. The return value indicates the number
+    // of variable to use in the block. If there is no return value, the
+    // function will return -1.
+    private fun addExpression(
+        expr : ast.Expression,
+        type : Type,
+        block: MutableList<Statement>,
+        local: Boolean,
+    ): Int {
+        // TODO
+        return -1
+    }
+
+    private fun addStatement(statement: ast.Statement, blockList: MutableList<Block>, currentBlock: Int) {
+        when (statement) {
+            is ast.BlockStatement          -> addStatement(statement, blockList, currentBlock)
+            is ast.ExpressionStatement     -> addStatement(statement, blockList, currentBlock)
+            is ast.BranchStatement         -> addStatement(statement, blockList, currentBlock)
+            is ast.WhileStatement          -> addStatement(statement, blockList, currentBlock)
+            is ast.ForExpressionStatement  -> addStatement(statement, blockList, currentBlock)
+            is ast.ForDeclarationStatement -> addStatement(statement, blockList, currentBlock)
+            is ast.ContinueStatement       -> addStatement(statement, blockList, currentBlock)
+            is ast.BreakStatement          -> addStatement(statement, blockList, currentBlock)
+            is ast.ReturnStatement         -> addStatement(statement, blockList, currentBlock)
+            is ast.VariablesDeclaration    -> addStatement(statement, blockList, currentBlock)
+            is ast.EmptyStatement          -> {}
+            else -> throw IRBuilderException("Unknown statement in addStatement")
+        }
     }
 }
