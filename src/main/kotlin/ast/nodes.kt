@@ -71,7 +71,9 @@ class VariableDeclaration(
     ctx: SourceContext,
     val name: String,
     val body: Expression?,
-) : AstNode(ctx)
+) : AstNode(ctx) {
+    var binding: Binding? = null
+}
 
 // Nodes for Statements
 open class Statement(ctx: SourceContext) : AstNode(ctx)

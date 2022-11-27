@@ -215,6 +215,7 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
                 IrInfo(variable.name, variableCount, parent != null),
             )
             variableAlikeBindings[variable.name] = variableBinding
+            variable.binding = variableBinding
             variableBindings.add(variableBinding)
         }
         return variableBindings
@@ -344,12 +345,14 @@ class ClassEnvironmentRecord(
                                 variable.ctx,
                             )
                         }
-                        variableAlikeBindings[variable.name] = Binding(
+                        val newBinding = Binding(
                             variable.ctx,
                             variable.name,
                             getType(classElement.type, classElement.ctx),
                             IrInfo(variable.name, 0, true),
                         )
+                        variableAlikeBindings[variable.name] = newBinding
+                        variable.binding = newBinding
                     }
                 }
 
