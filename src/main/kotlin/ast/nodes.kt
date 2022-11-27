@@ -16,7 +16,9 @@
 
 package ast
 
+import typecheck.Binding
 import typecheck.EnvironmentRecord
+import typecheck.TypeProperty
 
 abstract class AstNode(val ctx: SourceContext) {
     var environment: EnvironmentRecord? = null
@@ -161,9 +163,13 @@ enum class UnaryOperator {
 }
 
 // Nodes for Expressions
-open class Expression(ctx: SourceContext) : AstNode(ctx)
+open class Expression(ctx: SourceContext) : AstNode(ctx) {
+    var resultType: TypeProperty? = null
+}
 
-class Object(ctx: SourceContext, val name: String) : Expression(ctx)
+class Object(ctx: SourceContext, val name: String) : Expression(ctx) {
+    var binding: Binding? = null
+}
 
 open class Literal(ctx: SourceContext) : Expression(ctx)
 

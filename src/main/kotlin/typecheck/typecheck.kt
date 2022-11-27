@@ -19,6 +19,7 @@ package typecheck
 import ast.*
 import exceptions.*
 import java.util.Objects
+import kotlin.math.exp
 
 enum class Status {
     LVALUE,
@@ -54,32 +55,36 @@ fun checkType(expression: Expression,
 fun checkType(expression: Object,
               environmentRecord: EnvironmentRecord,
               ctx: SourceContext?): TypeProperty {
-    return TypeProperty(
-        when (environmentRecord.findVariableAlike(expression.name)) {
-            null -> throw MxException("Undefined variable ${expression.name}", ctx)
-            else -> environmentRecord.findVariableAlike(expression.name)!!.type
-        },
-        Status.LVALUE
-    )
+    when (environmentRecord.findVariableAlike(expression.name)) {
+        null -> throw MxException("Undefined variable ${expression.name}", ctx)
+        else -> {
+            expression.binding = environmentRecord.findVariableAlike(expression.name)
+            expression.resultType = TypeProperty(
+                environmentRecord.findVariableAlike(expression.name)!!.type,
+                Status.RVALUE,
+            )
+            return expression.resultType!!
+        }
+    }
 }
 
 fun checkType(expression: Literal,
               environmentRecord: EnvironmentRecord,
               ctx: SourceContext?): TypeProperty {
-    when (expression) {
-        is IntegerLiteral -> return TypeProperty(MxIntType(), Status.RVALUE)
-        is StringLiteral -> return TypeProperty(MxStringType(), Status.RVALUE)
-        is BooleanLiteral -> return TypeProperty(MxBoolType(), Status.RVALUE)
-        is NullLiteral -> return TypeProperty(MxNullType(), Status.RVALUE)
+    expression.resultType = when (expression) {
+        is IntegerLiteral -> TypeProperty(MxIntType(), Status.RVALUE)
+        is StringLiteral -> TypeProperty(MxStringType(), Status.RVALUE)
+        is BooleanLiteral -> TypeProperty(MxBoolType(), Status.RVALUE)
+        is NullLiteral -> TypeProperty(MxNullType(), Status.RVALUE)
         is ThisLiteral -> {
-            if (environmentRecord.inClass()) {
-                return TypeProperty(environmentRecord.thisType(), Status.RVALUE)
-            } else {
-                throw MxException("Cannot use 'this' outside of a class", expression.ctx)
+            when (environmentRecord.inClass()) {
+                true -> TypeProperty(environmentRecord.thisType(), Status.RVALUE)
+                else -> throw MxException("Cannot use 'this' outside of a class", expression.ctx)
             }
         }
         else -> throw MxException("Unknown literal type", expression.ctx)
     }
+    return expression.resultType!!
 }
 
 fun checkType(expression: MemberVariableAccess,
@@ -97,7 +102,8 @@ fun checkType(expression: MemberVariableAccess,
     if (memberVariable == null) {
         throw ContextException("Cannot find member variable", expression.ctx)
     }
-    return TypeProperty(memberVariable.type, Status.LVALUE)
+    expression.resultType = TypeProperty(memberVariable.type, Status.LVALUE)
+    return expression.resultType!!
 }
 
 fun checkType(expression: MemberFunctionAccess,
@@ -113,7 +119,8 @@ fun checkType(expression: MemberFunctionAccess,
     if (memberFunction == null) {
         throw ContextException("Cannot find member function", expression.ctx)
     }
-    return TypeProperty((memberFunction.type as MxFunctionType).returnType, Status.RVALUE)
+    expression.resultType = TypeProperty((memberFunction.type as MxFunctionType).returnType, Status.RVALUE)
+    return expression.resultType!!
 }
 
 fun checkType(expression: ArrayExpression,
@@ -136,7 +143,8 @@ fun checkType(expression: ArrayExpression,
                 arrayProperty.type.dimension - 1
             )
         }
-    return TypeProperty(returnType, Status.LVALUE)
+    expression.resultType = TypeProperty(returnType, Status.LVALUE)
+    return expression.resultType!!
 }
 
 fun checkType(expression: PrefixUpdateExpression,
@@ -149,7 +157,8 @@ fun checkType(expression: PrefixUpdateExpression,
     if (objectProperty.status == Status.RVALUE) {
         throw ValueCategoryException("Cannot update rvalue", expression.ctx)
     }
-    return TypeProperty(MxIntType(), Status.LVALUE)
+    expression.resultType = TypeProperty(MxIntType(), Status.LVALUE)
+    return expression.resultType!!
 }
 
 fun checkType(expression: PostfixUpdateExpression,
@@ -162,7 +171,8 @@ fun checkType(expression: PostfixUpdateExpression,
     if (objectProperty.status == Status.RVALUE) {
         throw ValueCategoryException("Cannot update rvalue", expression.ctx)
     }
-    return TypeProperty(MxIntType(), Status.RVALUE)
+    expression.resultType = TypeProperty(MxIntType(), Status.RVALUE)
+    return expression.resultType!!
 }
 
 fun checkType(expression: FunctionCall,
@@ -183,10 +193,8 @@ fun checkType(expression: FunctionCall,
             throw TypeMismatchException("Argument type mismatch", expression.ctx)
         }
     }
-    return TypeProperty(
-        functionBinding.type.returnType,
-        Status.RVALUE
-    )
+    expression.resultType = TypeProperty(functionBinding.type.returnType, Status.RVALUE)
+    return expression.resultType!!
 }
 
 fun checkType(expression: LambdaCall,
@@ -203,19 +211,22 @@ fun checkType(expression: LambdaCall,
             throw TypeMismatchException("Argument type mismatch", expression.ctx)
         }
     }
-    return TypeProperty(
+    expression.resultType = TypeProperty(
         (lambdaProperty.type.environment as FunctionEnvironmentRecord).returnType,
-        Status.RVALUE
+        Status.RVALUE,
     )
+    return expression.resultType!!
 }
 
 fun checkType(expression: LambdaExpression,
               environmentRecord: EnvironmentRecord,
-              ctx: SourceContext?): TypeProperty =
-    TypeProperty(
+              ctx: SourceContext?): TypeProperty {
+    expression.resultType = TypeProperty(
         buildLambdaBinding(environmentRecord, expression).type,
         Status.RVALUE
     )
+    return expression.resultType!!
+}
 
 fun checkType(expression: NewExpression,
               environmentRecord: EnvironmentRecord,
@@ -226,7 +237,7 @@ fun checkType(expression: NewExpression,
             throw TypeMismatchException("Array dimension must be integer", expression.ctx)
         }
     }
-    return TypeProperty(
+    expression.resultType = TypeProperty(
         when (expression.dimension) {
             0 -> environmentRecord.getType(expression.type, ctx)
             else -> MxArrayType(
@@ -236,12 +247,13 @@ fun checkType(expression: NewExpression,
         },
         Status.RVALUE,
     )
+    return expression.resultType!!
 }
 
 fun checkType(expression: UnaryExpression,
               environmentRecord: EnvironmentRecord,
-              ctx: SourceContext?): TypeProperty =
-    TypeProperty(
+              ctx: SourceContext?): TypeProperty {
+    expression.resultType = TypeProperty(
         getUnaryExpressionReturn(
             expression.operator,
             checkType(expression.operand, environmentRecord, ctx).type,
@@ -249,11 +261,13 @@ fun checkType(expression: UnaryExpression,
         ),
         Status.RVALUE,
     )
+    return expression.resultType!!
+}
 
 fun checkType(expression: BinaryExpression,
               environmentRecord: EnvironmentRecord,
-              ctx: SourceContext?): TypeProperty =
-    TypeProperty(
+              ctx: SourceContext?): TypeProperty {
+    expression.resultType = TypeProperty(
         getBinaryExpressionReturn(
             checkType(expression.left, environmentRecord, ctx).type,
             expression.operator,
@@ -262,6 +276,8 @@ fun checkType(expression: BinaryExpression,
         ),
         Status.RVALUE,
     )
+    return expression.resultType!!
+}
 
 fun checkType(expression: AssignExpression,
               environmentRecord: EnvironmentRecord,
@@ -277,7 +293,8 @@ fun checkType(expression: AssignExpression,
     if (leftProperty.status == Status.RVALUE) {
         throw ValueCategoryException("Cannot assign to rvalue", expression.ctx)
     }
-    return TypeProperty(leftProperty.type, Status.RVALUE)
+    expression.resultType = TypeProperty(leftProperty.type, Status.RVALUE)
+    return expression.resultType!!
 }
 
 fun getUnaryExpressionReturn(operator: UnaryOperator,
