@@ -242,6 +242,8 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
                 if (root.falseBranch != null) {
                     val trueBranchEnvironment = BlockEnvironmentRecord(this).checkAndRecord(root.trueBranch)
                     val falseBranchEnvironment = BlockEnvironmentRecord(this).checkAndRecord(root.falseBranch)
+                    root.trueBranch.environment = trueBranchEnvironment
+                    root.falseBranch.environment = falseBranchEnvironment
                     if (trueBranchEnvironment.hasReturn && falseBranchEnvironment.hasReturn) {
                         if (trueBranchEnvironment.referredReturnType != falseBranchEnvironment.referredReturnType) {
                             throw SemanticException(
@@ -254,7 +256,9 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
                     subEnvironments.add(trueBranchEnvironment)
                     subEnvironments.add(falseBranchEnvironment)
                 } else {
-                    subEnvironments.add(BlockEnvironmentRecord(this).checkAndRecord(root.trueBranch))
+                    val trueBranchEnvironment = BlockEnvironmentRecord(this).checkAndRecord(root.trueBranch)
+                    root.trueBranch.environment = trueBranchEnvironment
+                    subEnvironments.add(trueBranchEnvironment)
                 }
             }
 
@@ -262,7 +266,7 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
                 if (checkType(root.condition, this, root.ctx).type !is MxBoolType) {
                     throw SemanticException("Expected a bool type", root.condition.ctx)
                 }
-                BlockEnvironmentRecord(this, listOf(), true).checkAndRecord(root.body)
+                root.environment = BlockEnvironmentRecord(this, listOf(), true).checkAndRecord(root.body)
             }
 
             is ForExpressionStatement -> {
@@ -276,9 +280,9 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
                 if (root.step != null) {
                     checkType(root.step, this, root.ctx)
                 }
-                subEnvironments.add(
-                    BlockEnvironmentRecord(this, listOf(), true).checkAndRecord(root.body)
-                )
+                val forEnvironment = BlockEnvironmentRecord(this, listOf(), true).checkAndRecord(root.body)
+                root.environment = forEnvironment
+                subEnvironments.add(forEnvironment)
             }
             is ForDeclarationStatement -> {
                 val variableList = recordVariable(root.init)
@@ -289,9 +293,9 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
                 if (root.step != null) {
                     checkType(root.step, this, root.ctx)
                 }
-                subEnvironments.add(
-                    BlockEnvironmentRecord(this, variableList, true).checkAndRecord(root.body)
-                )
+                val forEnvironment = BlockEnvironmentRecord(this, listOf(), true).checkAndRecord(root.body)
+                root.environment = forEnvironment
+                subEnvironments.add(forEnvironment)
             }
             is ContinueStatement -> {
                 if (!inLoop()) {
@@ -314,9 +318,9 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
         return this
     }
 
-    var variableAlikeBindings: HashMap<String, Binding> = HashMap()
-    var functionAlikeBindings: HashMap<String, Binding> = HashMap()
-    var classBindings: HashMap<String, Binding> = HashMap()
+    val variableAlikeBindings: HashMap<String, Binding> = HashMap()
+    val functionAlikeBindings: HashMap<String, Binding> = HashMap()
+    val classBindings: HashMap<String, Binding> = HashMap()
     var hasReturn = false
     var referredReturnType: MxType? = null
     protected val subEnvironments: MutableList<EnvironmentRecord> = mutableListOf()
