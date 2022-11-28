@@ -219,6 +219,16 @@ class StoreStatement(
     }
 }
 
+class StoreImmediateStatement(
+    val dest: Variable,
+    val type: Type,
+    val src : Int,
+) :  Statement() {
+    override fun toString(): String {
+        return "store $type $src, ptr $dest, align $alignValue"
+    }
+}
+
 class BinaryOperationStatement(
     val dest: LocalVariable,
     val op  : BinaryOperator,
@@ -251,6 +261,18 @@ class GetElementPtrStatement(
         is GlobalVariable -> "${dest.name} = getelementptr ${dest.type}, ptr @${src.name}, i32 $index"
         is LocalVariable  -> "${dest.name} = getelementptr ${dest.type}, ptr %${src.name}, i32 $index"
         else              -> throw InternalError("IR: Unknown variable type")
+    }
+}
+
+class StringLiteralDecl(
+    val name: String,
+    val content: String,
+) {
+    override fun toString(): String {
+        return "@$name = private unnamed_addr constant " +
+                "[${content.length + 1} x i8] " +
+                "c\"${escapeStringLiteralToIr(content)}\\00\", " +
+                "align $alignValue"
     }
 }
 
