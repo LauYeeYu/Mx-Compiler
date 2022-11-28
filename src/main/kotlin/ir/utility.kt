@@ -22,7 +22,7 @@ fun escapeStringLiteralToIr(source: String): String {
         when (c) {
             '\n' -> sb.append("\\0A")
             '\\' -> sb.append("\\\\")
-            '"' -> sb.append("\\\"")
+            '"' -> sb.append("\\22")
             else -> sb.append(c)
         }
     }
