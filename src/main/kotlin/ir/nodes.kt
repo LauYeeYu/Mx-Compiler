@@ -21,7 +21,7 @@ const val ptrSize: Int = 4
 
 class Root(
     val classes: List<GlobalClass>,
-    val variables: List<GlobalVariable>,
+    val variables: List<GlobalDecl>,
     val initFunction: GlobalFunction,
     val globalFunctions: List<GlobalFunction>,
 ) {
@@ -42,6 +42,8 @@ class GlobalClass(
     }
 }
 
+sealed interface GlobalDecl
+
 abstract class Variable(
     val name: String,
     val type: Type,
@@ -50,7 +52,7 @@ abstract class Variable(
 class GlobalVariable(
     name: String,
     type: Type,
-) : Variable(name, type) {
+) : Variable(name, type), GlobalDecl {
     override fun toString(): String = when (type) {
         is PrimitiveType -> when (type.type) {
             TypeProperty.void -> "void"
@@ -267,7 +269,7 @@ class GetElementPtrStatement(
 class StringLiteralDecl(
     val name: String,
     val content: String,
-) {
+) : GlobalDecl {
     override fun toString(): String {
         return "@$name = private unnamed_addr constant " +
                 "[${content.length + 1} x i8] " +
