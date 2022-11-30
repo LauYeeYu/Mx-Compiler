@@ -136,21 +136,35 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     ) {
         if (variable.body == null) return
         val returnValue = addExpression(variable.body, block)
-        if (returnValue == -1) {
+        if (returnValue is VoidResult) {
             throw IRBuilderException("A variable is assigned with a void expression")
         }
-        val binding = root.environment?.variableAlikeBindings?.get(variable.name)
-            ?: throw EnvironmentException("The AST node in variableDeclInit has no binding")
-        block.add(
-            StoreStatement(
+        val binding = variable.binding ?: throw EnvironmentException("The variable has no binding")
+        when (returnValue) {
+            is TempVariable -> block.add(
+                StoreStatement(
+                    dest = when (binding.irInfo.isLocal) {
+                        true -> LocalVariable(variable.name, type)
+                        false -> GlobalVariable(variable.name, type)
+                    },
+                    src = LocalVariable(returnValue.toString(), type),
+                )
+            )
+            is ConstExpression -> StoreImmediateStatement(
                 dest = when (binding.irInfo.isLocal) {
-                    true  -> LocalVariable(variable.name, type)
+                    true -> LocalVariable(variable.name, type)
                     false -> GlobalVariable(variable.name, type)
                 },
-                src = LocalVariable(returnValue.toString(), type),
+                type = type,
+                src = returnValue.value,
             )
-        )
+        }
     }
+
+    abstract class ExpressionResult
+    class VoidResult : ExpressionResult()
+    class ConstExpression(val value: Int) : ExpressionResult()
+    class TempVariable(val name: Int) : ExpressionResult()
 
     // Add the expression to the block. The return value indicates the number
     // of variable to use in the block. If there is no return value, the
@@ -158,7 +172,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     private fun addExpression(
         expr : ast.Expression,
         block: MutableList<Statement>,
-    ): Int = when (expr) {
+    ): ExpressionResult = when (expr) {
         is ast.Object              -> addExpression(expr, block)
         is StringLiteral           -> addExpression(expr, block)
         is IntegerLiteral          -> addExpression(expr, block)
@@ -180,7 +194,8 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         else -> throw IRBuilderException("Unknown expression in addExpression")
     }
 
-    private fun addExpression(expr: ast.Object, block: MutableList<Statement>): Int {
+    private fun addExpression(expr: ast.Object,
+                              block: MutableList<Statement>): ExpressionResult {
         if (expr.binding == null) {
             throw EnvironmentException("The AST node in addExpression has no binding")
         }
@@ -196,10 +211,11 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                 },
             )
         )
-        return dest
+        return TempVariable(dest)
     }
 
-    private fun addExpression(expr: StringLiteral, block: MutableList<Statement>): Int {
+    private fun addExpression(expr: StringLiteral,
+                              block: MutableList<Statement>): ExpressionResult {
         addStringLiteral("__$unnamedStringLiteralCount", expr)
         val dest = unnamedVariableCount
         unnamedVariableCount++
@@ -209,8 +225,13 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                 src  = GlobalVariable("__$unnamedStringLiteralCount", PrimitiveType(TypeProperty.ptr)),
             )
         )
-        return block.size - 1
+        return TempVariable(block.size - 1)
     }
+
+    private fun addExpression(
+        expr: IntegerLiteral,
+        block: MutableList<Statement>
+    ): ExpressionResult = ConstExpression(expr.value)
 
     private fun addStatement(
         statement   : ast.Statement,
