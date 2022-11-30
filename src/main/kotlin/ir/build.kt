@@ -164,7 +164,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     abstract class ExpressionResult
     class VoidResult : ExpressionResult()
     class ConstExpression(val value: Int) : ExpressionResult()
-    class TempVariable(val name: Int) : ExpressionResult()
+    class TempVariable(val name: String) : ExpressionResult()
 
     // Add the expression to the block. The return value indicates the number
     // of variable to use in the block. If there is no return value, the
@@ -211,27 +211,45 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                 },
             )
         )
-        return TempVariable(dest)
+        return TempVariable(dest.toString())
     }
 
     private fun addExpression(expr: StringLiteral,
                               block: MutableList<Statement>): ExpressionResult {
-        addStringLiteral("__$unnamedStringLiteralCount", expr)
+        addStringLiteral("__string_$unnamedStringLiteralCount", expr)
         val dest = unnamedVariableCount
         unnamedVariableCount++
         block.add(
             LoadStatement(
                 dest = LocalVariable(dest.toString(), PrimitiveType(TypeProperty.ptr)),
-                src  = GlobalVariable("__$unnamedStringLiteralCount", PrimitiveType(TypeProperty.ptr)),
+                src  = GlobalVariable("__string_$unnamedStringLiteralCount", PrimitiveType(TypeProperty.ptr)),
             )
         )
-        return TempVariable(block.size - 1)
+        return TempVariable((block.size - 1).toString())
     }
 
     private fun addExpression(
         expr: IntegerLiteral,
         block: MutableList<Statement>
     ): ExpressionResult = ConstExpression(expr.value)
+
+    private fun addExpression(
+        expr: BooleanLiteral,
+        block: MutableList<Statement>
+    ): ExpressionResult = when (expr.value) {
+        true  -> ConstExpression(1)
+        false -> ConstExpression(0)
+    }
+
+    private fun addExpression(
+        expr: ThisLiteral,
+        block: MutableList<Statement>
+    ): ExpressionResult = TempVariable("__this")
+
+    private fun addExpression(
+        expr: NullLiteral,
+        block: MutableList<Statement>
+    ): ExpressionResult = ConstExpression(0)
 
     private fun addStatement(
         statement   : ast.Statement,
