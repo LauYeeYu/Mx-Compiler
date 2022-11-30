@@ -16,4 +16,6 @@
 
 package exceptions
 
-class InternalException(msg: String) : MxException(msg, null)
+open class InternalException(msg: String) : MxException(msg, null)
+
+class NotSupported(msg: String) : InternalException(msg)
