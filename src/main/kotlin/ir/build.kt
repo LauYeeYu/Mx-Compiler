@@ -184,8 +184,8 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         if (expr.binding == null) {
             throw EnvironmentException("The AST node in addExpression has no binding")
         }
-        val dest = unnamedVariableCount
         val type = irType(expr.binding!!.type)
+        val dest = unnamedVariableCount
         unnamedVariableCount++
         block.add(
             LoadStatement(
@@ -201,7 +201,15 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
 
     private fun addExpression(expr: StringLiteral, block: MutableList<Statement>): Int {
         addStringLiteral("__$unnamedStringLiteralCount", expr)
-        return TODO()
+        val dest = unnamedVariableCount
+        unnamedVariableCount++
+        block.add(
+            LoadStatement(
+                dest = LocalVariable(dest.toString(), PrimitiveType(TypeProperty.ptr)),
+                src  = GlobalVariable("__$unnamedStringLiteralCount", PrimitiveType(TypeProperty.ptr)),
+            )
+        )
+        return block.size - 1
     }
 
     private fun addStatement(
