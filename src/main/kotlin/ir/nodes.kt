@@ -36,6 +36,7 @@ class Root(
 class GlobalClass(
     val name: String,
     val memberList: List<Type>,
+    val nameMap: Map<String, Int>,
 ) {
     override fun toString(): String {
         return "%class.$name = type { ${memberList.joinToString(" ")} }"
