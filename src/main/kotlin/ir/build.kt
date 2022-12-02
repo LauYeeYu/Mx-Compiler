@@ -175,10 +175,10 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     ): ExpressionResult = when (expr) {
         is ast.Object              -> addExpression(expr, block)
         is StringLiteral           -> addExpression(expr, block)
-        is IntegerLiteral          -> addExpression(expr, block)
-        is BooleanLiteral          -> addExpression(expr, block)
-        is NullLiteral             -> addExpression(expr, block)
-        is ThisLiteral             -> addExpression(expr, block)
+        is IntegerLiteral          -> addExpression(expr)
+        is BooleanLiteral          -> addExpression(expr)
+        is NullLiteral             -> ConstExpression(0)
+        is ThisLiteral             -> TempVariable("__this")
         is MemberVariableAccess    -> addExpression(expr, block)
         is MemberFunctionAccess    -> addExpression(expr, block)
         is ArrayExpression         -> addExpression(expr, block)
@@ -228,28 +228,13 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         return TempVariable((block.size - 1).toString())
     }
 
-    private fun addExpression(
-        expr: IntegerLiteral,
-        block: MutableList<Statement>
-    ): ExpressionResult = ConstExpression(expr.value)
+    private fun addExpression(expr: IntegerLiteral): ExpressionResult = ConstExpression(expr.value)
 
-    private fun addExpression(
-        expr: BooleanLiteral,
-        block: MutableList<Statement>
-    ): ExpressionResult = when (expr.value) {
-        true  -> ConstExpression(1)
-        false -> ConstExpression(0)
-    }
-
-    private fun addExpression(
-        expr: ThisLiteral,
-        block: MutableList<Statement>
-    ): ExpressionResult = TempVariable("__this")
-
-    private fun addExpression(
-        expr: NullLiteral,
-        block: MutableList<Statement>
-    ): ExpressionResult = ConstExpression(0)
+    private fun addExpression(expr: BooleanLiteral): ExpressionResult =
+        when (expr.value) {
+            true -> ConstExpression(1)
+            false -> ConstExpression(0)
+        }
 
     private fun addStatement(
         statement   : ast.Statement,
