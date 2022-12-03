@@ -355,10 +355,47 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         } else {
             val dest = unnamedVariableCount
             unnamedVariableCount++
-            val destVariable = LocalVariable(dest.toString(), type)
             block.add(
                 CallStatement(
-                    dest = destVariable,
+                    dest = LocalVariable(dest.toString(), type),
+                    returnType = type,
+                    function = function,
+                    arguments = arguments,
+                )
+            )
+            return TempVariable(dest.toString(), type)
+        }
+    }
+
+    private fun addExpression(
+        expr : FunctionCall,
+        block: MutableList<Statement>,
+    ): ExpressionResult {
+        if (expr.resultType == null) {
+            throw EnvironmentException("The AST node in addExpression has no result type")
+        }
+        val type = irType(expr.resultType!!.type)
+        val function: GlobalFunction = globalFunctions[expr.functionName]
+            ?: throw InternalException("Cannot find find the function ${expr.functionName}")
+        val arguments = expr.arguments.map {
+            expressionResultToArgument(addExpression(it, block))
+        }
+        if (expr.resultType!!.type is MxVoidType) {
+            block.add(
+                CallStatement(
+                    dest = null,
+                    returnType = type,
+                    function = function,
+                    arguments = arguments,
+                )
+            )
+            return VoidResult()
+        } else {
+            val dest = unnamedVariableCount
+            unnamedVariableCount++
+            block.add(
+                CallStatement(
+                    dest = LocalVariable(dest.toString(), type),
                     returnType = type,
                     function = function,
                     arguments = arguments,
