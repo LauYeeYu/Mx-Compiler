@@ -44,6 +44,10 @@ class GlobalClass(
 }
 
 sealed interface GlobalDecl
+sealed interface Argument {
+    abstract val name: String
+    abstract val type: Type
+}
 
 abstract class Variable(
     val name: String,
@@ -53,7 +57,7 @@ abstract class Variable(
 class GlobalVariable(
     name: String,
     type: Type,
-) : Variable(name, type), GlobalDecl {
+) : Variable(name, type), GlobalDecl, Argument {
     override fun toString(): String = when (type) {
         is PrimitiveType -> when (type.type) {
             TypeProperty.void -> "void"
@@ -66,7 +70,7 @@ class GlobalVariable(
 class LocalVariable(
     name: String,
     type: Type,
-) : Variable(name, type) {
+) : Variable(name, type), Argument {
     override fun toString(): String = when (type) {
         is PrimitiveType -> when (type.type) {
             TypeProperty.void -> "void"
@@ -74,6 +78,20 @@ class LocalVariable(
         }
         else -> "$type %$name"
     }
+}
+
+open class IntLiteral(val value: Int)
+
+class I8Literal(value: Int) : IntLiteral(value), Argument {
+    override val type: Type = PrimitiveType(TypeProperty.i8)
+    override val name: String = value.toString()
+    override fun toString(): String = "i8 $value"
+}
+
+class I32Literal(value: Int) : IntLiteral(value), Argument {
+    override val type: Type = PrimitiveType(TypeProperty.i32)
+    override val name: String = value.toString()
+    override fun toString(): String = "i32 $value"
 }
 
 class GlobalVariableDecl(
@@ -169,22 +187,22 @@ class Block(
 abstract class Statement
 
 class CallStatement(
-    val dest: Variable,
+    val dest: Variable?,
     val returnType: Type,
     val function: GlobalFunction,
-    val parameters: List<Variable>,
+    val arguments: List<Argument>,
 ) : Statement() {
     override fun toString(): String = when (returnType) {
         is PrimitiveType -> when (returnType.type) {
-            TypeProperty.void -> "call void ${function.name}(${parameters.joinToString(", ")})"
-            else -> "%${dest.name} = call ${returnType.type} @${function.name}(${parameters.joinToString(", ")})"
+            TypeProperty.void -> "call void @${function.name}(${arguments.joinToString(", ")})"
+            else -> "%${dest?.name} = call ${returnType.type} @${function.name}(${arguments.joinToString(", ")})"
         }
-        else -> "%${dest.name} = call $returnType @${function.name}(${parameters.joinToString(", ")})"
+        else -> "%${dest?.name} = call $returnType @${function.name}(${arguments.joinToString(", ")})"
     }
 }
 
 class ReturnStatement(
-    val value: Variable,
+    val value: Argument,
 ) : Statement() {
     override fun toString(): String {
         return "ret $value"
@@ -192,7 +210,7 @@ class ReturnStatement(
 }
 
 class BranchStatement(
-    val condition: Variable?, // null if unconditional
+    val condition: Argument?, // null if unconditional
     val trueBlockLabel: Int,
     val falseBlockLabel: Int?, // null if unconditional
 ) : Statement() {
@@ -206,7 +224,7 @@ class BranchStatement(
 
 class LoadStatement(
     val dest: LocalVariable,
-    val src: Variable,
+    val src: Argument,
 ) : Statement() {
     override fun toString(): String {
         return "${dest.name} = load ${dest.type}, ptr $src, align $alignValue"
@@ -215,20 +233,10 @@ class LoadStatement(
 
 class StoreStatement(
     val dest: Variable,
-    val src : Variable,
+    val src : Argument,
 ) : Statement() {
     override fun toString(): String {
-        return "store ${src.type} $src, ptr $dest, align $alignValue"
-    }
-}
-
-class StoreImmediateStatement(
-    val dest: Variable,
-    val type: Type,
-    val src : Int,
-) :  Statement() {
-    override fun toString(): String {
-        return "store $type $src, ptr $dest, align $alignValue"
+        return "store ${dest.type} $src, ptr $dest, align $alignValue"
     }
 }
 
@@ -236,7 +244,7 @@ class BinaryOperationStatement(
     val dest: LocalVariable,
     val op  : BinaryOperator,
     val lhs : Variable,
-    val rhs : Variable,
+    val rhs : Argument,
 ) : Statement() {
     override fun toString(): String {
         return "${dest.name} = $op ${lhs.type} ${lhs.name}, ${rhs.name}"
@@ -247,7 +255,7 @@ class IntCmpStatement(
     val dest: LocalVariable,
     val op  : IntCmpOperator,
     val lhs : Variable,
-    val rhs : Variable,
+    val rhs : Argument,
 ) : Statement() {
     override fun toString(): String {
         return "${dest.name} = icmp $op ${lhs.type} ${lhs.name}, ${rhs.name}"
