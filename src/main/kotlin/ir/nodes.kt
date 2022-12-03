@@ -16,6 +16,8 @@
 
 package ir
 
+import exceptions.InternalException
+
 const val alignValue: Int = 0
 const val ptrSize: Int = 4
 
@@ -80,7 +82,18 @@ class LocalVariable(
     }
 }
 
-open class IntLiteral(val value: Int)
+abstract class IntLiteral(val value: Int) : Argument
+
+fun getLiteralNode(type: Type, value: Int): IntLiteral {
+    return when (type) {
+        is PrimitiveType -> when (type.type) {
+            TypeProperty.i8  -> I8Literal(value)
+            TypeProperty.i32 -> I32Literal(value)
+            else -> throw InternalException("Unsupported type for literal: $type")
+        }
+        else -> throw InternalException("Unsupported type for literal: $type")
+    }
+}
 
 class I8Literal(value: Int) : IntLiteral(value), Argument {
     override val type: Type = PrimitiveType(TypeProperty.i8)
