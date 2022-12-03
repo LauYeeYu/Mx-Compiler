@@ -27,6 +27,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     private var unnamedStringLiteralCount = 0
     private val globalVariableDecl = mutableListOf<GlobalDecl>()
     private val classes = mutableMapOf<String, GlobalClass>()
+    private val globalFunctions = mutableMapOf<String, GlobalFunction>()
 
     fun buildRoot(): Root {
         if (root !is ast.TranslateUnit) {
@@ -145,31 +146,33 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             throw IRBuilderException("A variable is assigned with a void expression")
         }
         val binding = variable.binding ?: throw EnvironmentException("The variable has no binding")
-        when (returnValue) {
-            is TempVariable -> block.add(
-                StoreStatement(
-                    dest = when (binding.irInfo.isLocal) {
-                        true -> LocalVariable(variable.name, type)
-                        false -> GlobalVariable(variable.name, type)
-                    },
-                    src = LocalVariable(returnValue.toString(), type),
-                )
-            )
-            is ConstExpression -> StoreImmediateStatement(
-                dest = when (binding.irInfo.isLocal) {
-                    true -> LocalVariable(variable.name, type)
-                    false -> GlobalVariable(variable.name, type)
-                },
-                type = type,
-                src = returnValue.value,
-            )
+        val dest = when (binding.irInfo.isLocal) {
+            true -> LocalVariable(variable.name, type)
+            false -> GlobalVariable(variable.name, type)
         }
+        block.add(
+            StoreStatement(
+                dest = dest,
+                src = when (returnValue) {
+                    is TempVariable -> LocalVariable(returnValue.toString(), type)
+                    is ConstExpression -> getLiteralNode(type, returnValue.value)
+                    else -> throw IRBuilderException("Unknown return value in variableDeclInit")
+                },
+            )
+        )
     }
 
     abstract class ExpressionResult
     class VoidResult : ExpressionResult()
     class ConstExpression(val value: Int) : ExpressionResult()
-    class TempVariable(val name: String) : ExpressionResult()
+    class TempVariable(val name: String, val type: Type) : ExpressionResult()
+
+    private fun expressionResultToArgument(expressionResult: ExpressionResult): Argument =
+        when (expressionResult) {
+            is ConstExpression -> getLiteralNode(PrimitiveType(TypeProperty.i32), expressionResult.value)
+            is TempVariable -> LocalVariable(expressionResult.name, expressionResult.type)
+            else -> throw IRBuilderException("VoidResult cannot be converted to Argument")
+        }
 
     // Add the expression to the block. The return value indicates the number
     // of variable to use in the block. If there is no return value, the
@@ -185,7 +188,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         is IntegerLiteral          -> addExpression(expr)
         is BooleanLiteral          -> addExpression(expr)
         is NullLiteral             -> ConstExpression(0)
-        is ThisLiteral             -> TempVariable("__this")
+        is ThisLiteral             -> TempVariable("__this", PrimitiveType(TypeProperty.ptr))
         is MemberVariableAccess    -> addExpression(expr, block)
         is MemberFunctionAccess    -> addExpression(expr, block)
         is ArrayExpression         -> addExpression(expr, block)
@@ -218,7 +221,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                 },
             )
         )
-        return TempVariable(dest.toString())
+        return TempVariable(dest.toString(), type)
     }
 
     private fun addExpression(expr: StringLiteral,
@@ -232,7 +235,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                 src  = GlobalVariable("__string_$unnamedStringLiteralCount", PrimitiveType(TypeProperty.ptr)),
             )
         )
-        return TempVariable((block.size - 1).toString())
+        return TempVariable((block.size - 1).toString(), PrimitiveType(TypeProperty.ptr))
     }
 
     private fun addExpression(expr: IntegerLiteral): ExpressionResult = ConstExpression(expr.value)
@@ -264,7 +267,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                 unnamedVariableCount++
                 block.add(
                     GetElementPtrStatement(
-                        dest = LocalVariable(dest.toString(), PrimitiveType(TypeProperty.ptr)),
+                        dest = LocalVariable(dest.toString(), type),
                         src = when (binding.irInfo.isLocal) {
                             true -> LocalVariable(binding.irInfo.toString(), PrimitiveType(TypeProperty.ptr))
                             false -> GlobalVariable(binding.irInfo.toString(), PrimitiveType(TypeProperty.ptr))
@@ -272,19 +275,19 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                         index = index
                     )
                 )
-                return TempVariable(dest.toString())
+                return TempVariable(dest.toString(), type)
             }
             is ThisLiteral -> {
                 val dest = unnamedVariableCount
                 unnamedVariableCount++
                 block.add(
                     GetElementPtrStatement(
-                        dest  = LocalVariable(dest.toString(), PrimitiveType(TypeProperty.ptr)),
+                        dest  = LocalVariable(dest.toString(), type),
                         src   = LocalVariable("__this", PrimitiveType(TypeProperty.ptr)),
                         index = index
                     )
                 )
-                return TempVariable(dest.toString())
+                return TempVariable(dest.toString(), type)
             }
             else -> {
                 val source = addExpression(expr.objectName, block)
@@ -295,13 +298,73 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                 unnamedVariableCount++
                 block.add(
                     GetElementPtrStatement(
-                        dest  = LocalVariable(dest.toString(), PrimitiveType(TypeProperty.ptr)),
-                        src   = LocalVariable((source as TempVariable).name, PrimitiveType(TypeProperty.ptr)),
+                        dest  = LocalVariable(dest.toString(), type),
+                        src   = LocalVariable(source.name, PrimitiveType(TypeProperty.ptr)),
                         index = index
                     )
                 )
-                return TempVariable(dest.toString())
+                return TempVariable(dest.toString(), type)
             }
+        }
+    }
+
+    private fun addExpression(
+        expr : MemberFunctionAccess,
+        block: MutableList<Statement>,
+    ): ExpressionResult {
+        if (expr.resultType == null || expr.objectName.resultType == null) {
+            throw EnvironmentException("The AST node in addExpression has no result type")
+        }
+        val type = irType(expr.resultType!!.type)
+        val classType = expr.objectName.resultType!!.type
+        if (classType !is MxClassType) {
+            throw InternalException("The object is not a class type")
+        }
+        val classPtr = when (expr.objectName) {
+            is ast.Object -> {
+                val binding = expr.objectName.binding ?: throw EnvironmentException("The object has no binding")
+                when (binding.irInfo.isLocal) {
+                    true -> LocalVariable(binding.irInfo.toString(), PrimitiveType(TypeProperty.ptr))
+                    false -> GlobalVariable(binding.irInfo.toString(), PrimitiveType(TypeProperty.ptr))
+                }
+            }
+            is ThisLiteral -> LocalVariable("__this", PrimitiveType(TypeProperty.ptr))
+            else -> {
+                val source = addExpression(expr.objectName, block)
+                if (source !is TempVariable) {
+                    throw InternalException("The source is not a temporary variable")
+                }
+                LocalVariable(source.name, PrimitiveType(TypeProperty.ptr))
+            }
+        }
+        val function: GlobalFunction = globalFunctions["${classType.name}.${expr.functionName}"]
+            ?: throw InternalException("Cannot find find the function ${classType.name}.${expr.functionName}")
+        val arguments = mutableListOf<Argument>(classPtr) + expr.arguments.map {
+            expressionResultToArgument(addExpression(it, block))
+        }
+        if (expr.resultType!!.type is MxVoidType) {
+            block.add(
+                CallStatement(
+                    dest = null,
+                    returnType = type,
+                    function = function,
+                    arguments = arguments,
+                )
+            )
+            return VoidResult()
+        } else {
+            val dest = unnamedVariableCount
+            unnamedVariableCount++
+            val destVariable = LocalVariable(dest.toString(), type)
+            block.add(
+                CallStatement(
+                    dest = destVariable,
+                    returnType = type,
+                    function = function,
+                    arguments = arguments,
+                )
+            )
+            return TempVariable(dest.toString(), type)
         }
     }
 
