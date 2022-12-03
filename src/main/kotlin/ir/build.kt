@@ -213,8 +213,8 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             LoadStatement(
                 dest = LocalVariable(dest.toString(), type),
                 src  = when (expr.binding!!.irInfo.isLocal) {
-                    true  -> LocalVariable(expr.binding!!.name, type)
-                    false -> GlobalVariable(expr.binding!!.name, type)
+                    true  -> LocalVariable(expr.binding!!.irInfo.toString(), type)
+                    false -> GlobalVariable(expr.binding!!.irInfo.toString(), type)
                 },
             )
         )
