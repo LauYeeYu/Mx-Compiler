@@ -318,45 +318,45 @@ class StringLiteralDecl(
 }
 
 enum class BinaryOperator {
-    add,
-    sub,
-    mul,
-    sdiv,
-    srem,
-    shl,
-    ashr,
-    and,
-    or,
-    xor;
+    ADD,
+    SUB,
+    MUL,
+    SDIV,
+    SREM,
+    SHL,
+    ASHR,
+    AND,
+    OR,
+    XOR;
 
     override fun toString() : String = when (this) {
-        add  -> "add"
-        sub  -> "sub"
-        mul  -> "mul"
-        sdiv -> "sdiv"
-        srem -> "srem"
-        shl  -> "shl"
-        ashr -> "ashr"
-        and  -> "and"
-        or   -> "or"
-        xor  -> "xor"
+        ADD  -> "add"
+        SUB  -> "sub"
+        MUL  -> "mul"
+        SDIV -> "sdiv"
+        SREM -> "srem"
+        SHL  -> "shl"
+        ASHR -> "ashr"
+        AND  -> "and"
+        OR   -> "or"
+        XOR  -> "xor"
     }
 }
 
 enum class IntCmpOperator {
-    eq,
-    ne,
-    slt,
-    sgt,
-    sle,
-    sge;
+    EQ,
+    NE,
+    SLT,
+    SGT,
+    SLE,
+    SGE;
 
     override fun toString() : String = when (this) {
-        eq  -> "eq"
-        ne  -> "ne"
-        slt -> "slt"
-        sgt -> "sgt"
-        sle -> "sle"
-        sge -> "sge"
+        EQ  -> "eq"
+        NE  -> "ne"
+        SLT -> "slt"
+        SGT -> "sgt"
+        SLE -> "sle"
+        SGE -> "sge"
     }
 }
