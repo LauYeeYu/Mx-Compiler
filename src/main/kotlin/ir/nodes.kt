@@ -179,6 +179,13 @@ class ClassType(
     }
 }
 
+class ArrayType(
+    val elementType: PrimitiveType,
+    val size: Int,
+) : Type() {
+    override fun toString() = "[$size x $elementType]"
+}
+
 class FunctionParameter(
     val type: Type,
     val name: String,
