@@ -19,6 +19,7 @@ package ir
 import ast.*
 import exceptions.*
 import typecheck.*
+import java.lang.Class
 
 fun buildIR(astNode: AstNode): Root = IR(astNode).buildRoot()
 
@@ -92,7 +93,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                 }
             }
         }
-        val returnClass = GlobalClass(astNode.name, memberList, nameMap)
+        val returnClass = GlobalClass(ClassType(astNode.name, memberList), nameMap)
         classes[astNode.name] = returnClass
         return returnClass
     }
@@ -258,7 +259,8 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         if (classType !is MxClassType) {
             throw InternalException("The object is not a class type")
         }
-        val index = classes[classType.name]?.nameMap?.get(expr.variableName)
+        val srcType = classes[classType.name] ?: throw InternalException("The class is not found")
+        val index = srcType.nameMap?.get(expr.variableName)
             ?: throw InternalException("The class has no such member")
         when (expr.objectName) {
             is ast.Object -> {
@@ -272,7 +274,8 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                             true -> LocalVariable(binding.irInfo.toString(), PrimitiveType(TypeProperty.ptr))
                             false -> GlobalVariable(binding.irInfo.toString(), PrimitiveType(TypeProperty.ptr))
                         },
-                        index = index
+                        srcType = srcType.classType,
+                        index = index,
                     )
                 )
                 return TempVariable(dest.toString(), type)
@@ -282,9 +285,10 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                 unnamedVariableCount++
                 block.add(
                     GetElementPtrStatement(
-                        dest  = LocalVariable(dest.toString(), type),
-                        src   = LocalVariable("__this", PrimitiveType(TypeProperty.ptr)),
-                        index = index
+                        dest    = LocalVariable(dest.toString(), type),
+                        src     = LocalVariable("__this", PrimitiveType(TypeProperty.ptr)),
+                        srcType = srcType.classType,
+                        index   = index,
                     )
                 )
                 return TempVariable(dest.toString(), type)
@@ -298,9 +302,10 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                 unnamedVariableCount++
                 block.add(
                     GetElementPtrStatement(
-                        dest  = LocalVariable(dest.toString(), type),
-                        src   = LocalVariable(source.name, PrimitiveType(TypeProperty.ptr)),
-                        index = index
+                        dest    = LocalVariable(dest.toString(), type),
+                        src     = LocalVariable(source.name, PrimitiveType(TypeProperty.ptr)),
+                        srcType = srcType.classType,
+                        index   = index,
                     )
                 )
                 return TempVariable(dest.toString(), type)
