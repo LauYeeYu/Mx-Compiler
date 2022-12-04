@@ -378,6 +378,33 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         return TempVariable(dest.toString(), type)
     }
 
+    private fun addExpression(
+        expr  : PrefixUpdateExpression,
+        blocks: MutableList<Block>,
+    ): ExpressionResult {
+        if (expr.resultType == null || expr.operand.resultType == null) {
+            throw EnvironmentException("The AST node in addExpression has no result type")
+        }
+        val type = irType(expr.resultType!!.type)
+        val operand = addExpression(expr.operand, blocks).toArgument() as? Variable
+            ?: throw InternalException("The operand is not a variable")
+        val rhs = when (expr.operator) {
+            UpdateOperator.INCREMENT -> I32Literal(1)
+            UpdateOperator.DECREMENT -> I32Literal(-1)
+        }
+        val dest = unnamedVariableCount
+        unnamedVariableCount++
+        blocks.last().statements.add(
+            BinaryOperationStatement(
+                dest = LocalVariable(dest.toString(), type),
+                op = BinaryOperator.ADD,
+                lhs = operand,
+                rhs = rhs,
+            )
+        )
+        return TempVariable(dest.toString(), type)
+    }
+
     private fun addStatement(
         statement   : ast.Statement,
         blockList   : MutableList<Block>,
