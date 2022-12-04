@@ -45,20 +45,20 @@ class GlobalClass(
 }
 
 sealed interface GlobalDecl
-sealed interface Argument {
-    abstract val name: String
-    abstract val type: Type
-}
-
-abstract class Variable(
+abstract class Argument (
     val name: String,
     val type: Type,
 )
 
+abstract class Variable(
+    name: String,
+    type: Type,
+) : Argument(name, type)
+
 class GlobalVariable(
     name: String,
     type: Type,
-) : Variable(name, type), GlobalDecl, Argument {
+) : Variable(name, type), GlobalDecl {
     override fun toString(): String = when (type) {
         is PrimitiveType -> when (type.type) {
             TypeProperty.void -> "void"
@@ -71,7 +71,7 @@ class GlobalVariable(
 class LocalVariable(
     name: String,
     type: Type,
-) : Variable(name, type), Argument {
+) : Variable(name, type) {
     override fun toString(): String = when (type) {
         is PrimitiveType -> when (type.type) {
             TypeProperty.void -> "void"
@@ -81,7 +81,10 @@ class LocalVariable(
     }
 }
 
-abstract class IntLiteral(val value: Int) : Argument
+abstract class IntLiteral(
+    val value: Int,
+    type: Type
+) : Argument(value.toString(), type)
 
 fun getLiteralNode(type: Type, value: Int): IntLiteral {
     return when (type) {
@@ -94,15 +97,15 @@ fun getLiteralNode(type: Type, value: Int): IntLiteral {
     }
 }
 
-class I8Literal(value: Int) : IntLiteral(value), Argument {
-    override val type: Type = PrimitiveType(TypeProperty.i8)
-    override val name: String = value.toString()
+class I8Literal(
+    value: Int
+) : IntLiteral(value, PrimitiveType(TypeProperty.i8)) {
     override fun toString(): String = "i8 $value"
 }
 
-class I32Literal(value: Int) : IntLiteral(value), Argument {
-    override val type: Type = PrimitiveType(TypeProperty.i32)
-    override val name: String = value.toString()
+class I32Literal(
+    value: Int
+) : IntLiteral(value, PrimitiveType(TypeProperty.i8)) {
     override fun toString(): String = "i32 $value"
 }
 
