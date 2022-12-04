@@ -19,7 +19,6 @@ package ir
 import ast.*
 import exceptions.*
 import typecheck.*
-import java.lang.Class
 
 fun buildIR(astNode: AstNode): Root = IR(astNode).buildRoot()
 
@@ -275,7 +274,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                             false -> GlobalVariable(binding.irInfo.toString(), PrimitiveType(TypeProperty.ptr))
                         },
                         srcType = srcType.classType,
-                        index = index,
+                        indexes = listOf<Argument>(I32Literal(0), I32Literal(index)),
                     )
                 )
                 return TempVariable(dest.toString(), type)
@@ -288,7 +287,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                         dest    = LocalVariable(dest.toString(), type),
                         src     = LocalVariable("__this", PrimitiveType(TypeProperty.ptr)),
                         srcType = srcType.classType,
-                        index   = index,
+                        indexes = listOf<Argument>(I32Literal(0), I32Literal(index)),
                     )
                 )
                 return TempVariable(dest.toString(), type)
@@ -305,7 +304,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                         dest    = LocalVariable(dest.toString(), type),
                         src     = LocalVariable(source.name, PrimitiveType(TypeProperty.ptr)),
                         srcType = srcType.classType,
-                        index   = index,
+                        indexes = listOf<Argument>(I32Literal(0), I32Literal(index)),
                     )
                 )
                 return TempVariable(dest.toString(), type)
@@ -407,6 +406,59 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                 )
             )
             return TempVariable(dest.toString(), type)
+        }
+    }
+
+    private fun addExpression(
+        expr : ArrayExpression,
+        block: MutableList<Statement>,
+    ): ExpressionResult {
+        if (expr.resultType == null || expr.array.resultType == null || expr.index.resultType == null) {
+            throw EnvironmentException("The AST node in addExpression has no result type")
+        }
+        val type = irType(expr.resultType!!.type)
+        val srcType = irType(expr.array.resultType!!.type)
+        val array = when (expr.array) {
+            is ast.Object -> {
+                val binding = expr.array.binding ?: throw EnvironmentException("The object has no binding")
+                when (binding.irInfo.isLocal) {
+                    true -> LocalVariable(binding.irInfo.toString(), PrimitiveType(TypeProperty.ptr))
+                    false -> GlobalVariable(binding.irInfo.toString(), PrimitiveType(TypeProperty.ptr))
+                }
+            }
+            else -> when (val expressionResult = addExpression(expr.array, block)) {
+                is TempVariable -> LocalVariable(expressionResult.name, PrimitiveType(TypeProperty.ptr),)
+                else -> throw InternalException("The array is not a temporary variable")
+            }
+        }
+        when (val index = addExpression(expr.index, block)) {
+            is TempVariable -> {
+                val dest = unnamedVariableCount
+                unnamedVariableCount++
+                block.add(
+                    GetElementPtrStatement(
+                        dest = LocalVariable(dest.toString(), type),
+                        src = array,
+                        srcType = srcType,
+                        indexes = listOf<Argument>(I32Literal(0), LocalVariable(index.name, PrimitiveType(TypeProperty.i32))),
+                    )
+                )
+                return TempVariable(dest.toString(), type)
+            }
+            is ConstExpression -> {
+                val dest = unnamedVariableCount
+                unnamedVariableCount++
+                block.add(
+                    GetElementPtrStatement(
+                        dest = LocalVariable(dest.toString(), type),
+                        src = array,
+                        srcType = srcType,
+                        indexes = listOf<Argument>(I32Literal(0), I32Literal(index.value)),
+                    )
+                )
+                return TempVariable(dest.toString(), type)
+            }
+            else -> throw InternalException("The index is not a temporary variable or a constant")
         }
     }
 
