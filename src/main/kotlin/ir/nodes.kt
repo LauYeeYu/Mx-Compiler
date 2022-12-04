@@ -286,13 +286,19 @@ class GetElementPtrStatement(
     val dest   : LocalVariable,
     val src    : Variable,
     val srcType: Type,
-    val index  : Int,
+    val indexes: List<Argument>,
 ) : Statement() {
-    override fun toString(): String = when (src) {
-        // Note that the offset is i32 (Maybe changed in future)
-        is GlobalVariable -> "${dest.name} = getelementptr ${srcType}, ptr @${src.name}, i32 $index"
-        is LocalVariable  -> "${dest.name} = getelementptr ${srcType}, ptr %${src.name}, i32 $index"
-        else              -> throw InternalError("IR: Unknown variable type")
+    override fun toString(): String {
+        var returnString = when (src) {
+            // Note that the offset is i32 (Maybe changed in future)
+            is GlobalVariable -> "${dest.name} = getelementptr ${srcType}, ptr @${src.name}"
+            is LocalVariable  -> "${dest.name} = getelementptr ${srcType}, ptr %${src.name}"
+            else              -> throw InternalError("IR: Unknown variable type")
+        }
+        for (index in indexes) {
+            returnString += ", ptr $index"
+        }
+        return returnString
     }
 }
 
