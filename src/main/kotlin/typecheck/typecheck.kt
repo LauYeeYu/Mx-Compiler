@@ -18,8 +18,6 @@ package typecheck
 
 import ast.*
 import exceptions.*
-import java.util.Objects
-import kotlin.math.exp
 
 enum class Status {
     LVALUE,
