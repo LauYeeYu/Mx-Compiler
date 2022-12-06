@@ -59,7 +59,7 @@ fun checkType(expression: Object,
             expression.binding = environmentRecord.findVariableAlike(expression.name)
             expression.resultType = TypeProperty(
                 environmentRecord.findVariableAlike(expression.name)!!.type,
-                Status.RVALUE,
+                Status.LVALUE,
             )
             return expression.resultType!!
         }
@@ -191,7 +191,13 @@ fun checkType(expression: FunctionCall,
             throw TypeMismatchException("Argument type mismatch", expression.ctx)
         }
     }
-    expression.resultType = TypeProperty(functionBinding.type.returnType, Status.RVALUE)
+    expression.resultType = TypeProperty(
+        functionBinding.type.returnType,
+        when (functionBinding.type.returnType) {
+            is MxPrimitiveType -> Status.RVALUE
+            else -> Status.LVALUE
+        }
+    )
     return expression.resultType!!
 }
 
@@ -211,7 +217,10 @@ fun checkType(expression: LambdaCall,
     }
     expression.resultType = TypeProperty(
         (lambdaProperty.type.environment as FunctionEnvironmentRecord).returnType,
-        Status.RVALUE,
+        when ((lambdaProperty.type.environment as FunctionEnvironmentRecord).returnType) {
+            is MxPrimitiveType -> Status.RVALUE
+            else -> Status.LVALUE
+        }
     )
     return expression.resultType!!
 }
