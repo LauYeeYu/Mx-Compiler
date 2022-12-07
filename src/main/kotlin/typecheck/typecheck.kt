@@ -191,13 +191,7 @@ fun checkType(expression: FunctionCall,
             throw TypeMismatchException("Argument type mismatch", expression.ctx)
         }
     }
-    expression.resultType = TypeProperty(
-        functionBinding.type.returnType,
-        when (functionBinding.type.returnType) {
-            is MxPrimitiveType -> Status.RVALUE
-            else -> Status.LVALUE
-        }
-    )
+    expression.resultType = TypeProperty(functionBinding.type.returnType, Status.RVALUE)
     return expression.resultType!!
 }
 
