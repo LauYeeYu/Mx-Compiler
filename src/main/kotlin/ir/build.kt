@@ -194,11 +194,11 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         is NullLiteral             -> ConstExpression(0)
         is ThisLiteral             ->
             ExistedVariable(LocalVariable("__this", PrimitiveType(TypeProperty.ptr)))
-        is MemberVariableAccess    -> addExpression(expr, blocks)
+        is MemberVariableAccess    -> addExpression(expr, blocks, expectedState)
         is MemberFunctionAccess    -> addExpression(expr, blocks)
         is ArrayExpression         -> addExpression(expr, blocks, expectedState)
         is PrefixUpdateExpression  -> addExpression(expr, blocks, expectedState)
-        is FunctionCall            -> addExpression(expr, blocks, expectedState)
+        is FunctionCall            -> addExpression(expr, blocks)
         is LambdaCall              ->
             throw NotSupported("Lambda call is not supported in IRBuilder")
         is LambdaExpression        ->
@@ -246,8 +246,9 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         }
 
     private fun addExpression(
-        expr  : MemberVariableAccess,
-        blocks: MutableList<Block>,
+        expr         : MemberVariableAccess,
+        blocks       : MutableList<Block>,
+        expectedState: ExpectedState,
     ): ExpressionResult {
         if (expr.resultType == null || expr.objectName.resultType == null) {
             throw EnvironmentException("The AST node in addExpression has no result type")
@@ -262,17 +263,31 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             ?: throw InternalException("The class has no such member")
         val source = addExpression(expr.objectName, blocks, ExpectedState.VALUE).toArgument() as? Variable
             ?: throw InternalException("The source is not a variable")
-        val dest = unnamedVariableCount
+        val ptrDestName = unnamedVariableCount
+        val ptrDest = LocalVariable(ptrDestName.toString(), PrimitiveType(TypeProperty.ptr))
         unnamedVariableCount++
         blocks.last().statements.add(
             GetElementPtrStatement(
-                dest = LocalVariable(dest.toString(), type),
-                src = source,
+                dest    = ptrDest,
+                src     = source,
                 srcType = srcType.classType,
                 indexes = listOf<Argument>(I32Literal(0), I32Literal(index)),
             )
         )
-        return TempVariable(dest.toString(), type)
+        return when (expectedState) {
+            ExpectedState.PTR -> TempVariable(ptrDestName.toString(), type)
+            ExpectedState.VALUE -> {
+                val valDest = unnamedVariableCount
+                unnamedVariableCount++
+                blocks.last().statements.add(
+                    LoadStatement(
+                        dest = ptrDest,
+                        src  = LocalVariable(ptrDestName.toString(), type),
+                    )
+                )
+                TempVariable(valDest.toString(), type)
+            }
+        }
     }
 
     private fun addExpression(
@@ -322,7 +337,6 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     private fun addExpression(
         expr         : FunctionCall,
         blocks       : MutableList<Block>,
-        expectedState: ExpectedState
     ): ExpressionResult {
         if (expr.resultType == null) {
             throw EnvironmentException("The AST node in addExpression has no result type")
@@ -361,7 +375,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     private fun addExpression(
         expr         : ArrayExpression,
         blocks       : MutableList<Block>,
-        expectedState: ExpectedState
+        expectedState: ExpectedState,
     ): ExpressionResult {
         if (expr.resultType == null || expr.array.resultType == null || expr.index.resultType == null) {
             throw EnvironmentException("The AST node in addExpression has no result type")
@@ -377,26 +391,24 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         // add the ptr to the target
         blocks.last().statements.add(
             GetElementPtrStatement(
-                dest = ptrDest,
-                src = array,
+                dest    = ptrDest,
+                src     = array,
                 srcType = type,
                 indexes = listOf(index),
             )
         )
-        when (expectedState) {
-            ExpectedState.PTR -> {
-                return TempVariable(ptrDestName.toString(), PrimitiveType(TypeProperty.ptr))
-            }
+        return when (expectedState) {
+            ExpectedState.PTR -> TempVariable(ptrDestName.toString(), PrimitiveType(TypeProperty.ptr))
             ExpectedState.VALUE -> {
                 val valueDest = unnamedVariableCount
                 unnamedVariableCount++
                 blocks.last().statements.add(
                     LoadStatement(
                         dest = LocalVariable(valueDest.toString(), type),
-                        src = ptrDest,
+                        src  = ptrDest,
                     )
                 )
-                return TempVariable(valueDest.toString(), type)
+                TempVariable(valueDest.toString(), type)
             }
         }
     }
