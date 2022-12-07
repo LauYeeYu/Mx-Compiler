@@ -367,22 +367,38 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             throw EnvironmentException("The AST node in addExpression has no result type")
         }
         val type = irType(expr.resultType!!.type)
-        val srcType = irType(expr.array.resultType!!.type)
         val array = addExpression(expr.array, blocks, ExpectedState.VALUE).toArgument() as? Variable
             ?: throw InternalException("The array is not a variable")
         val index = addExpression(expr.index, blocks, ExpectedState.VALUE).toArgument() as? Variable
             ?: throw InternalException("The index is not a variable")
-        val dest = unnamedVariableCount
+        val ptrDestName = unnamedVariableCount
+        val ptrDest = LocalVariable(ptrDestName.toString(), PrimitiveType(TypeProperty.ptr))
         unnamedVariableCount++
+        // add the ptr to the target
         blocks.last().statements.add(
             GetElementPtrStatement(
-                dest = LocalVariable(dest.toString(), type),
+                dest = ptrDest,
                 src = array,
-                srcType = srcType,
-                indexes = listOf(I32Literal(0), index),
+                srcType = type,
+                indexes = listOf(index),
             )
         )
-        return TempVariable(dest.toString(), type)
+        when (expectedState) {
+            ExpectedState.PTR -> {
+                return TempVariable(ptrDestName.toString(), PrimitiveType(TypeProperty.ptr))
+            }
+            ExpectedState.VALUE -> {
+                val valueDest = unnamedVariableCount
+                unnamedVariableCount++
+                blocks.last().statements.add(
+                    LoadStatement(
+                        dest = LocalVariable(valueDest.toString(), type),
+                        src = ptrDest,
+                    )
+                )
+                return TempVariable(valueDest.toString(), type)
+            }
+        }
     }
 
     private fun addExpression(
