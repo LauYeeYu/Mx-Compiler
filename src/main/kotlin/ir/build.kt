@@ -416,7 +416,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     private fun addExpression(
         expr         : PrefixUpdateExpression,
         blocks       : MutableList<Block>,
-        expectedState: ExpectedState
+        expectedState: ExpectedState,
     ): ExpressionResult {
         if (expr.resultType == null || expr.operand.resultType == null) {
             throw EnvironmentException("The AST node in addExpression has no result type")
@@ -428,18 +428,28 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             UpdateOperator.INCREMENT -> I32Literal(1)
             UpdateOperator.DECREMENT -> I32Literal(-1)
         }
-        // TODO: ptr
-        val dest = unnamedVariableCount
+        val loadDestName = unnamedVariableCount
+        val loadDest = LocalVariable(loadDestName.toString(), type)
+        unnamedVariableCount++
+        val addDestName = unnamedVariableCount
+        val addDest = LocalVariable(addDestName.toString(), type)
+        unnamedVariableCount++
+        blocks.last().statements.add(LoadStatement(dest = loadDest, src = operand))
+        blocks.last().statements.add(
+            BinaryOperationStatement(dest = addDest, op = BinaryOperator.ADD, lhs = loadDest, rhs = rhs)
+        )
+        val storeDest = unnamedVariableCount
         unnamedVariableCount++
         blocks.last().statements.add(
-            BinaryOperationStatement(
-                dest = LocalVariable(dest.toString(), type),
-                op = BinaryOperator.ADD,
-                lhs = operand,
-                rhs = rhs,
+            StoreStatement(
+                dest = LocalVariable(storeDest.toString(), type),
+                src = addDest,
             )
         )
-        return TempVariable(dest.toString(), type)
+        return when (expectedState) {
+            ExpectedState.PTR -> ExistedVariable(operand)
+            ExpectedState.VALUE -> TempVariable(addDest.toString(), type)
+        }
     }
 
     private fun addExpression(
@@ -456,18 +466,25 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             UpdateOperator.INCREMENT -> I32Literal(1)
             UpdateOperator.DECREMENT -> I32Literal(-1)
         }
-        // TODO: ptr
-        val dest = unnamedVariableCount
+        val loadDestName = unnamedVariableCount
+        val loadDest = LocalVariable(loadDestName.toString(), type)
+        unnamedVariableCount++
+        val addDestName = unnamedVariableCount
+        val addDest = LocalVariable(addDestName.toString(), type)
+        unnamedVariableCount++
+        blocks.last().statements.add(LoadStatement(dest = loadDest, src = operand))
+        blocks.last().statements.add(
+            BinaryOperationStatement(dest = addDest, op = BinaryOperator.ADD, lhs = loadDest, rhs = rhs)
+        )
+        val storeDest = unnamedVariableCount
         unnamedVariableCount++
         blocks.last().statements.add(
-            BinaryOperationStatement(
-                dest = LocalVariable(dest.toString(), type),
-                op = BinaryOperator.ADD,
-                lhs = operand,
-                rhs = rhs,
+            StoreStatement(
+                dest = LocalVariable(storeDest.toString(), type),
+                src = addDest,
             )
         )
-        return TempVariable(dest.toString(), type)
+        return TempVariable(loadDestName.toString(), type)
     }
 
     fun addExpression(
