@@ -20,7 +20,7 @@ import ast.*
 import exceptions.*
 import typecheck.*
 
-fun buildIR(astNode: AstNode): Root = IR(astNode).buildRoot()
+fun buildIr(astNode: AstNode): Root = IR(astNode).buildRoot()
 
 class IR(private val root: AstNode, private val parent: IR? = null) {
     private var unnamedVariableCount = 0
@@ -487,28 +487,28 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         return TempVariable(loadDestName.toString(), type)
     }
 
-    fun addExpression(
+    private fun addExpression(
         expr  : NewExpression,
         blocks: MutableList<Block>,
     ): ExpressionResult {
         return TODO()
     }
 
-    fun addExpression(
+    private fun addExpression(
         expr  : UnaryExpression,
         blocks: MutableList<Block>,
     ): ExpressionResult {
         return TODO()
     }
 
-    fun addExpression(
+    private fun addExpression(
         expr  : BinaryExpression,
         blocks: MutableList<Block>,
     ): ExpressionResult {
         return TODO()
     }
 
-    fun addExpression(
+    private fun addExpression(
         expr  : AssignExpression,
         blocks: MutableList<Block>,
     ): ExpressionResult {
