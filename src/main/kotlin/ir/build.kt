@@ -533,8 +533,16 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     private fun addExpression(
         expr  : BinaryExpression,
         blocks: MutableList<Block>,
-    ): ExpressionResult {
-        return TODO()
+    ): ExpressionResult = when (expr.left.resultType?.type) {
+        is MxStringType -> addBinaryStringExpression(expr.left, expr.right, expr.operator, blocks)
+        is MxIntType -> when (expr.operator) {
+            ast.BinaryOperator.LOGICAL_AND, ast.BinaryOperator.LOGICAL_OR -> {
+                addBinaryLogicExpression(expr.left, expr.right, expr.operator, blocks)
+            }
+            else -> addBinaryArithmeticExpression(expr.left, expr.right, expr.operator, blocks)
+        }
+        null -> throw EnvironmentException("The AST node in addExpression has no result type")
+        else -> throw InternalException("The AST node in addExpression has an unsupported type")
     }
 
     private fun addExpression(
@@ -550,6 +558,33 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         val src = addExpression(expr.right, blocks, ExpectedState.VALUE)
         blocks.last().statements.add(StoreStatement(destPtr, src.toArgument()))
         return src
+    }
+
+    private fun addBinaryLogicExpression(
+        lhs     : Expression,
+        rhs     : Expression,
+        operator: ast.BinaryOperator,
+        blocks  : MutableList<Block>,
+    ): ExpressionResult {
+        return TODO()
+    }
+
+    private fun addBinaryArithmeticExpression(
+        lhs     : Expression,
+        rhs     : Expression,
+        operator: ast.BinaryOperator,
+        blocks  : MutableList<Block>,
+    ): ExpressionResult {
+        return TODO()
+    }
+
+    private fun addBinaryStringExpression(
+        lhs     : Expression,
+        rhs     : Expression,
+        operator: ast.BinaryOperator,
+        blocks  : MutableList<Block>,
+    ): ExpressionResult {
+        return TODO()
     }
 
     private fun addStatement(
