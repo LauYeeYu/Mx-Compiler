@@ -141,39 +141,25 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         blocks  : MutableList<Block>, // variable initializing statement will not have a branch
     ) {
         if (variable.body == null) return
-        val returnValue = addExpression(variable.body, blocks, ExpectedState.VALUE)
-        if (returnValue is VoidResult) {
-            throw IRBuilderException("A variable is assigned with a void expression")
-        }
+        val returnValue = addExpression(variable.body, blocks, ExpectedState.VALUE).toArgument()
         val binding = variable.binding ?: throw EnvironmentException("The variable has no binding")
         val dest = when (binding.irInfo.isLocal) {
             true -> LocalVariable(variable.name, type)
             false -> GlobalVariable(variable.name, type)
         }
-        blocks.last().statements.add(
-            StoreStatement(
-                dest = dest,
-                src = when (returnValue) {
-                    is TempVariable -> LocalVariable(returnValue.toString(), type)
-                    is ConstExpression -> getLiteralNode(type, returnValue.value)
-                    else -> throw IRBuilderException("Unknown return value in variableDeclInit")
-                },
-            )
-        )
+        blocks.last().statements.add(StoreStatement(dest = dest, src = returnValue))
     }
 
     abstract class ExpressionResult {
         fun toArgument(): Argument = when (this) {
-            is TempVariable -> LocalVariable(this.name, this.type)
             is ConstExpression -> getLiteralNode(PrimitiveType(TypeProperty.i32), this.value)
-            is ExistedVariable -> this.variable
+            is IrVariable -> this.variable
             else -> throw IRBuilderException("VoidResult cannot be converted to Argument")
         }
     }
     class VoidResult : ExpressionResult()
     class ConstExpression(val value: Int) : ExpressionResult()
-    class TempVariable(val name: String, val type: Type) : ExpressionResult()
-    class ExistedVariable(val variable: Variable) : ExpressionResult()
+    class IrVariable(val variable: Variable) : ExpressionResult()
 
     enum class ExpectedState { PTR, VALUE }
 
@@ -187,13 +173,13 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         blocks       : MutableList<Block>,
         expectedState: ExpectedState,
     ): ExpressionResult = when (expr) {
-        is ast.Object              -> addExpression(expr, blocks)
+        is ast.Object              -> addExpression(expr, blocks, expectedState)
         is StringLiteral           -> addExpression(expr, blocks)
         is IntegerLiteral          -> addExpression(expr)
         is BooleanLiteral          -> addExpression(expr)
         is NullLiteral             -> ConstExpression(0)
         is ThisLiteral             ->
-            ExistedVariable(LocalVariable("__this", PrimitiveType(TypeProperty.ptr)))
+            IrVariable(LocalVariable("__this", PrimitiveType(TypeProperty.ptr)))
         is MemberVariableAccess    -> addExpression(expr, blocks, expectedState)
         is MemberFunctionAccess    -> addExpression(expr, blocks)
         is ArrayExpression         -> addExpression(expr, blocks, expectedState)
@@ -211,30 +197,42 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         else -> throw IRBuilderException("Unknown expression in addExpression")
     }
 
-    private fun addExpression(expr  : ast.Object,
-                              blocks: MutableList<Block>): ExpressionResult {
+    private fun addExpression(expr         : ast.Object,
+                              blocks       : MutableList<Block>,
+                              expectedState: ExpectedState): ExpressionResult {
         if (expr.binding == null) {
             throw EnvironmentException("The AST node in addExpression has no binding")
         }
         val type = irType(expr.binding!!.type)
-        return when (expr.binding!!.irInfo.isLocal) {
-            true -> ExistedVariable(LocalVariable(expr.binding!!.irInfo.toString(), type))
-            false -> ExistedVariable(GlobalVariable(expr.binding!!.irInfo.toString(), type))
+        val srcVariable = when (expr.binding!!.irInfo.isLocal) {
+            true -> LocalVariable(expr.binding!!.irInfo.toString(), PrimitiveType(TypeProperty.ptr))
+            false -> GlobalVariable(expr.binding!!.irInfo.toString(), PrimitiveType(TypeProperty.ptr))
+        }
+        return when (expectedState) {
+            ExpectedState.PTR -> IrVariable(srcVariable)
+            ExpectedState.VALUE -> {
+                val destName = unnamedVariableCount
+                unnamedVariableCount++
+                val dest = LocalVariable(destName.toString(), type)
+                blocks.last().statements.add(LoadStatement(dest = dest, src = srcVariable))
+                return IrVariable(dest)
+            }
         }
     }
 
     private fun addExpression(expr  : StringLiteral,
                               blocks: MutableList<Block>): ExpressionResult {
         addStringLiteral("__string_$unnamedStringLiteralCount", expr)
-        val dest = unnamedVariableCount
+        val destName = unnamedVariableCount
         unnamedVariableCount++
+        val dest = LocalVariable(destName.toString(), PrimitiveType(TypeProperty.ptr))
         blocks.last().statements.add(
             LoadStatement(
-                dest = LocalVariable(dest.toString(), PrimitiveType(TypeProperty.ptr)),
+                dest = dest,
                 src  = GlobalVariable("__string_$unnamedStringLiteralCount", PrimitiveType(TypeProperty.ptr)),
             )
         )
-        return TempVariable(dest.toString(), PrimitiveType(TypeProperty.ptr))
+        return IrVariable(dest)
     }
 
     private fun addExpression(expr: IntegerLiteral): ExpressionResult = ConstExpression(expr.value)
@@ -275,17 +273,13 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             )
         )
         return when (expectedState) {
-            ExpectedState.PTR -> TempVariable(ptrDestName.toString(), type)
+            ExpectedState.PTR -> IrVariable(ptrDest)
             ExpectedState.VALUE -> {
-                val valDest = unnamedVariableCount
+                val valDestName = unnamedVariableCount
                 unnamedVariableCount++
-                blocks.last().statements.add(
-                    LoadStatement(
-                        dest = ptrDest,
-                        src  = LocalVariable(ptrDestName.toString(), type),
-                    )
-                )
-                TempVariable(valDest.toString(), type)
+                val valDest = LocalVariable(valDestName.toString(), type)
+                blocks.last().statements.add(LoadStatement(dest = valDest, src = ptrDest))
+                IrVariable(valDest)
             }
         }
     }
@@ -320,17 +314,11 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             )
             return VoidResult()
         } else {
-            val dest = unnamedVariableCount
+            val destName = unnamedVariableCount
             unnamedVariableCount++
-            blocks.last().statements.add(
-                CallStatement(
-                    dest       = LocalVariable(dest.toString(), type),
-                    returnType = type,
-                    function   = function,
-                    arguments  = arguments,
-                )
-            )
-            return TempVariable(dest.toString(), type)
+            val dest = LocalVariable(destName.toString(), type)
+            blocks.last().statements.add(CallStatement(dest, type, function, arguments))
+            return IrVariable(dest)
         }
     }
 
@@ -358,17 +346,11 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             )
             return VoidResult()
         } else {
-            val dest = unnamedVariableCount
+            val destName = unnamedVariableCount
             unnamedVariableCount++
-            blocks.last().statements.add(
-                CallStatement(
-                    dest = LocalVariable(dest.toString(), type),
-                    returnType = type,
-                    function = function,
-                    arguments = arguments,
-                )
-            )
-            return TempVariable(dest.toString(), type)
+            val dest = LocalVariable(destName.toString(), type)
+            blocks.last().statements.add(CallStatement(dest, type, function, arguments))
+            return IrVariable(dest)
         }
     }
 
@@ -398,17 +380,15 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             )
         )
         return when (expectedState) {
-            ExpectedState.PTR -> TempVariable(ptrDestName.toString(), PrimitiveType(TypeProperty.ptr))
+            ExpectedState.PTR -> IrVariable(ptrDest)
             ExpectedState.VALUE -> {
-                val valueDest = unnamedVariableCount
+                val valueDestName = unnamedVariableCount
                 unnamedVariableCount++
+                val valueDest = LocalVariable(valueDestName.toString(), type)
                 blocks.last().statements.add(
-                    LoadStatement(
-                        dest = LocalVariable(valueDest.toString(), type),
-                        src  = ptrDest,
-                    )
+                    LoadStatement(dest = valueDest, src = ptrDest)
                 )
-                TempVariable(valueDest.toString(), type)
+                IrVariable(valueDest)
             }
         }
     }
@@ -428,15 +408,21 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             UpdateOperator.INCREMENT -> I32Literal(1)
             UpdateOperator.DECREMENT -> I32Literal(-1)
         }
-        val loadDestName = unnamedVariableCount
-        val loadDest = LocalVariable(loadDestName.toString(), type)
-        unnamedVariableCount++
+        val addSrc = when (expectedState) {
+            ExpectedState.VALUE -> {
+                val loadDestName = unnamedVariableCount
+                val loadDest = LocalVariable(loadDestName.toString(), type)
+                unnamedVariableCount++
+                blocks.last().statements.add(LoadStatement(dest = loadDest, src = operand))
+                loadDest
+            }
+            ExpectedState.PTR -> operand
+        }
         val addDestName = unnamedVariableCount
         val addDest = LocalVariable(addDestName.toString(), type)
         unnamedVariableCount++
-        blocks.last().statements.add(LoadStatement(dest = loadDest, src = operand))
         blocks.last().statements.add(
-            BinaryOperationStatement(dest = addDest, op = BinaryOperator.ADD, lhs = loadDest, rhs = rhs)
+            BinaryOperationStatement(dest = addDest, op = BinaryOperator.ADD, lhs = addSrc, rhs = rhs)
         )
         val storeDest = unnamedVariableCount
         unnamedVariableCount++
@@ -446,10 +432,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                 src = addDest,
             )
         )
-        return when (expectedState) {
-            ExpectedState.PTR -> ExistedVariable(operand)
-            ExpectedState.VALUE -> TempVariable(addDest.toString(), type)
-        }
+        return IrVariable(addDest)
     }
 
     private fun addExpression(
@@ -466,15 +449,11 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             UpdateOperator.INCREMENT -> I32Literal(1)
             UpdateOperator.DECREMENT -> I32Literal(-1)
         }
-        val loadDestName = unnamedVariableCount
-        val loadDest = LocalVariable(loadDestName.toString(), type)
-        unnamedVariableCount++
         val addDestName = unnamedVariableCount
         val addDest = LocalVariable(addDestName.toString(), type)
         unnamedVariableCount++
-        blocks.last().statements.add(LoadStatement(dest = loadDest, src = operand))
         blocks.last().statements.add(
-            BinaryOperationStatement(dest = addDest, op = BinaryOperator.ADD, lhs = loadDest, rhs = rhs)
+            BinaryOperationStatement(dest = addDest, op = BinaryOperator.ADD, lhs = operand, rhs = rhs)
         )
         val storeDest = unnamedVariableCount
         unnamedVariableCount++
@@ -484,7 +463,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                 src = addDest,
             )
         )
-        return TempVariable(loadDestName.toString(), type)
+        return IrVariable(operand)
     }
 
     private fun addExpression(
