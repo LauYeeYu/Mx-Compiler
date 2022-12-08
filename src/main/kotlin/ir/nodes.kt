@@ -61,7 +61,7 @@ class GlobalVariable(
 ) : Variable(name, type), GlobalDecl {
     override fun toString(): String = when (type) {
         is PrimitiveType -> when (type.type) {
-            TypeProperty.void -> "void"
+            TypeProperty.VOID -> "void"
             else              -> "$type @$name"
         }
         else                  -> "$type @$name"
@@ -74,7 +74,7 @@ class LocalVariable(
 ) : Variable(name, type) {
     override fun toString(): String = when (type) {
         is PrimitiveType -> when (type.type) {
-            TypeProperty.void -> "void"
+            TypeProperty.VOID -> "void"
             else -> "$type %$name"
         }
         else -> "$type %$name"
@@ -89,23 +89,30 @@ abstract class IntLiteral(
 fun getLiteralNode(type: Type, value: Int): IntLiteral {
     return when (type) {
         is PrimitiveType -> when (type.type) {
-            TypeProperty.i8  -> I8Literal(value)
-            TypeProperty.i32 -> I32Literal(value)
+            TypeProperty.I1  -> I1Literal(value)
+            TypeProperty.I8  -> I8Literal(value)
+            TypeProperty.I32 -> I32Literal(value)
             else -> throw InternalException("Unsupported type for literal: $type")
         }
         else -> throw InternalException("Unsupported type for literal: $type")
     }
 }
 
+class I1Literal(
+    value: Int
+) : IntLiteral(value, PrimitiveType(TypeProperty.I1)) {
+    override fun toString(): String = if (value == 0) "i1 0" else "i1 1"
+}
+
 class I8Literal(
     value: Int
-) : IntLiteral(value, PrimitiveType(TypeProperty.i8)) {
+) : IntLiteral(value, PrimitiveType(TypeProperty.I8)) {
     override fun toString(): String = "i8 $value"
 }
 
 class I32Literal(
     value: Int
-) : IntLiteral(value, PrimitiveType(TypeProperty.i8)) {
+) : IntLiteral(value, PrimitiveType(TypeProperty.I32)) {
     override fun toString(): String = "i32 $value"
 }
 
@@ -141,24 +148,27 @@ class GlobalFunction(
 }
 
 enum class TypeProperty {
-    i32,
-    i8,
-    ptr,
-    void;
+    I32,
+    I8,
+    I1,
+    PTR,
+    VOID;
 
     override fun toString() = when (this) {
-        i32  -> "i32"
-        i8   -> "i8"
-        ptr  -> "ptr"
-        void -> "void"
+        I32  -> "i32"
+        I8   -> "i8"
+        I1   -> "i1"
+        PTR  -> "ptr"
+        VOID -> "void"
     }
 
-    val size: Int
+    val size: Int // the amount of memory needed to store this type
         get() = when (this) {
-            i32  -> 4
-            i8   -> 1
-            ptr  -> ptrSize
-            void -> 0
+            I32  -> 4
+            I8   -> 1
+            I1   -> 1
+            PTR  -> ptrSize
+            VOID -> 0
         }
 }
 
@@ -217,7 +227,7 @@ class CallStatement(
 ) : Statement() {
     override fun toString(): String = when (returnType) {
         is PrimitiveType -> when (returnType.type) {
-            TypeProperty.void -> "call void @${function.name}(${arguments.joinToString(", ")})"
+            TypeProperty.VOID -> "call void @${function.name}(${arguments.joinToString(", ")})"
             else -> "%${dest?.name} = call ${returnType.type} @${function.name}(${arguments.joinToString(", ")})"
         }
         else -> "%${dest?.name} = call $returnType @${function.name}(${arguments.joinToString(", ")})"

@@ -72,7 +72,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         }
         return GlobalFunction(
             "__global_init",
-            PrimitiveType(TypeProperty.void),
+            PrimitiveType(TypeProperty.VOID),
             listOf(),
             globalInit,
         )
@@ -98,23 +98,23 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     }
 
     private fun irType(astType: ast.Type): Type = when (astType) {
-        is ast.VoidType   -> PrimitiveType(TypeProperty.void)
-        is ast.BoolType   -> PrimitiveType(TypeProperty.i8)
-        is ast.IntType    -> PrimitiveType(TypeProperty.i32)
-        is ast.StringType -> PrimitiveType(TypeProperty.ptr)
-        is ast.ArrayType  -> PrimitiveType(TypeProperty.ptr)
-        is ast.ClassType  -> PrimitiveType(TypeProperty.ptr)
+        is ast.VoidType   -> PrimitiveType(TypeProperty.VOID)
+        is ast.BoolType   -> PrimitiveType(TypeProperty.I1)
+        is ast.IntType    -> PrimitiveType(TypeProperty.I32)
+        is ast.StringType -> PrimitiveType(TypeProperty.PTR)
+        is ast.ArrayType  -> PrimitiveType(TypeProperty.PTR)
+        is ast.ClassType  -> PrimitiveType(TypeProperty.PTR)
         else -> throw IRBuilderException("Unknown type in irType")
     }
 
     private fun irType(internalType: MxType): Type = when (internalType) {
-        is MxVoidType   -> PrimitiveType(TypeProperty.void)
-        is MxBoolType   -> PrimitiveType(TypeProperty.i8)
-        is MxIntType    -> PrimitiveType(TypeProperty.i32)
-        is MxStringType -> PrimitiveType(TypeProperty.ptr)
-        is MxNullType   -> PrimitiveType(TypeProperty.ptr)
-        is MxArrayType  -> PrimitiveType(TypeProperty.ptr)
-        is MxClassType  -> PrimitiveType(TypeProperty.ptr)
+        is MxVoidType   -> PrimitiveType(TypeProperty.VOID)
+        is MxBoolType   -> PrimitiveType(TypeProperty.I1)
+        is MxIntType    -> PrimitiveType(TypeProperty.I32)
+        is MxStringType -> PrimitiveType(TypeProperty.PTR)
+        is MxNullType   -> PrimitiveType(TypeProperty.PTR)
+        is MxArrayType  -> PrimitiveType(TypeProperty.PTR)
+        is MxClassType  -> PrimitiveType(TypeProperty.PTR)
         else -> throw IRBuilderException("Unknown type in irType")
     }
 
@@ -152,7 +152,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
 
     abstract class ExpressionResult {
         fun toArgument(): Argument = when (this) {
-            is ConstExpression -> getLiteralNode(PrimitiveType(TypeProperty.i32), this.value)
+            is ConstExpression -> getLiteralNode(PrimitiveType(TypeProperty.I32), this.value)
             is IrVariable -> this.variable
             else -> throw IRBuilderException("VoidResult cannot be converted to Argument")
         }
@@ -179,7 +179,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         is BooleanLiteral          -> addExpression(expr)
         is NullLiteral             -> ConstExpression(0)
         is ThisLiteral             ->
-            IrVariable(LocalVariable("__this", PrimitiveType(TypeProperty.ptr)))
+            IrVariable(LocalVariable("__this", PrimitiveType(TypeProperty.PTR)))
         is MemberVariableAccess    -> addExpression(expr, blocks, expectedState)
         is MemberFunctionAccess    -> addExpression(expr, blocks)
         is ArrayExpression         -> addExpression(expr, blocks, expectedState)
@@ -205,8 +205,8 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         }
         val type = irType(expr.binding!!.type)
         val srcVariable = when (expr.binding!!.irInfo.isLocal) {
-            true -> LocalVariable(expr.binding!!.irInfo.toString(), PrimitiveType(TypeProperty.ptr))
-            false -> GlobalVariable(expr.binding!!.irInfo.toString(), PrimitiveType(TypeProperty.ptr))
+            true -> LocalVariable(expr.binding!!.irInfo.toString(), PrimitiveType(TypeProperty.PTR))
+            false -> GlobalVariable(expr.binding!!.irInfo.toString(), PrimitiveType(TypeProperty.PTR))
         }
         return when (expectedState) {
             ExpectedState.PTR -> IrVariable(srcVariable)
@@ -225,11 +225,11 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         addStringLiteral("__string_$unnamedStringLiteralCount", expr)
         val destName = unnamedVariableCount
         unnamedVariableCount++
-        val dest = LocalVariable(destName.toString(), PrimitiveType(TypeProperty.ptr))
+        val dest = LocalVariable(destName.toString(), PrimitiveType(TypeProperty.PTR))
         blocks.last().statements.add(
             LoadStatement(
                 dest = dest,
-                src  = GlobalVariable("__string_$unnamedStringLiteralCount", PrimitiveType(TypeProperty.ptr)),
+                src  = GlobalVariable("__string_$unnamedStringLiteralCount", PrimitiveType(TypeProperty.PTR)),
             )
         )
         return IrVariable(dest)
@@ -262,7 +262,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         val source = addExpression(expr.objectName, blocks, ExpectedState.VALUE).toArgument() as? Variable
             ?: throw InternalException("The source is not a variable")
         val ptrDestName = unnamedVariableCount
-        val ptrDest = LocalVariable(ptrDestName.toString(), PrimitiveType(TypeProperty.ptr))
+        val ptrDest = LocalVariable(ptrDestName.toString(), PrimitiveType(TypeProperty.PTR))
         unnamedVariableCount++
         blocks.last().statements.add(
             GetElementPtrStatement(
@@ -367,7 +367,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             ?: throw InternalException("The array is not a variable")
         val index = addExpression(expr.index, blocks, ExpectedState.VALUE).toArgument()
         val ptrDestName = unnamedVariableCount
-        val ptrDest = LocalVariable(ptrDestName.toString(), PrimitiveType(TypeProperty.ptr))
+        val ptrDest = LocalVariable(ptrDestName.toString(), PrimitiveType(TypeProperty.PTR))
         unnamedVariableCount++
         // add the ptr to the target
         blocks.last().statements.add(
