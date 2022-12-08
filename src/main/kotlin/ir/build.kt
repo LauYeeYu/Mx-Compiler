@@ -476,7 +476,58 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         expr  : UnaryExpression,
         blocks: MutableList<Block>,
     ): ExpressionResult {
-        return TODO()
+        if (expr.resultType == null || expr.operand.resultType == null) {
+            throw EnvironmentException("The AST node in addExpression has no result type")
+        }
+        val type = irType(expr.resultType!!.type)
+        val operand = addExpression(expr.operand, blocks, ExpectedState.VALUE).toArgument()
+        if (operand is IntLiteral) {
+            return when (expr.operator) {
+                UnaryOperator.NEGATIVE -> ConstExpression(-operand.value)
+                UnaryOperator.POSITIVE -> ConstExpression(operand.value)
+                UnaryOperator.BITWISE_NOT -> ConstExpression(operand.value.inv())
+                UnaryOperator.LOGICAL_NOT -> ConstExpression(if (operand.value == 0) 1 else 0)
+            }
+        }
+        if (expr.operator == UnaryOperator.POSITIVE) return IrVariable(operand as Variable)
+
+        val destName = unnamedVariableCount
+        val dest = LocalVariable(destName.toString(), type)
+        unnamedVariableCount++
+        when (expr.operator) {
+            UnaryOperator.NEGATIVE -> {
+                blocks.last().statements.add(
+                    BinaryOperationStatement(
+                        dest = dest,
+                        op = BinaryOperator.SUB,
+                        lhs = I32Literal(0),
+                        rhs = operand,
+                    )
+                )
+            }
+            UnaryOperator.BITWISE_NOT -> {
+                blocks.last().statements.add(
+                    BinaryOperationStatement(
+                        dest = dest,
+                        op = BinaryOperator.XOR,
+                        lhs = operand,
+                        rhs = I32Literal(-1),
+                    )
+                )
+            }
+            UnaryOperator.LOGICAL_NOT -> {
+                blocks.last().statements.add(
+                    BinaryOperationStatement(
+                        dest = dest,
+                        op = BinaryOperator.XOR,
+                        lhs = operand,
+                        rhs = I1Literal(0),
+                    )
+                )
+            }
+            else -> throw InternalException("Unexpected unary operator")
+        }
+        return IrVariable(dest)
     }
 
     private fun addExpression(
