@@ -321,8 +321,8 @@ class StringLiteralDecl(
 ) : GlobalDecl {
     override fun toString(): String {
         return "@$name = private unnamed_addr constant " +
-                "[${content.length + 1} x i8] " +
-                "c\"${escapeStringLiteralToIr(content)}\\00\", " +
+                "{ i32 ${content.length}, [${content.length + 1} x i8] " +
+                "c\"${escapeStringLiteralToIr(content)}\\00\" }, " +
                 "align $alignValue"
     }
 }
