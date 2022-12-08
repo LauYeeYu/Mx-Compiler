@@ -541,7 +541,15 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         expr  : AssignExpression,
         blocks: MutableList<Block>,
     ): ExpressionResult {
-        return TODO()
+        if (expr.resultType == null || expr.left.resultType == null || expr.right.resultType == null) {
+            throw EnvironmentException("The AST node in addExpression has no result type")
+        }
+        val destType = irType(expr.resultType!!.type)
+        val destPtr = addExpression(expr.left, blocks, ExpectedState.PTR).toArgument() as? Variable
+            ?: throw InternalException("The left side of the assignment is not a variable")
+        val src = addExpression(expr.right, blocks, ExpectedState.VALUE)
+        blocks.last().statements.add(StoreStatement(destPtr, src.toArgument()))
+        return src
     }
 
     private fun addStatement(
