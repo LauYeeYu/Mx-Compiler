@@ -266,7 +266,7 @@ class StoreStatement(
 class BinaryOperationStatement(
     val dest: LocalVariable,
     val op  : BinaryOperator,
-    val lhs : Variable,
+    val lhs : Argument,
     val rhs : Argument,
 ) : Statement() {
     override fun toString(): String {
