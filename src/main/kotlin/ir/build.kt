@@ -152,13 +152,13 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
 
     abstract class ExpressionResult {
         fun toArgument(): Argument = when (this) {
-            is ConstExpression -> getLiteralNode(PrimitiveType(TypeProperty.I32), this.value)
+            is ConstExpression -> getLiteralNode(this.value, this.type)
             is IrVariable -> this.variable
             else -> throw IRBuilderException("VoidResult cannot be converted to Argument")
         }
     }
     class VoidResult : ExpressionResult()
-    class ConstExpression(val value: Int) : ExpressionResult()
+    class ConstExpression(val value: Int, val type: Type) : ExpressionResult()
     class IrVariable(val variable: Variable) : ExpressionResult()
 
     enum class ExpectedState { PTR, VALUE }
@@ -177,7 +177,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         is StringLiteral           -> addExpression(expr, blocks)
         is IntegerLiteral          -> addExpression(expr)
         is BooleanLiteral          -> addExpression(expr)
-        is NullLiteral             -> ConstExpression(0)
+        is NullLiteral             -> ConstExpression(0, PrimitiveType(TypeProperty.PTR))
         is ThisLiteral             ->
             IrVariable(LocalVariable("__this", PrimitiveType(TypeProperty.PTR)))
         is MemberVariableAccess    -> addExpression(expr, blocks, expectedState)
@@ -235,12 +235,13 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         return IrVariable(dest)
     }
 
-    private fun addExpression(expr: IntegerLiteral): ExpressionResult = ConstExpression(expr.value)
+    private fun addExpression(expr: IntegerLiteral): ExpressionResult =
+        ConstExpression(expr.value, PrimitiveType(TypeProperty.I32))
 
     private fun addExpression(expr: BooleanLiteral): ExpressionResult =
         when (expr.value) {
-            true -> ConstExpression(1)
-            false -> ConstExpression(0)
+            true -> ConstExpression(1, PrimitiveType(TypeProperty.I1))
+            false -> ConstExpression(0, PrimitiveType(TypeProperty.I1))
         }
 
     private fun addExpression(
@@ -483,10 +484,14 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         val operand = addExpression(expr.operand, blocks, ExpectedState.VALUE).toArgument()
         if (operand is IntLiteral) {
             return when (expr.operator) {
-                UnaryOperator.NEGATIVE -> ConstExpression(-operand.value)
-                UnaryOperator.POSITIVE -> ConstExpression(operand.value)
-                UnaryOperator.BITWISE_NOT -> ConstExpression(operand.value.inv())
-                UnaryOperator.LOGICAL_NOT -> ConstExpression(if (operand.value == 0) 1 else 0)
+                UnaryOperator.NEGATIVE ->
+                    ConstExpression(-operand.value, PrimitiveType(TypeProperty.I32))
+                UnaryOperator.POSITIVE ->
+                    ConstExpression(operand.value, PrimitiveType(TypeProperty.I32))
+                UnaryOperator.BITWISE_NOT ->
+                    ConstExpression(operand.value.inv(), PrimitiveType(TypeProperty.I32))
+                UnaryOperator.LOGICAL_NOT ->
+                    ConstExpression(if (operand.value == 0) 1 else 0, PrimitiveType(TypeProperty.I1))
             }
         }
         if (expr.operator == UnaryOperator.POSITIVE) return IrVariable(operand as Variable)
@@ -539,10 +544,20 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             ast.BinaryOperator.LOGICAL_AND, ast.BinaryOperator.LOGICAL_OR -> {
                 addBinaryLogicExpression(expr.left, expr.right, expr.operator, blocks)
             }
-            else -> addBinaryArithmeticExpression(expr.left, expr.right, expr.operator, blocks)
+            else -> {
+                val srcType = expr.resultType?.type
+                    ?: throw EnvironmentException("The AST node in addExpression has no result type")
+                val type = irType(srcType)
+                addBinaryArithmeticExpression(expr.left, expr.right, expr.operator, type, blocks)
+            }
         }
         null -> throw EnvironmentException("The AST node in addExpression has no result type")
-        else -> throw InternalException("The AST node in addExpression has an unsupported type")
+        else -> {
+            val srcType = expr.resultType?.type
+                ?: throw EnvironmentException("The AST node in addExpression has no result type")
+            val type = irType(srcType)
+            addBinaryArithmeticExpression(expr.left, expr.right, expr.operator, type, blocks)
+        } // should be ptr only
     }
 
     private fun addExpression(
@@ -552,7 +567,6 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         if (expr.resultType == null || expr.left.resultType == null || expr.right.resultType == null) {
             throw EnvironmentException("The AST node in addExpression has no result type")
         }
-        val destType = irType(expr.resultType!!.type)
         val destPtr = addExpression(expr.left, blocks, ExpectedState.PTR).toArgument() as? Variable
             ?: throw InternalException("The left side of the assignment is not a variable")
         val src = addExpression(expr.right, blocks, ExpectedState.VALUE)
@@ -573,6 +587,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         lhs     : Expression,
         rhs     : Expression,
         operator: ast.BinaryOperator,
+        type    : Type,
         blocks  : MutableList<Block>,
     ): ExpressionResult {
         return TODO()

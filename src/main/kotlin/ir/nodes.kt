@@ -86,12 +86,13 @@ abstract class IntLiteral(
     type: Type
 ) : Argument(value.toString(), type)
 
-fun getLiteralNode(type: Type, value: Int): IntLiteral {
+fun getLiteralNode(value: Int, type: Type): IntLiteral {
     return when (type) {
         is PrimitiveType -> when (type.type) {
             TypeProperty.I1  -> I1Literal(value)
             TypeProperty.I8  -> I8Literal(value)
             TypeProperty.I32 -> I32Literal(value)
+            TypeProperty.PTR -> PtrLiteral(value)
             else -> throw InternalException("Unsupported type for literal: $type")
         }
         else -> throw InternalException("Unsupported type for literal: $type")
@@ -114,6 +115,13 @@ class I32Literal(
     value: Int
 ) : IntLiteral(value, PrimitiveType(TypeProperty.I32)) {
     override fun toString(): String = "i32 $value"
+}
+
+// Actually used only for null
+class PtrLiteral(
+    value: Int
+) : IntLiteral(value, PrimitiveType(TypeProperty.PTR)) {
+    override fun toString(): String = "ptr $value"
 }
 
 class GlobalVariableDecl(
