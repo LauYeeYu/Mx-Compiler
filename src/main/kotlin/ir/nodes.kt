@@ -147,58 +147,6 @@ class GlobalFunction(
     }
 }
 
-enum class TypeProperty {
-    I32,
-    I8,
-    I1,
-    PTR,
-    VOID;
-
-    override fun toString() = when (this) {
-        I32  -> "i32"
-        I8   -> "i8"
-        I1   -> "i1"
-        PTR  -> "ptr"
-        VOID -> "void"
-    }
-
-    val size: Int // the amount of memory needed to store this type
-        get() = when (this) {
-            I32  -> 4
-            I8   -> 1
-            I1   -> 1
-            PTR  -> ptrSize
-            VOID -> 0
-        }
-}
-
-abstract class Type
-
-class PrimitiveType(
-    val type: TypeProperty,
-) : Type() {
-    override fun toString() = type.toString()
-}
-
-class ClassType(
-    val name: String,
-    val memberList: List<Type>,
-) : Type() {
-    override fun toString() = "%class.$name"
-    fun structure() = "{ ${memberList.joinToString(" ")} }"
-
-    fun declare(): String {
-        return "%class.$name = type ${structure()}"
-    }
-}
-
-class ArrayType(
-    val elementType: PrimitiveType,
-    val size: Int,
-) : Type() {
-    override fun toString() = "[$size x $elementType]"
-}
-
 class FunctionParameter(
     val type: Type,
     val name: String,
