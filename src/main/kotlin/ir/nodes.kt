@@ -138,12 +138,12 @@ class GlobalFunction(
     val name: String, // without @
     val returnType: Type,
     val parameters: List<FunctionParameter>,
-    val body: MutableList<Block>,
+    val body: MutableList<Block>? = null,
 ) {
-    override fun toString(): String {
-        return "define $returnType @$name(${parameters.joinToString(", ")}) {\n" +
-                body.joinToString("\n") + "\n" +
-                "}"
+    override fun toString(): String = when (body) {
+        null -> "declare $returnType @$name(${parameters.joinToString(", ")})"
+        else -> "define $returnType @$name(${parameters.joinToString(", ")}) {\n" +
+                body.joinToString("\n") + "\n}"
     }
 }
 
