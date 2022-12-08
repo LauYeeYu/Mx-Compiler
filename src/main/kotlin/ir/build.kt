@@ -584,7 +584,73 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         operator: ast.BinaryOperator,
         blocks  : MutableList<Block>,
     ): ExpressionResult {
-        return TODO()
+        if (lhs.resultType == null || rhs.resultType == null) {
+            throw EnvironmentException("The AST node in addExpression has no result type")
+        }
+        val destType = when (operator) {
+            ast.BinaryOperator.ADD -> PrimitiveType(TypeProperty.PTR)
+            ast.BinaryOperator.LESS_THAN, ast.BinaryOperator.LESS_THAN_OR_EQUAL,
+            ast.BinaryOperator.GREATER_THAN, ast.BinaryOperator.GREATER_THAN_OR_EQUAL,
+            ast.BinaryOperator.EQUAL, ast.BinaryOperator.NOT_EQUAL -> PrimitiveType(TypeProperty.I1)
+            else -> throw InternalException("The AST node in addExpression has an unsupported type")
+        }
+        val dest = LocalVariable(unnamedVariableCount.toString(), destType)
+        unnamedVariableCount++
+        val lhsArg = addExpression(lhs, blocks, ExpectedState.VALUE).toArgument()
+        val rhsArg = addExpression(rhs, blocks, ExpectedState.VALUE).toArgument()
+        when (operator) {
+            ast.BinaryOperator.ADD -> CallStatement(
+                dest = dest,
+                returnType = PrimitiveType(TypeProperty.PTR),
+                function = builtInFunctionMap["string.add"]
+                    ?: throw InternalException("The built-in function string.add is not found"),
+                arguments = listOf(lhsArg, rhsArg),
+            )
+            ast.BinaryOperator.LESS_THAN -> CallStatement(
+                dest = dest,
+                returnType = PrimitiveType(TypeProperty.I1),
+                function = builtInFunctionMap["string.less"]
+                    ?: throw InternalException("The built-in function string.lessThan is not found"),
+                arguments = listOf(lhsArg, rhsArg),
+            )
+            ast.BinaryOperator.LESS_THAN_OR_EQUAL -> CallStatement(
+                dest = dest,
+                returnType = PrimitiveType(TypeProperty.I1),
+                function = builtInFunctionMap["string.lessOrEqual"]
+                    ?: throw InternalException("The built-in function string.lessThanOrEqual is not found"),
+                arguments = listOf(lhsArg, rhsArg),
+            )
+            ast.BinaryOperator.GREATER_THAN -> CallStatement(
+                dest = dest,
+                returnType = PrimitiveType(TypeProperty.I1),
+                function = builtInFunctionMap["string.greater"]
+                    ?: throw InternalException("The built-in function string.greaterThan is not found"),
+                arguments = listOf(lhsArg, rhsArg),
+            )
+            ast.BinaryOperator.GREATER_THAN_OR_EQUAL -> CallStatement(
+                dest = dest,
+                returnType = PrimitiveType(TypeProperty.I1),
+                function = builtInFunctionMap["string.greaterOrEqual"]
+                    ?: throw InternalException("The built-in function string.greaterThanOrEqual is not found"),
+                arguments = listOf(lhsArg, rhsArg),
+            )
+            ast.BinaryOperator.EQUAL -> CallStatement(
+                dest = dest,
+                returnType = PrimitiveType(TypeProperty.I1),
+                function = builtInFunctionMap["string.equal"]
+                    ?: throw InternalException("The built-in function string.equal is not found"),
+                arguments = listOf(lhsArg, rhsArg),
+            )
+            ast.BinaryOperator.NOT_EQUAL -> CallStatement(
+                dest = dest,
+                returnType = PrimitiveType(TypeProperty.I1),
+                function = builtInFunctionMap["string.notEqual"]
+                    ?: throw InternalException("The built-in function string.notEqual is not found"),
+                arguments = listOf(lhsArg, rhsArg),
+            )
+            else -> throw InternalException("The AST node in addExpression has an unsupported type")
+        }
+        return IrVariable(dest)
     }
 
     private fun addStatement(
