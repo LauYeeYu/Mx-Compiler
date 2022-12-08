@@ -27,7 +27,7 @@ fun unEscapeString(str: String, ctx: SourceContext): String {
     var i = 0
     while (i < str.length) {
         if (str[i] == '\\') {
-            when (str[i]) {
+            when (str[i + 1]) {
                 'n' -> sb.append('\n')
                 '\\' -> sb.append('\\')
                 '"' -> sb.append('"')
