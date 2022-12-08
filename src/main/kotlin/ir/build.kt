@@ -365,8 +365,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         val type = irType(expr.resultType!!.type)
         val array = addExpression(expr.array, blocks, ExpectedState.VALUE).toArgument() as? Variable
             ?: throw InternalException("The array is not a variable")
-        val index = addExpression(expr.index, blocks, ExpectedState.VALUE).toArgument() as? Variable
-            ?: throw InternalException("The index is not a variable")
+        val index = addExpression(expr.index, blocks, ExpectedState.VALUE).toArgument()
         val ptrDestName = unnamedVariableCount
         val ptrDest = LocalVariable(ptrDestName.toString(), PrimitiveType(TypeProperty.ptr))
         unnamedVariableCount++
