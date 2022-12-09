@@ -16,46 +16,54 @@
 
 package ir
 
-val builtInFunction = listOf<GlobalFunction>(
+val builtInFunction = listOf(
     GlobalFunction(
         name = "print",
         returnType = PrimitiveType(TypeProperty.VOID),
         parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.PTR), "__str")),
+        const = true,
     ),
     GlobalFunction(
         name = "println",
         returnType = PrimitiveType(TypeProperty.VOID),
         parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.PTR), "__str")),
+        const = true,
     ),
     GlobalFunction(
         name = "printInt",
         returnType = PrimitiveType(TypeProperty.VOID),
         parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.I32), "__n")),
+        const = true,
     ),
     GlobalFunction(
         name = "printlnInt",
         returnType = PrimitiveType(TypeProperty.VOID),
         parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.I32), "__n")),
+        const = true,
     ),
     GlobalFunction(
         name = "getString",
         returnType = PrimitiveType(TypeProperty.PTR),
         parameters = listOf(),
+        const = false,
     ),
     GlobalFunction(
         name = "getInt",
         returnType = PrimitiveType(TypeProperty.I32),
         parameters = listOf(),
+        const = false,
     ),
     GlobalFunction(
         name = "toString",
         returnType = PrimitiveType(TypeProperty.PTR),
         parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.I32), "__i")),
+        const = true,
     ),
     GlobalFunction(
         name = "string.length",
         returnType = PrimitiveType(TypeProperty.I32),
         parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.PTR), "__this")),
+        const = true,
     ),
     GlobalFunction(
         name = "string.substring",
@@ -65,11 +73,13 @@ val builtInFunction = listOf<GlobalFunction>(
             FunctionParameter(PrimitiveType(TypeProperty.I32), "left"),
             FunctionParameter(PrimitiveType(TypeProperty.I32), "right"),
         ),
+        const = true,
     ),
     GlobalFunction(
         name = "string.parseInt",
         returnType = PrimitiveType(TypeProperty.I32),
         parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.PTR), "__this")),
+        const = true,
     ),
     GlobalFunction(
         name = "string.ord",
@@ -78,6 +88,7 @@ val builtInFunction = listOf<GlobalFunction>(
             FunctionParameter(PrimitiveType(TypeProperty.PTR), "__this"),
             FunctionParameter(PrimitiveType(TypeProperty.I32), "pos"),
         ),
+        const = true,
     ),
     GlobalFunction(
         name = "string.add",
@@ -86,6 +97,7 @@ val builtInFunction = listOf<GlobalFunction>(
             FunctionParameter(PrimitiveType(TypeProperty.PTR), "str1"),
             FunctionParameter(PrimitiveType(TypeProperty.PTR), "str2"),
         ),
+        const = false,
     ),
     GlobalFunction(
         name = "string.equal",
@@ -94,6 +106,7 @@ val builtInFunction = listOf<GlobalFunction>(
             FunctionParameter(PrimitiveType(TypeProperty.PTR), "str1"),
             FunctionParameter(PrimitiveType(TypeProperty.PTR), "str2"),
         ),
+        const = true,
     ),
     GlobalFunction(
         name = "string.notEqual",
@@ -102,6 +115,7 @@ val builtInFunction = listOf<GlobalFunction>(
             FunctionParameter(PrimitiveType(TypeProperty.PTR), "str1"),
             FunctionParameter(PrimitiveType(TypeProperty.PTR), "str2"),
         ),
+        const = true,
     ),
     GlobalFunction(
         name = "string.less",
@@ -110,6 +124,7 @@ val builtInFunction = listOf<GlobalFunction>(
             FunctionParameter(PrimitiveType(TypeProperty.PTR), "str1"),
             FunctionParameter(PrimitiveType(TypeProperty.PTR), "str2"),
         ),
+        const = true,
     ),
     GlobalFunction(
         name = "string.lessOrEqual",
@@ -118,6 +133,7 @@ val builtInFunction = listOf<GlobalFunction>(
             FunctionParameter(PrimitiveType(TypeProperty.PTR), "str1"),
             FunctionParameter(PrimitiveType(TypeProperty.PTR), "str2"),
         ),
+        const = true,
     ),
     GlobalFunction(
         name = "string.greater",
@@ -126,6 +142,7 @@ val builtInFunction = listOf<GlobalFunction>(
             FunctionParameter(PrimitiveType(TypeProperty.PTR), "str1"),
             FunctionParameter(PrimitiveType(TypeProperty.PTR), "str2"),
         ),
+        const = true,
     ),
     GlobalFunction(
         name = "string.greaterOrEqual",
@@ -134,11 +151,13 @@ val builtInFunction = listOf<GlobalFunction>(
             FunctionParameter(PrimitiveType(TypeProperty.PTR), "str1"),
             FunctionParameter(PrimitiveType(TypeProperty.PTR), "str2"),
         ),
+        const = true,
     ),
     GlobalFunction(
         name = "array.size",
         returnType = PrimitiveType(TypeProperty.I32),
         parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.PTR), "__this")),
+        const = true,
     ),
 )
 

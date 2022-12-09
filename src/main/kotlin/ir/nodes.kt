@@ -147,6 +147,9 @@ class GlobalFunction(
     val returnType: Type,
     val parameters: List<FunctionParameter>,
     val body: MutableList<Block>? = null,
+    val const: Boolean = false,
+    // `const` indicates that this function won't change any variable,
+    // and always return the same value when given the same arguments.
 ) {
     override fun toString(): String = when (body) {
         null -> "declare $returnType @$name(${parameters.joinToString(", ")})"
