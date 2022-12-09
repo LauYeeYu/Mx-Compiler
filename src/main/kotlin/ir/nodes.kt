@@ -243,7 +243,7 @@ class BinaryOperationStatement(
 class IntCmpStatement(
     val dest: LocalVariable,
     val op  : IntCmpOperator,
-    val lhs : Variable,
+    val lhs : Argument,
     val rhs : Argument,
 ) : Statement() {
     override fun toString(): String {
