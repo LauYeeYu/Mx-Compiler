@@ -28,3 +28,13 @@ fun escapeStringLiteralToIr(source: String): String {
     }
     return sb.toString()
 }
+
+fun isCompareOperator(op: ast.BinaryOperator): Boolean = when (op) {
+    ast.BinaryOperator.EQUAL,
+    ast.BinaryOperator.NOT_EQUAL,
+    ast.BinaryOperator.LESS_THAN,
+    ast.BinaryOperator.LESS_THAN_OR_EQUAL,
+    ast.BinaryOperator.GREATER_THAN,
+    ast.BinaryOperator.GREATER_THAN_OR_EQUAL -> true
+    else -> false
+}

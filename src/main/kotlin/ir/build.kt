@@ -539,7 +539,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         expr  : BinaryExpression,
         blocks: MutableList<Block>,
     ): ExpressionResult = when (expr.left.resultType?.type) {
-        is MxStringType -> addBinaryStringExpression(expr.left, expr.right, expr.operator, blocks)
+        is MxStringType -> addStringBinaryExpression(expr.left, expr.right, expr.operator, blocks)
         is MxIntType -> when (expr.operator) {
             ast.BinaryOperator.LOGICAL_AND, ast.BinaryOperator.LOGICAL_OR -> {
                 addBinaryLogicExpression(expr.left, expr.right, expr.operator, blocks)
@@ -590,10 +590,59 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         type    : Type,
         blocks  : MutableList<Block>,
     ): ExpressionResult {
-        return TODO()
+        val lhsResult = addExpression(lhs, blocks, ExpectedState.VALUE).toArgument()
+        val rhsResult = addExpression(rhs, blocks, ExpectedState.VALUE).toArgument()
+        when (lhs.resultType?.type) {
+            null -> throw EnvironmentException("The AST node in addExpression has no result type")
+            is MxIntType -> return addIntBinaryExpression(lhsResult, rhsResult, type, operator, blocks)
+            else -> {
+                if (lhsResult is IntLiteral && rhsResult is IntLiteral) {
+                    return when (operator) {
+                        ast.BinaryOperator.EQUAL ->
+                            ConstExpression(
+                                if (lhsResult.value == rhsResult.value) 1 else 0,
+                                PrimitiveType(TypeProperty.I1)
+                            )
+
+                        ast.BinaryOperator.NOT_EQUAL ->
+                            ConstExpression(
+                                if (lhsResult.value != rhsResult.value) 1 else 0,
+                                PrimitiveType(TypeProperty.I1)
+                            )
+
+                        else -> throw InternalException("Unexpected binary operator")
+                    }
+                } else {
+                    return addCompareExpression(lhsResult, rhsResult, operator, blocks)
+                }
+            }
+        }
     }
 
-    private fun addBinaryStringExpression(
+    // Add integer compare expression. Please note that if both argument is
+    // constant, you should not this expression.
+    private fun addCompareExpression(
+        lhs     : Argument,
+        rhs     : Argument,
+        operator: ast.BinaryOperator,
+        blocks  : MutableList<Block>,
+    ): ExpressionResult {
+        val dest = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.I1))
+        unnamedVariableCount++
+        val irOperator = when (operator) {
+            ast.BinaryOperator.LESS_THAN -> IntCmpOperator.SLT
+            ast.BinaryOperator.LESS_THAN_OR_EQUAL -> IntCmpOperator.SLE
+            ast.BinaryOperator.GREATER_THAN -> IntCmpOperator.SGT
+            ast.BinaryOperator.GREATER_THAN_OR_EQUAL -> IntCmpOperator.SGE
+            ast.BinaryOperator.EQUAL -> IntCmpOperator.EQ
+            ast.BinaryOperator.NOT_EQUAL -> IntCmpOperator.NE
+            else -> throw InternalException("Unexpected binary compare operator")
+        }
+        blocks.last().statements.add(IntCmpStatement(dest, irOperator, lhs, rhs))
+        return IrVariable(dest)
+    }
+
+    private fun addStringBinaryExpression(
         lhs     : Expression,
         rhs     : Expression,
         operator: ast.BinaryOperator,
@@ -607,6 +656,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             ast.BinaryOperator.LESS_THAN, ast.BinaryOperator.LESS_THAN_OR_EQUAL,
             ast.BinaryOperator.GREATER_THAN, ast.BinaryOperator.GREATER_THAN_OR_EQUAL,
             ast.BinaryOperator.EQUAL, ast.BinaryOperator.NOT_EQUAL -> PrimitiveType(TypeProperty.I1)
+
             else -> throw InternalException("The AST node in addExpression has an unsupported type")
         }
         val dest = LocalVariable(unnamedVariableCount.toString(), destType)
@@ -621,6 +671,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                     ?: throw InternalException("The built-in function string.add is not found"),
                 arguments = listOf(lhsArg, rhsArg),
             )
+
             ast.BinaryOperator.LESS_THAN -> CallStatement(
                 dest = dest,
                 returnType = PrimitiveType(TypeProperty.I1),
@@ -628,6 +679,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                     ?: throw InternalException("The built-in function string.lessThan is not found"),
                 arguments = listOf(lhsArg, rhsArg),
             )
+
             ast.BinaryOperator.LESS_THAN_OR_EQUAL -> CallStatement(
                 dest = dest,
                 returnType = PrimitiveType(TypeProperty.I1),
@@ -635,6 +687,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                     ?: throw InternalException("The built-in function string.lessThanOrEqual is not found"),
                 arguments = listOf(lhsArg, rhsArg),
             )
+
             ast.BinaryOperator.GREATER_THAN -> CallStatement(
                 dest = dest,
                 returnType = PrimitiveType(TypeProperty.I1),
@@ -642,6 +695,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                     ?: throw InternalException("The built-in function string.greaterThan is not found"),
                 arguments = listOf(lhsArg, rhsArg),
             )
+
             ast.BinaryOperator.GREATER_THAN_OR_EQUAL -> CallStatement(
                 dest = dest,
                 returnType = PrimitiveType(TypeProperty.I1),
@@ -649,6 +703,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                     ?: throw InternalException("The built-in function string.greaterThanOrEqual is not found"),
                 arguments = listOf(lhsArg, rhsArg),
             )
+
             ast.BinaryOperator.EQUAL -> CallStatement(
                 dest = dest,
                 returnType = PrimitiveType(TypeProperty.I1),
@@ -656,6 +711,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                     ?: throw InternalException("The built-in function string.equal is not found"),
                 arguments = listOf(lhsArg, rhsArg),
             )
+
             ast.BinaryOperator.NOT_EQUAL -> CallStatement(
                 dest = dest,
                 returnType = PrimitiveType(TypeProperty.I1),
@@ -663,9 +719,117 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                     ?: throw InternalException("The built-in function string.notEqual is not found"),
                 arguments = listOf(lhsArg, rhsArg),
             )
+
             else -> throw InternalException("The AST node in addExpression has an unsupported type")
         }
         return IrVariable(dest)
+    }
+
+    private fun addIntBinaryExpression(
+        lhsResult: Argument,
+        rhsResult: Argument,
+        type     : Type,
+        operator : ast.BinaryOperator,
+        blocks   : MutableList<Block>,
+    ): ExpressionResult {
+        if (lhsResult is IntLiteral && rhsResult is IntLiteral) {
+            return when (operator) {
+                ast.BinaryOperator.ADD ->
+                    ConstExpression(lhsResult.value + rhsResult.value, type)
+
+                ast.BinaryOperator.SUB ->
+                    ConstExpression(lhsResult.value - rhsResult.value, type)
+
+                ast.BinaryOperator.MUL ->
+                    ConstExpression(lhsResult.value * rhsResult.value, type)
+
+                ast.BinaryOperator.DIV ->
+                    ConstExpression(lhsResult.value / rhsResult.value, type)
+
+                ast.BinaryOperator.MOD ->
+                    ConstExpression(lhsResult.value % rhsResult.value, type)
+
+                ast.BinaryOperator.BITWISE_AND ->
+                    ConstExpression(lhsResult.value and rhsResult.value, type)
+
+                ast.BinaryOperator.BITWISE_OR ->
+                    ConstExpression(lhsResult.value or rhsResult.value, type)
+
+                ast.BinaryOperator.BITWISE_XOR ->
+                    ConstExpression(lhsResult.value xor rhsResult.value, type)
+
+                ast.BinaryOperator.LEFT_SHIFT ->
+                    ConstExpression(lhsResult.value shl rhsResult.value, type)
+
+                ast.BinaryOperator.RIGHT_SHIFT ->
+                    ConstExpression(lhsResult.value shr rhsResult.value, type)
+
+                ast.BinaryOperator.LESS_THAN ->
+                    ConstExpression(
+                        if (lhsResult.value < rhsResult.value) 1 else 0,
+                        PrimitiveType(TypeProperty.I1)
+                    )
+
+                ast.BinaryOperator.LESS_THAN_OR_EQUAL ->
+                    ConstExpression(
+                        if (lhsResult.value <= rhsResult.value) 1 else 0,
+                        PrimitiveType(TypeProperty.I1)
+                    )
+
+                ast.BinaryOperator.GREATER_THAN ->
+                    ConstExpression(
+                        if (lhsResult.value > rhsResult.value) 1 else 0,
+                        PrimitiveType(TypeProperty.I1)
+                    )
+
+                ast.BinaryOperator.GREATER_THAN_OR_EQUAL ->
+                    ConstExpression(
+                        if (lhsResult.value >= rhsResult.value) 1 else 0,
+                        PrimitiveType(TypeProperty.I1)
+                    )
+
+                ast.BinaryOperator.EQUAL ->
+                    ConstExpression(
+                        if (lhsResult.value == rhsResult.value) 1 else 0,
+                        PrimitiveType(TypeProperty.I1)
+                    )
+
+                ast.BinaryOperator.NOT_EQUAL ->
+                    ConstExpression(
+                        if (lhsResult.value != rhsResult.value) 1 else 0,
+                        PrimitiveType(TypeProperty.I1)
+                    )
+
+                else -> throw InternalException("Unexpected binary operator")
+            }
+        } else {
+            if (isCompareOperator(operator)) {
+                return addCompareExpression(lhsResult, rhsResult, operator, blocks)
+            }
+            val dest = LocalVariable(unnamedVariableCount.toString(), type)
+            unnamedVariableCount++
+            blocks.last().statements.add(
+                BinaryOperationStatement(
+                    dest,
+                    when (operator) {
+                        ast.BinaryOperator.ADD -> BinaryOperator.ADD
+                        ast.BinaryOperator.SUB -> BinaryOperator.SUB
+                        ast.BinaryOperator.MUL -> BinaryOperator.MUL
+                        ast.BinaryOperator.DIV -> BinaryOperator.SDIV
+                        ast.BinaryOperator.MOD -> BinaryOperator.SREM
+                        ast.BinaryOperator.BITWISE_AND -> BinaryOperator.AND
+                        ast.BinaryOperator.BITWISE_OR -> BinaryOperator.OR
+                        ast.BinaryOperator.BITWISE_XOR -> BinaryOperator.XOR
+                        ast.BinaryOperator.LEFT_SHIFT -> BinaryOperator.SHL
+                        ast.BinaryOperator.RIGHT_SHIFT -> BinaryOperator.ASHR
+                        else -> throw InternalException("Unexpected binary operator")
+                    },
+                    lhsResult,
+                    rhsResult,
+                )
+            )
+            return IrVariable(dest)
+        }
     }
 
     private fun addStatement(
