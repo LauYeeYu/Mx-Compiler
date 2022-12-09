@@ -20,19 +20,19 @@ val builtInFunction = listOf(
     GlobalFunction(
         name = "print",
         returnType = PrimitiveType(TypeProperty.VOID),
-        parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.PTR), "__str")),
+        parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.PTR), "str")),
         const = true,
     ),
     GlobalFunction(
         name = "println",
         returnType = PrimitiveType(TypeProperty.VOID),
-        parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.PTR), "__str")),
+        parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.PTR), "str")),
         const = true,
     ),
     GlobalFunction(
         name = "printInt",
         returnType = PrimitiveType(TypeProperty.VOID),
-        parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.I32), "__n")),
+        parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.I32), "n")),
         const = true,
     ),
     GlobalFunction(
@@ -56,7 +56,7 @@ val builtInFunction = listOf(
     GlobalFunction(
         name = "toString",
         returnType = PrimitiveType(TypeProperty.PTR),
-        parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.I32), "__i")),
+        parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.I32), "n")),
         const = true,
     ),
     GlobalFunction(
