@@ -32,3 +32,5 @@ of the symbol table.
 ### Convert the AST to IR
 We convert the AST to [LLVM IR](https://llvm.org/docs/LangRef.html), with
 the help of the symbol table.
+
+For more details about IR, see [the document for IR](ir.md).
