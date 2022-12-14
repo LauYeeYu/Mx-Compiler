@@ -274,6 +274,24 @@ class GetElementPtrStatement(
     }
 }
 
+class PhiStatement(
+    val dest: LocalVariable,
+    val incoming: List<Pair<Argument, Int>>,
+) : Statement() {
+    override fun toString(): String {
+        var returnString = "${dest.name} = phi ${dest.type}"
+        var count = 0
+        for ((value, label) in incoming) {
+            returnString += "[$value, %$label]"
+            if (count != incoming.size - 1) {
+                returnString += ", "
+            }
+            count++
+        }
+        return returnString
+    }
+}
+
 class StringLiteralDecl(
     val name: String,
     val content: String,
