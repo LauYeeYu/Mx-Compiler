@@ -25,25 +25,25 @@ The program will undergo the following steps to generate IR:
   usage.
 
 ## Builtin Functions
-### Print
+### print
 The `print` function is declared as below:
 ```llvm
 declare void @print(ptr %str)
 ```
 
-### Println
+### println
 The `println` function is declared as below:
 ```llvm
 declare void @println(ptr %str)
 ```
 
-### PrintInt
+### printInt
 The `printInt` function is declared as below:
 ```llvm
 declare void @printInt(i32 %n)
 ```
 
-### PrintlnInt
+### printlnInt
 The `printlnInt` function is declared as below:
 ```llvm
 declare void @printlnInt(i32 %n)
