@@ -194,10 +194,11 @@ class CallStatement(
 }
 
 class ReturnStatement(
-    val value: Argument,
+    val value: Variable?,
 ) : Statement() {
-    override fun toString(): String {
-        return "ret $value"
+    override fun toString(): String = when (value) {
+        null -> "ret void"
+        else -> "ret ${value.type} ${value.name}"
     }
 }
 
