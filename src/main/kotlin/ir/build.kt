@@ -580,7 +580,90 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         operator: ast.BinaryOperator,
         blocks  : MutableList<Block>,
     ): ExpressionResult {
-        return TODO()
+        val lhsResult = addExpression(lhs, blocks, ExpectedState.VALUE).toArgument()
+        val lhsResultBlockIndex = blocks.lastIndex
+        val lhsResultBlock = blocks.last()
+        when (lhsResult) {
+            is Variable -> {
+                blocks.add(Block(lhsResultBlockIndex + 1, mutableListOf()))
+                when (val rhsResult = addExpression(rhs, blocks, ExpectedState.VALUE).toArgument()) {
+                    is Variable -> {
+                        val rhsResultBlockIndex = blocks.lastIndex
+                        val rhsResultBlock = blocks.last()
+                        lhsResultBlock.statements.add(
+                            when (operator) {
+                                ast.BinaryOperator.LOGICAL_AND -> BranchStatement(
+                                    condition = lhsResult,
+                                    trueBlockLabel = lhsResultBlockIndex + 1,
+                                    falseBlockLabel = rhsResultBlockIndex + 1,
+                                )
+                                ast.BinaryOperator.LOGICAL_OR -> BranchStatement(
+                                    condition = lhsResult,
+                                    trueBlockLabel = rhsResultBlockIndex + 1,
+                                    falseBlockLabel = lhsResultBlockIndex + 1,
+                                )
+                                else -> throw InternalException("Unexpected binary operator")
+                            }
+                        )
+                        rhsResultBlock.statements.add(BranchStatement(
+                            condition = null,
+                            trueBlockLabel = rhsResultBlockIndex + 1,
+                            falseBlockLabel = null)
+                        )
+
+                        val dest = LocalVariable(
+                            unnamedVariableCount.toString(),
+                            PrimitiveType(TypeProperty.I1)
+                        )
+                        unnamedVariableCount++
+                        blocks.add(Block(
+                            label = rhsResultBlockIndex + 1,
+                            statements = mutableListOf(
+                                PhiStatement(
+                                    dest = dest,
+                                    incoming = when (operator) {
+                                        ast.BinaryOperator.LOGICAL_AND -> listOf(
+                                            Pair(I1Literal(0), lhsResultBlockIndex),
+                                            Pair(rhsResult, rhsResultBlockIndex),
+                                        )
+                                        ast.BinaryOperator.LOGICAL_OR -> listOf(
+                                            Pair(I1Literal(1), lhsResultBlockIndex),
+                                            Pair(rhsResult, rhsResultBlockIndex),
+                                        )
+                                        else -> throw InternalException("Unexpected binary operator")
+                                    },
+                                )
+                            )
+                        ))
+                        return IrVariable(dest)
+                    }
+                    is IntLiteral -> {
+                        return if (operator == ast.BinaryOperator.LOGICAL_AND && rhsResult.value == 0) {
+                            blocks.removeAt(blocks.lastIndex)
+                            ConstExpression(0, PrimitiveType(TypeProperty.I1))
+                        } else if (operator == ast.BinaryOperator.LOGICAL_OR && rhsResult.value == 1) {
+                            blocks.removeAt(blocks.lastIndex)
+                            ConstExpression(1, PrimitiveType(TypeProperty.I1))
+                        } else {
+                            blocks.removeAt(blocks.lastIndex)
+                            IrVariable(lhsResult)
+                        }
+                    }
+                    else -> throw InternalException("Unexpected argument type")
+                }
+
+            }
+            is IntLiteral -> {
+                return if (operator == ast.BinaryOperator.LOGICAL_AND && lhsResult.value == 0) {
+                    ConstExpression(0, PrimitiveType(TypeProperty.I1))
+                } else if (operator == ast.BinaryOperator.LOGICAL_OR && lhsResult.value == 1) {
+                    ConstExpression(1, PrimitiveType(TypeProperty.I1))
+                } else {
+                    addExpression(rhs, blocks, ExpectedState.VALUE)
+                }
+            }
+            else -> throw InternalException("Unexpected argument type")
+        }
     }
 
     private fun addBinaryArithmeticExpression(
