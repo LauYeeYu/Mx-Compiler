@@ -258,7 +258,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             throw InternalException("The object is not a class type")
         }
         val srcType = classes[classType.name] ?: throw InternalException("The class is not found")
-        val index = srcType.nameMap?.get(expr.variableName)
+        val index = srcType.nameMap[expr.variableName]
             ?: throw InternalException("The class has no such member")
         val source = addExpression(expr.objectName, blocks, ExpectedState.VALUE).toArgument() as? Variable
             ?: throw InternalException("The source is not a variable")
