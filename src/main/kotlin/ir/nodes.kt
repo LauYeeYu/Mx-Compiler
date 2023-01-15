@@ -293,6 +293,15 @@ class PhiStatement(
     }
 }
 
+class AllocaStatement(
+    val dest: LocalVariable,
+    val type: Type,
+) : Statement() {
+    override fun toString(): String {
+        return "${dest.name} = alloca ${type}, align $alignValue"
+    }
+}
+
 class StringLiteralDecl(
     val name: String,
     val content: String,
