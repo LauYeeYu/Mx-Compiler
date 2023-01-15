@@ -63,9 +63,10 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         val globalInit: MutableList<Block> = mutableListOf()
         for (element in sourceList) {
             if (element is ast.VariablesDeclaration) {
+                val type = irType(element.type)
                 for (variable in element.variables) {
                     if (variable.body != null) {
-                        variableDeclInit(variable, irType(element.type), globalInit)
+                        variableDeclInit(variable, type, globalInit)
                     }
                 }
             }
