@@ -38,39 +38,74 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         }
         val classList = root.content.filterIsInstance<ast.Class>().map { buildClass(it) }
         val globalFunctionList = root.content.filterIsInstance<ast.Function>().map { buildFunction(it) }
-        val initList = buildInitFunctionList(root.content)
-        val variableList = buildGlobalVariableList(root.content)
+        val initList = buildGlobalList(root.content)
         return Root(
             classes         = classList,
-            variables       = variableList,
+            variables       = globalVariableDecl,
             initFunction    = initList,
             globalFunctions = globalFunctionList,
         )
     }
 
-    private fun buildGlobalVariableList(sourceList: List<ast.GlobalElement>): List<GlobalDecl> {
-        for (variables in sourceList) {
-            if (variables is ast.VariablesDeclaration) {
-                for (variable in variables.variables) {
-                    globalVariableDecl.add(buildGlobalVariable(variable, variables.type))
+    private fun buildGlobalList(sourceList: List<ast.GlobalElement>): GlobalFunction {
+        val globalInit: MutableList<Block> = mutableListOf(Block(0, mutableListOf()))
+        sourceList.filterIsInstance<ast.VariablesDeclaration>().forEach { element ->
+            when (element.type) {
+                is ast.BoolType, is ast.IntType -> {
+                    val type = irType(element.type)
+                    element.variables.forEach { variable ->
+                        primitiveVariableDeclInit(variable, type, globalInit)
+                    }
                 }
-            }
-        }
-        return globalVariableDecl
-    }
 
-    private fun buildInitFunctionList(sourceList: List<ast.GlobalElement>): GlobalFunction {
-        val globalInit: MutableList<Block> = mutableListOf()
-        for (element in sourceList) {
-            if (element is ast.VariablesDeclaration) {
-                val type = irType(element.type)
-                for (variable in element.variables) {
-                    if (variable.body != null) {
-                        variableDeclInit(variable, type, globalInit)
+                is ast.StringType -> for (variable in element.variables) {
+                    when (variable.body) {
+                        null ->
+                            globalVariableDecl.add(StringLiteralDecl(variable.name, ""))
+
+                        is StringLiteral ->
+                            globalVariableDecl.add(StringLiteralDecl(variable.name, variable.body.value))
+
+                        else -> {
+                            val result = addExpression(
+                                variable.body,
+                                globalInit,
+                                ExpectedState.VALUE,
+                            ).toArgument()
+                            globalVariableDecl.add(StringLiteralDecl(variable.name, ""))
+                            globalInit.last().statements.add(
+                                StoreStatement(
+                                    GlobalVariable(variable.name, PrimitiveType(TypeProperty.PTR)),
+                                    result,
+                                )
+                            )
+                        }
+                    }
+                }
+
+                is ast.ArrayType, is ast.ClassType -> {
+                    val type = PrimitiveType(TypeProperty.PTR)
+                    element.variables.forEach { variable ->
+                        val variableProperty = GlobalVariable(variable.name, type)
+                        if (variable.body != null) {
+                            val result = addExpression(
+                                variable.body,
+                                globalInit,
+                                ExpectedState.VALUE,
+                            ).toArgument()
+                            globalInit.last().statements.add(
+                                StoreStatement(
+                                    GlobalVariable(variable.name, type),
+                                    result,
+                                )
+                            )
+                        }
+                        globalVariableDecl.add(GlobalVariableDecl(variableProperty, 0))
                     }
                 }
             }
         }
+        globalInit.last().statements.add(ReturnStatement(null))
         return GlobalFunction(
             "__global_init",
             PrimitiveType(TypeProperty.VOID),
@@ -118,17 +153,6 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         is MxClassType  -> PrimitiveType(TypeProperty.PTR)
         else -> throw IRBuilderException("Unknown type in irType")
     }
-
-    private fun buildGlobalVariable(
-        variable: ast.VariableDeclaration,
-        astType: ast.Type
-    ): GlobalVariable {
-        if (variable.environment == null) {
-            throw EnvironmentException("The AST node in buildGlobalVariable has no environment")
-        }
-        return GlobalVariable(variable.name, irType(astType))
-    }
-
     private fun buildFunction(astNode: ast.Function): GlobalFunction {
         if (astNode.environment == null) {
             throw EnvironmentException("The AST node in buildFunction has no environment")
@@ -136,19 +160,42 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         return TODO()
     }
 
-    private fun variableDeclInit(
+    private fun primitiveVariableDeclInit(
         variable: ast.VariableDeclaration,
         type    : Type,
         blocks  : MutableList<Block>, // variable initializing statement will not have a branch
     ) {
-        if (variable.body == null) return
-        val returnValue = addExpression(variable.body, blocks, ExpectedState.VALUE).toArgument()
-        val binding = variable.binding ?: throw EnvironmentException("The variable has no binding")
-        val dest = when (binding.irInfo.isLocal) {
-            true -> LocalVariable(variable.name, type)
-            false -> GlobalVariable(variable.name, type)
+        val returnValue: Argument = when (variable.body) {
+            null -> when (type) {
+                is PrimitiveType -> when (type.type) {
+                    TypeProperty.I1 -> I1Literal(0)
+                    TypeProperty.I32 -> I32Literal(0)
+                    else -> throw IRBuilderException("Unknown type in primitiveVariableDeclInit")
+                }
+
+                else -> throw IRBuilderException("Unknown type in primitiveVariableDeclInit")
+            }
+
+            else -> addExpression(variable.body, blocks, ExpectedState.VALUE).toArgument()
         }
-        blocks.last().statements.add(StoreStatement(dest = dest, src = returnValue))
+        val irVariable = GlobalVariable(variable.name, type)
+        when (returnValue) {
+            is IntLiteral ->
+                globalVariableDecl.add(GlobalVariableDecl(irVariable, returnValue.value))
+
+            is Variable -> {
+                globalVariableDecl.add(GlobalVariableDecl(irVariable, 0))
+                blocks.last().statements.add(
+                    StoreStatement(
+                        dest = irVariable,
+                        src = returnValue,
+                    )
+                )
+            }
+
+            else -> throw IRBuilderException("Unknown type in primitiveVariableDeclInit")
+        }
+
     }
 
     abstract class ExpressionResult {
