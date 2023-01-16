@@ -58,7 +58,7 @@ abstract class Variable(
 class GlobalVariable(
     name: String,
     type: Type,
-) : Variable(name, type), GlobalDecl {
+) : Variable(name, type) {
     override fun toString(): String = when (type) {
         is PrimitiveType -> when (type.type) {
             TypeProperty.VOID -> "void"
@@ -127,7 +127,7 @@ class PtrLiteral(
 class GlobalVariableDecl(
     val property: GlobalVariable,
     val initValue: Int, // Every global variable must have an initial value
-) {
+) : GlobalDecl {
     override fun toString(): String {
         return "@${property.name} = ${property.type} $initValue, align $alignValue"
     }
