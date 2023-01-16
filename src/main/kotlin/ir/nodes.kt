@@ -128,8 +128,12 @@ class GlobalVariableDecl(
     val property: GlobalVariable,
     val initValue: Int, // Every global variable must have an initial value
 ) : GlobalDecl {
-    override fun toString(): String {
-        return "@${property.name} = ${property.type} $initValue, align $alignValue"
+    override fun toString(): String = when (property.type) {
+        is PrimitiveType -> when (property.type.type) {
+            TypeProperty.PTR  -> "@${property.name} = global ${property.type} null, align $alignValue"
+            else              -> "@${property.name} = global ${property.type} $initValue, align $alignValue"
+        }
+        else                  -> "@${property.name} = global ${property.type} $initValue, align $alignValue"
     }
 }
 
