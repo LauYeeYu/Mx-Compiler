@@ -163,6 +163,7 @@ val builtInFunction = listOf(
         name = "malloc",
         returnType = PrimitiveType(TypeProperty.PTR),
         parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.SIZE_T), "n")),
+        const = false,
     ),
 )
 
