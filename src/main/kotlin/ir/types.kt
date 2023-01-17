@@ -16,28 +16,32 @@
 
 package ir
 
+const val ptrSize: Int = 4
 enum class TypeProperty {
     I32,
     I8,
     I1,
     PTR,
-    VOID;
+    VOID,
+    SIZE_T;
 
     override fun toString() = when (this) {
-        I32  -> "i32"
-        I8   -> "i8"
-        I1   -> "i1"
-        PTR  -> "ptr"
-        VOID -> "void"
+        I32    -> "i32"
+        I8     -> "i8"
+        I1     -> "i1"
+        PTR    -> "ptr"
+        VOID   -> "void"
+        SIZE_T -> "i${ptrSize * 8}"
     }
 
     val size: Int // the amount of memory needed to store this type
         get() = when (this) {
-            I32  -> 4
-            I8   -> 1
-            I1   -> 1
-            PTR  -> ptrSize
-            VOID -> 0
+            I32    -> 4
+            I8     -> 1
+            I1     -> 1
+            PTR    -> ptrSize
+            VOID   -> 0
+            SIZE_T -> ptrSize
         }
 }
 

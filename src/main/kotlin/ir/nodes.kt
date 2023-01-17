@@ -19,7 +19,6 @@ package ir
 import exceptions.InternalException
 
 const val alignValue: Int = 0
-const val ptrSize: Int = 4
 
 class Root(
     val classes: List<GlobalClass>,
