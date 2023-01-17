@@ -51,18 +51,19 @@ class PrimitiveType(
     val type: TypeProperty,
 ) : Type() {
     override fun toString() = type.toString()
+
+    val size: Int
+        get() = type.size
 }
 
 class ClassType(
     val name: String,
-    val memberList: List<Type>,
+    val memberList: List<PrimitiveType>,
 ) : Type() {
     override fun toString() = "%class.$name"
-    fun structure() = "{ ${memberList.joinToString(" ")} }"
 
-    fun declare(): String {
-        return "%class.$name = type ${structure()}"
-    }
+    val size: Int
+        get() = memberList.sumOf { it.size }
 }
 
 class ArrayType(

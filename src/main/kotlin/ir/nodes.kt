@@ -39,8 +39,11 @@ class GlobalClass(
     val nameMap: Map<String, Int>,
 ) {
     override fun toString(): String {
-        return "%class.${classType.name} = type { ${classType.memberList.joinToString(" ")} }"
+        return "%class.${classType.name} = type { ${classType.memberList.joinToString(", ")} }"
     }
+
+    val size: Int
+        get() = classType.size
 }
 
 sealed interface GlobalDecl

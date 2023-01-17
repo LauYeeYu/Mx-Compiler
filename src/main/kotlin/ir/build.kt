@@ -118,7 +118,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         if (astNode.environment == null) {
             throw EnvironmentException("The AST node in buildClass has no environment")
         }
-        val memberList = mutableListOf<Type>()
+        val memberList = mutableListOf<PrimitiveType>()
         val nameMap = mutableMapOf<String, Int>()
         for (element in astNode.body) {
             if (element is ast.VariablesDeclaration) {
@@ -133,7 +133,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         return returnClass
     }
 
-    private fun irType(astType: ast.Type): Type = when (astType) {
+    private fun irType(astType: ast.Type): PrimitiveType = when (astType) {
         is ast.VoidType   -> PrimitiveType(TypeProperty.VOID)
         is ast.BoolType   -> PrimitiveType(TypeProperty.I1)
         is ast.IntType    -> PrimitiveType(TypeProperty.I32)
@@ -143,7 +143,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         else -> throw IRBuilderException("Unknown type in irType")
     }
 
-    private fun irType(internalType: MxType): Type = when (internalType) {
+    private fun irType(internalType: MxType): PrimitiveType = when (internalType) {
         is MxVoidType   -> PrimitiveType(TypeProperty.VOID)
         is MxBoolType   -> PrimitiveType(TypeProperty.I1)
         is MxIntType    -> PrimitiveType(TypeProperty.I32)
