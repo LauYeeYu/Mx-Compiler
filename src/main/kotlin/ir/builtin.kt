@@ -159,6 +159,11 @@ val builtInFunction = listOf(
         parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.PTR), "__this")),
         const = true,
     ),
+    GlobalFunction(
+        name = "malloc",
+        returnType = PrimitiveType(TypeProperty.PTR),
+        parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.SIZE_T), "n")),
+    ),
 )
 
 val builtInFunctionMap: Map<String, GlobalFunction> = builtInFunction.associateBy { it.name }
