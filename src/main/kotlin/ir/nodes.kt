@@ -23,13 +23,11 @@ const val alignValue: Int = 0
 class Root(
     val classes: List<GlobalClass>,
     val variables: List<GlobalDecl>,
-    val initFunction: GlobalFunction,
     val globalFunctions: List<GlobalFunction>,
 ) {
     override fun toString(): String {
         return classes.joinToString("\n") + "\n" +
                 variables.joinToString("\n") + "\n" +
-                initFunction + "\n" +
                 globalFunctions.joinToString("\n")
     }
 }
@@ -139,12 +137,9 @@ class GlobalVariableDecl(
     }
 }
 
-class LocalVariableDecl(
-    val property: GlobalVariable,
-    val initValue: Int, // Every global variable must have an initial value
-) : Statement() {
+class LocalVariableDecl(val property: GlobalVariable) : Statement() {
     override fun toString(): String {
-        return "%${property.name} = ${property.type} $initValue, align $alignValue"
+        return "%${property.name} = alloca ${property.type}, align $alignValue"
     }
 }
 
@@ -152,7 +147,8 @@ class GlobalFunction(
     val name: String, // without @
     val returnType: Type,
     val parameters: List<FunctionParameter>,
-    var body: MutableList<Block>? = null,
+    val variables: MutableList<LocalVariableDecl>? = null,
+    val body: MutableList<Block>? = null,
     val const: Boolean = false,
     // `const` indicates that this function won't change any variable,
     // and always return the same value when given the same arguments.
@@ -160,7 +156,9 @@ class GlobalFunction(
     override fun toString(): String = when (body) {
         null -> "declare $returnType @$name(${parameters.joinToString(", ")})"
         else -> "define $returnType @$name(${parameters.joinToString(", ")}) {\n" +
-                body!!.joinToString("\n") + "\n}"
+                (variables?.joinToString("\n")
+                    ?: throw InternalException("A function definition has no variable list")) + "\n" +
+                body.joinToString("\n") + "\n}"
     }
 }
 
