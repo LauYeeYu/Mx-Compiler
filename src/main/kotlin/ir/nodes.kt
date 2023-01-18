@@ -145,20 +145,39 @@ class LocalVariableDecl(val property: LocalVariable) : Statement() {
 
 class GlobalFunction(
     val name: String, // without @
-    val returnType: Type,
+    val returnType: PrimitiveType,
     val parameters: List<FunctionParameter>,
     val variables: MutableList<LocalVariableDecl>? = null,
     val body: MutableList<Block>? = null,
+    val returnPhi: PhiStatement? = null,
     val const: Boolean = false,
     // `const` indicates that this function won't change any variable,
     // and always return the same value when given the same arguments.
 ) {
+    val returnVariable: LocalVariable
+        get() = LocalVariable("__return", returnType)
+    val returnBlock: Block?
+        get() {
+            if (body == null) return null
+            if (returnType.type == TypeProperty.VOID) {
+                return Block("return", mutableListOf(ReturnStatement()))
+            } else {
+                val returnPhiStatement = returnPhi ?: throw InternalException("Return phi statement not found")
+                return Block("return", mutableListOf(returnPhi, ReturnStatement(returnVariable)))
+            }
+        }
+
+    private val returnBlockString: String
+        get() {
+            val returnBlock = returnBlock ?: return ""
+            return "$returnBlock\n"
+        }
     override fun toString(): String = when (body) {
         null -> "declare $returnType @$name(${parameters.joinToString(", ")})"
         else -> "define $returnType @$name(${parameters.joinToString(", ")}) {\n" +
                 (variables?.joinToString("\n")
                     ?: throw InternalException("A function definition has no variable list")) + "\n" +
-                body.joinToString("\n") + "\n}"
+                body.joinToString("\n") + "\n" + returnBlockString + "}"
     }
 }
 
@@ -172,7 +191,7 @@ class FunctionParameter(
 }
 
 class Block(
-    val label: Int,
+    val label: String,
     val statements: MutableList<Statement>,
 ) {
     override fun toString(): String {
@@ -198,7 +217,7 @@ class CallStatement(
 }
 
 class ReturnStatement(
-    val value: Variable?,
+    val value: Variable? = null,
 ) : Statement() {
     override fun toString(): String = when (value) {
         null -> "ret void"

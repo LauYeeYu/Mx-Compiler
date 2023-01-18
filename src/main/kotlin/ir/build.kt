@@ -43,7 +43,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             returnType = PrimitiveType(TypeProperty.VOID),
             parameters = listOf(),
             variables = mutableListOf(),
-            body = mutableListOf(Block(0, mutableListOf())),
+            body = mutableListOf(Block("0", mutableListOf())),
         )
         globalFunctions["__global_init"] = globalInit
         // TODO: Add global functions
@@ -589,7 +589,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         unnamedVariableCount++
         blocks.add(
             Block(
-                loopConditionLabel,
+                loopConditionLabel.toString(),
                 mutableListOf(
                     LoadStatement(dest = iteratorValue, src = iterators[index]),
                     IntCmpStatement(
@@ -608,7 +608,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         unnamedVariableCount++
         blocks.add(
             Block(
-                loopStartLabel,
+                loopStartLabel.toString(),
                 mutableListOf(
                     GetElementPtrStatement(
                         dest = position,
@@ -685,7 +685,8 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         unnamedVariableCount++
         blocks.add(
             Block(
-                incrementIndex, mutableListOf(
+                incrementIndex.toString(),
+                mutableListOf(
                     LoadStatement(dest = iteratorOld, src = iterators[index]),
                     BinaryOperationStatement(
                         dest = iteratorNew,
@@ -702,7 +703,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                 )
             )
         )
-        blocks.add(Block(endBlockIndex, mutableListOf()))
+        blocks.add(Block(endBlockIndex.toString(), mutableListOf()))
         return array
     }
 
@@ -849,7 +850,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         val lhsResultBlock = blocks.last()
         when (lhsResult) {
             is Variable -> {
-                blocks.add(Block(lhsResultBlockIndex + 1, mutableListOf()))
+                blocks.add(Block((lhsResultBlockIndex + 1).toString(), mutableListOf()))
                 when (val rhsResult = addExpression(rhs, function, ExpectedState.VALUE).toArgument()) {
                     is Variable -> {
                         val rhsResultBlockIndex = blocks.lastIndex
@@ -881,7 +882,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                         )
                         unnamedVariableCount++
                         blocks.add(Block(
-                            label = rhsResultBlockIndex + 1,
+                            label = (rhsResultBlockIndex + 1).toString(),
                             statements = mutableListOf(
                                 PhiStatement(
                                     dest = dest,
