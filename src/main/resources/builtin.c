@@ -50,6 +50,12 @@ char* toString(int n) {
     return buffer;
 }
 
+char* string_string() {
+    char* buffer = malloc(1);
+    buffer[0] = '\0';
+    return buffer;
+}
+
 size_t string_length(char* __this) {
     return strlen(__this);
 }
@@ -109,4 +115,26 @@ bool string_greaterOrEqual(char* str1, char* str2) {
 
 int array_size(void* __this) {
     return ((int*)__this)[-1];
+}
+
+void* __newClassArray(int size) {
+#ifdef HOST
+    int* array = malloc((size << 3) + 4);
+#else
+    int* array = malloc((size << 2) + 4);
+#endif
+    array[0] = size;
+    return array + 1;
+}
+
+void* __newIntArray(int size) {
+    int* array = malloc((size << 2) + 4);
+    array[0] = size;
+    return array + 1;
+}
+
+void* __newBoolArray(int size) {
+    int* array = malloc(size + 4);
+    array[0] = size;
+    return array + 1;
 }

@@ -60,6 +60,12 @@ val builtInFunction = listOf(
         const = true,
     ),
     GlobalFunction(
+        name = "string.string",
+        returnType = PrimitiveType(TypeProperty.PTR),
+        parameters = listOf(),
+        const = false,
+    ),
+    GlobalFunction(
         name = "string.length",
         returnType = PrimitiveType(TypeProperty.I32),
         parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.PTR), "__this")),
@@ -163,6 +169,24 @@ val builtInFunction = listOf(
         name = "malloc",
         returnType = PrimitiveType(TypeProperty.PTR),
         parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.SIZE_T), "n")),
+        const = false,
+    ),
+    GlobalFunction(
+        name = "__newClassArray",
+        returnType = PrimitiveType(TypeProperty.PTR),
+        parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.I32), "size")),
+        const = false,
+    ),
+    GlobalFunction(
+        name = "__newIntArray",
+        returnType = PrimitiveType(TypeProperty.PTR),
+        parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.I32), "size")),
+        const = false,
+    ),
+    GlobalFunction(
+        name = "__newStringArray",
+        returnType = PrimitiveType(TypeProperty.PTR),
+        parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.I32), "size")),
         const = false,
     ),
 )
