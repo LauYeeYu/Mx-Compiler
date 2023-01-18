@@ -1182,21 +1182,21 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     }
 
     private fun addStatement(
-        statement   : ast.Statement,
-        blockList   : GlobalFunction,
+        statement: ast.Statement,
+        function: GlobalFunction,
         currentBlock: Int,
     ) {
         when (statement) {
-            is ast.BlockStatement          -> addStatement(statement, blockList, currentBlock)
-            is ast.ExpressionStatement     -> addStatement(statement, blockList, currentBlock)
-            is ast.BranchStatement         -> addStatement(statement, blockList, currentBlock)
-            is ast.WhileStatement          -> addStatement(statement, blockList, currentBlock)
-            is ast.ForExpressionStatement  -> addStatement(statement, blockList, currentBlock)
-            is ast.ForDeclarationStatement -> addStatement(statement, blockList, currentBlock)
-            is ast.ContinueStatement       -> addStatement(statement, blockList, currentBlock)
-            is ast.BreakStatement          -> addStatement(statement, blockList, currentBlock)
-            is ast.ReturnStatement         -> addStatement(statement, blockList, currentBlock)
-            is ast.VariablesDeclaration    -> addStatement(statement, blockList, currentBlock)
+            is ast.BlockStatement          -> addStatement(statement, function, currentBlock)
+            is ast.ExpressionStatement     -> addStatement(statement, function, currentBlock)
+            is ast.BranchStatement         -> addStatement(statement, function, currentBlock)
+            is ast.WhileStatement          -> addStatement(statement, function, currentBlock)
+            is ast.ForExpressionStatement  -> addStatement(statement, function, currentBlock)
+            is ast.ForDeclarationStatement -> addStatement(statement, function, currentBlock)
+            is ast.ContinueStatement       -> addStatement(statement, function, currentBlock)
+            is ast.BreakStatement          -> addStatement(statement, function, currentBlock)
+            is ast.ReturnStatement         -> addStatement(statement, function, currentBlock)
+            is ast.VariablesDeclaration    -> addStatement(statement, function, currentBlock)
             is ast.EmptyStatement          -> {}
             else -> throw IRBuilderException("Unknown statement in addStatement")
         }
