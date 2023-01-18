@@ -25,6 +25,7 @@ fun buildIr(astNode: AstNode): Root = IR(astNode).buildRoot()
 class IR(private val root: AstNode, private val parent: IR? = null) {
     private var unnamedVariableCount = 0
     private var unnamedStringLiteralCount = 0
+    private var unnamedIterator = 0
     private val globalVariableDecl = mutableListOf<GlobalDecl>()
     private val classes = mutableMapOf<String, GlobalClass>()
     private val globalFunctions = LinkedHashMap<String, GlobalFunction>()
@@ -157,6 +158,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         is MxClassType  -> PrimitiveType(TypeProperty.PTR)
         else -> throw IRBuilderException("Unknown type in irType")
     }
+
     private fun buildFunction(astNode: ast.Function): GlobalFunction {
         if (astNode.environment == null) {
             throw EnvironmentException("The AST node in buildFunction has no environment")
@@ -531,7 +533,219 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         expr    : NewExpression,
         function: GlobalFunction,
     ): ExpressionResult {
-        return TODO()
+        val blocks = function.body ?: throw IRBuilderException("Function has no body")
+        if (expr.dimension == 0) { // New class
+            return IrVariable(addNewClass(blocks, (expr.type as ast.ClassType)))
+        }
+
+        // New array
+        val arguments = expr.arguments.map { addExpression(it, function, ExpectedState.VALUE).toArgument() }
+        val iterators = mutableListOf<LocalVariable>()
+        for (i in 0 until expr.arguments.size) {
+            iterators.add(LocalVariable("__iterator_$unnamedIterator", PrimitiveType(TypeProperty.I32)))
+            unnamedIterator++
+        }
+        function.variables?.addAll(iterators.map { LocalVariableDecl(it) })
+            ?: throw InternalException("Function has no variable list")
+        val array = addNewExpressionLoop(blocks, arguments, iterators, expr.dimension, 0, expr.type)
+        return IrVariable(array)
+    }
+
+    private fun addNewExpressionLoop(
+        blocks: MutableList<Block>,
+        arguments: List<Argument>,
+        iterators: List<LocalVariable>,
+        dimension: Int,
+        index: Int,
+        type: ast.Type,
+    ): LocalVariable {
+        val array = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.PTR))
+        unnamedVariableCount++
+        blocks.last().statements.add(
+            CallStatement(
+                dest = array,
+                returnType = PrimitiveType(TypeProperty.VOID),
+                function = if (dimension == 1) {
+                    when (type) {
+                        is ast.IntType -> globalFunctions["__newIntArray"]
+                            ?: throw InternalException("Function __newIntArray not found")
+
+                        is ast.BoolType -> globalFunctions["__newBoolArray"]
+                            ?: throw InternalException("Function __newBoolArray not found")
+
+                        else -> globalFunctions["__newPtrArray"]
+                            ?: throw InternalException("Function __newPtrArray not found")
+                    }
+                } else {
+                    globalFunctions["__newPtrArray"]
+                        ?: throw InternalException("Function __newPtrArray not found")
+                },
+                arguments = listOf(arguments[0]),
+            )
+        )
+        // Set the initial number of the iterator, i.e. __iterator__i = 0
+        blocks.last().statements.add(StoreStatement(dest = iterators[index], src = I32Literal(0)))
+        val loopConditionLabel = blocks.size
+        val loopStartLabel = loopConditionLabel + 1
+        // Jump to the loop condition
+        blocks.last().statements.add(
+            BranchStatement(
+                condition = null,
+                trueBlockLabel = loopConditionLabel,
+                falseBlockLabel = null
+            )
+        )
+
+        // Add the loop condition
+        val iteratorValue = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.I32))
+        unnamedVariableCount++
+        val compareResult = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.I1))
+        unnamedVariableCount++
+        blocks.add(
+            Block(
+                loopConditionLabel,
+                mutableListOf(
+                    LoadStatement(dest = iteratorValue, src = iterators[index]),
+                    IntCmpStatement(
+                        dest = compareResult,
+                        op = IntCmpOperator.SLT,
+                        lhs = iteratorValue,
+                        rhs = arguments[index],
+                    ),
+                    // Branch statement cannot be added yet, since the end label is unknown
+                )
+            )
+        )
+
+        // Add the loop body
+        val position = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.PTR))
+        unnamedVariableCount++
+        blocks.add(
+            Block(
+                loopStartLabel,
+                mutableListOf(
+                    GetElementPtrStatement(
+                        dest = position,
+                        src = array,
+                        srcType = PrimitiveType(TypeProperty.PTR),
+                        indexes = listOf(iteratorValue),
+                    )
+                )
+            )
+        )
+        if (index + 1 == arguments.size) {
+            if (dimension == 1) {
+                when (type) {
+                    is ast.ClassType -> {
+                        val newClass = addNewClass(blocks, type)
+                        blocks[loopStartLabel].statements.add(
+                            StoreStatement(dest = position, src = newClass)
+                        )
+                    }
+
+                    is ast.StringType -> {
+                        val newString = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.PTR))
+                        unnamedVariableCount++
+                        blocks[loopStartLabel].statements.add(
+                            CallStatement(
+                                dest = newString,
+                                returnType = PrimitiveType(TypeProperty.VOID),
+                                function = globalFunctions["string.string"]
+                                    ?: throw InternalException("Cannot find malloc in builtin function"),
+                                arguments = listOf(I32Literal(ptrSize)),
+                            )
+                        )
+                        blocks[loopStartLabel].statements.add(
+                            StoreStatement(dest = position, src = newString)
+                        )
+                    }
+                }
+            } else {
+                val newArray = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.PTR))
+                unnamedVariableCount++
+                blocks[loopStartLabel].statements.add(
+                    CallStatement(
+                        dest = newArray,
+                        returnType = PrimitiveType(TypeProperty.VOID),
+                        function = globalFunctions["__newPtrArray"]
+                            ?: throw InternalException("Function __newPtrArray not found"),
+                        arguments = listOf(arguments[index + 1]),
+                    )
+                )
+                blocks[loopStartLabel].statements.add(
+                    StoreStatement(dest = position, src = newArray)
+                )
+            }
+        } else {
+            val newArray = addNewExpressionLoop(blocks, arguments, iterators, dimension - 1, index + 1, type)
+            blocks[loopStartLabel].statements.add(
+                StoreStatement(dest = position, src = newArray)
+            )
+        }
+
+        // Add the loop increment
+        val incrementIndex = blocks.size
+        val endBlockIndex = incrementIndex + 1
+        blocks[loopConditionLabel].statements.add(
+            BranchStatement(
+                condition = compareResult,
+                trueBlockLabel = loopStartLabel,
+                falseBlockLabel = endBlockIndex,
+            )
+        )
+        val iteratorOld = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.I32))
+        unnamedVariableCount++
+        val iteratorNew = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.I32))
+        unnamedVariableCount++
+        blocks.add(
+            Block(
+                incrementIndex, mutableListOf(
+                    LoadStatement(dest = iteratorOld, src = iterators[index]),
+                    BinaryOperationStatement(
+                        dest = iteratorNew,
+                        op = BinaryOperator.ADD,
+                        lhs = iteratorOld,
+                        rhs = I32Literal(1),
+                    ),
+                    StoreStatement(dest = iterators[index], src = iteratorNew),
+                    BranchStatement(
+                        condition = null,
+                        trueBlockLabel = loopConditionLabel,
+                        falseBlockLabel = null,
+                    ),
+                )
+            )
+        )
+        blocks.add(Block(endBlockIndex, mutableListOf()))
+        return array
+    }
+
+    private fun addNewClass(
+        blocks: MutableList<Block>,
+        type: ast.ClassType,
+    ): LocalVariable {
+        val dest = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.PTR))
+        unnamedVariableCount++
+        val className = type.name
+        blocks.last().statements.add(
+            CallStatement(
+                dest = dest,
+                returnType = PrimitiveType(TypeProperty.PTR),
+                function = globalFunctions["malloc"]
+                    ?: throw InternalException("Cannot find malloc in builtin function"),
+                arguments = listOf(I32Literal(ptrSize)),
+            )
+        )
+        blocks.last().statements.add(
+            CallStatement(
+                dest = null,
+                returnType = PrimitiveType(TypeProperty.VOID),
+                function = globalFunctions["$className.$className"]
+                    ?: throw InternalException("Cannot find constructor"),
+                arguments = listOf(dest),
+            )
+        )
+        return dest
     }
 
     private fun addExpression(
