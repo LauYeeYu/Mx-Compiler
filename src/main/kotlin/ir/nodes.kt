@@ -137,7 +137,7 @@ class GlobalVariableDecl(
     }
 }
 
-class LocalVariableDecl(val property: GlobalVariable) : Statement() {
+class LocalVariableDecl(val property: LocalVariable) : Statement() {
     override fun toString(): String {
         return "%${property.name} = alloca ${property.type}, align $alignValue"
     }
