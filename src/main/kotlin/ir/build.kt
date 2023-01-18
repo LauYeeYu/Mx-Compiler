@@ -357,27 +357,20 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         }
         val classPtr = addExpression(expr.objectName, function, ExpectedState.VALUE).toArgument() as? Variable
             ?: throw InternalException("The source is not a variable")
-        val function: GlobalFunction = globalFunctions["${classType.name}.${expr.functionName}"]
+        val calledFunction: GlobalFunction = globalFunctions["${classType.name}.${expr.functionName}"]
             ?: throw InternalException("Cannot find find the function ${classType.name}.${expr.functionName}")
         val arguments = mutableListOf<Argument>(classPtr) + expr.arguments.map {
             addExpression(it, function, ExpectedState.VALUE).toArgument()
         }
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         if (expr.resultType!!.type is MxVoidType) {
-            blocks.last().statements.add(
-                CallStatement(
-                    dest       = null,
-                    returnType = type,
-                    function   = function,
-                    arguments  = arguments,
-                )
-            )
+            blocks.last().statements.add(CallStatement(null, type, calledFunction, arguments))
             return VoidResult()
         } else {
             val destName = unnamedVariableCount
             unnamedVariableCount++
             val dest = LocalVariable(destName.toString(), type)
-            blocks.last().statements.add(CallStatement(dest, type, function, arguments))
+            blocks.last().statements.add(CallStatement(dest, type, calledFunction, arguments))
             return IrVariable(dest)
         }
     }
@@ -397,14 +390,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         }
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         if (expr.resultType!!.type is MxVoidType) {
-            blocks.last().statements.add(
-                CallStatement(
-                    dest = null,
-                    returnType = type,
-                    function = calledFunction,
-                    arguments = arguments,
-                )
-            )
+            blocks.last().statements.add(CallStatement(null, type, calledFunction, arguments))
             return VoidResult()
         } else {
             val destName = unnamedVariableCount
