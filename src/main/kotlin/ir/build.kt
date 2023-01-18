@@ -1202,6 +1202,10 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         statement.statements.forEach { stmt -> addStatement(stmt, function) }
     }
 
+    private fun addStatement(statement: ast.ExpressionStatement, function: GlobalFunction) {
+        addExpression(statement.expression, function, ExpectedState.VALUE)
+    }
+
     private fun addStringLiteral(name: String, string: StringLiteral) {
         if (parent != null) {
             parent.addStringLiteral(name, string)
