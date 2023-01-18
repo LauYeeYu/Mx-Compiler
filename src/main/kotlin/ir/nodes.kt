@@ -214,7 +214,7 @@ class BranchStatement(
     override fun toString(): String {
         return when (falseBlockLabel) {
             null -> "br label %$trueBlockLabel"
-            else -> "br $condition, label %$trueBlockLabel, label %$falseBlockLabel"
+            else -> "br i1 $condition, label %$trueBlockLabel, label %$falseBlockLabel"
         }
     }
 }
