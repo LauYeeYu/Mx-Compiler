@@ -47,7 +47,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         )
         globalFunctions["__global_init"] = globalInit
         // TODO: Add global functions
-        val initList = buildGlobalList(root.content)
+        buildGlobalList(root.content)
         return Root(
             classes         = classList,
             variables       = globalVariableDecl,
@@ -363,15 +363,15 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             addExpression(it, function, ExpectedState.VALUE).toArgument()
         }
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
-        if (expr.resultType!!.type is MxVoidType) {
+        return if (expr.resultType!!.type is MxVoidType) {
             blocks.last().statements.add(CallStatement(null, type, calledFunction, arguments))
-            return VoidResult()
+            VoidResult()
         } else {
             val destName = unnamedVariableCount
             unnamedVariableCount++
             val dest = LocalVariable(destName.toString(), type)
             blocks.last().statements.add(CallStatement(dest, type, calledFunction, arguments))
-            return IrVariable(dest)
+            IrVariable(dest)
         }
     }
 
@@ -389,15 +389,15 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             addExpression(it, function, ExpectedState.VALUE).toArgument()
         }
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
-        if (expr.resultType!!.type is MxVoidType) {
+        return if (expr.resultType!!.type is MxVoidType) {
             blocks.last().statements.add(CallStatement(null, type, calledFunction, arguments))
-            return VoidResult()
+            VoidResult()
         } else {
             val destName = unnamedVariableCount
             unnamedVariableCount++
             val dest = LocalVariable(destName.toString(), type)
             blocks.last().statements.add(CallStatement(dest, type, calledFunction, arguments))
-            return IrVariable(dest)
+            IrVariable(dest)
         }
     }
 
