@@ -117,7 +117,7 @@ int array_size(void *__this) {
     return ((int*)__this)[-1];
 }
 
-void *__newClassArray(int size) {
+void *__newPtrArray(int size) {
 #ifdef HOST
     int *array = malloc((size << 3) + 4);
 #else

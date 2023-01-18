@@ -172,7 +172,7 @@ val builtInFunction = listOf(
         const = false,
     ),
     GlobalFunction(
-        name = "__newClassArray",
+        name = "__newPtrArray",
         returnType = PrimitiveType(TypeProperty.PTR),
         parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.I32), "size")),
         const = false,
