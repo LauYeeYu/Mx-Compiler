@@ -38,7 +38,10 @@ class Function(
     val name: String,
     val parameters: List<FunctionParameter>,
     val body: BlockStatement,
-) : AstNode(ctx), GlobalElement, ClassElement
+
+) : AstNode(ctx), GlobalElement, ClassElement {
+    val bindings: MutableList<Binding> = mutableListOf()
+}
 
 class FunctionParameter(
     ctx: SourceContext,
