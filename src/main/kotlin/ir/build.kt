@@ -1282,6 +1282,21 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         }
     }
 
+    private fun addStatement(statement: ast.VariablesDeclaration, function: GlobalFunction) {
+        val blocks = function.body ?: throw IRBuilderException("Function has no body")
+        val variableList = function.variables ?: throw IRBuilderException("Function has no variable list")
+        val type = irType(statement.type)
+        for (variable in statement.variables) {
+            val binding = variable.binding ?: throw IRBuilderException("Variable has no binding")
+            val dest = LocalVariable(binding.name, type)
+            variableList.add(LocalVariableDecl(dest))
+            if (variable.body != null) {
+                val initializer = addExpression(variable.body, function, ExpectedState.VALUE).toArgument()
+                blocks.last().statements.add(StoreStatement(dest, initializer))
+            }
+        }
+    }
+
     private fun addStringLiteral(name: String, string: StringLiteral) {
         if (parent != null) {
             parent.addStringLiteral(name, string)
