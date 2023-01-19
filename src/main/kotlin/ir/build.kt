@@ -17,7 +17,6 @@
 package ir
 
 import ast.*
-import ast.Statement
 import exceptions.*
 import typecheck.*
 
@@ -38,7 +37,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         if (root.environment == null) {
             throw EnvironmentException("The AST node in buildRoot has no environment")
         }
-        val classList = root.content.filterIsInstance<ast.Class>().map { buildClass(it) }
+        val classList = root.content.filterIsInstance<ast.Class>().map { registerClass(it) }
         val globalInit = GlobalFunction(
             name = "__global_init",
             returnType = PrimitiveType(TypeProperty.VOID),
@@ -49,39 +48,8 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         // register global functions
         globalFunctions["__global_init"] = globalInit
         globalFunctions.putAll(builtInFunctionMap)
-        root.content.filterIsInstance<ast.Function>().map { function ->
-            val returnIrType = irType(function.returnType)
-            globalFunctions[function.name] = GlobalFunction(
-                name = function.name,
-                returnType = returnIrType,
-                parameters = function.bindings.map { astParameter ->
-                    FunctionParameter(irType(astParameter.type), "${astParameter.irInfo}.param")
-                },
-                variables = function.bindings.map { astParameter ->
-                    LocalVariableDecl(
-                        LocalVariable(
-                            name = astParameter.irInfo.toString(),
-                            type = irType(astParameter.type),
-                        )
-                    )
-                }.toMutableList(),
-                body = mutableListOf(Block("0", function.bindings.map { astParameter ->
-                    StoreStatement(
-                        LocalVariable(
-                            name = astParameter.irInfo.toString(),
-                            type = irType(astParameter.type),
-                        ),
-                        LocalVariable(
-                            name = "${astParameter.irInfo}.param",
-                            type = irType(astParameter.type),
-                        )
-                    )
-                }.toMutableList())),
-                returnPhi = if (function.returnType is ast.VoidType) null
-                else PhiStatement(
-                    LocalVariable("__return", returnIrType), mutableListOf()
-                ),
-            )
+        root.content.filterIsInstance<ast.Function>().forEach { function ->
+            registerFunction(function.name, irType(function.returnType), function.bindings)
         }
         buildGlobalList(root.content)
         root.content.filterIsInstance<ast.Function>().forEach { buildFunction(it) }
@@ -89,6 +57,45 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             classes = classList,
             variables = globalVariableDecl,
             globalFunctions = globalFunctions.values.toList(),
+        )
+    }
+
+    private fun registerFunction(
+        name: String,
+        returnIrType: PrimitiveType,
+        parameters: List<Binding>,
+        isMember: Boolean = false,
+    ) {
+        globalFunctions[name] = GlobalFunction(
+            name = name,
+            returnType = returnIrType,
+            parameters = parameters.map { astParameter ->
+                FunctionParameter(irType(astParameter.type), "${astParameter.irInfo}.param")
+            },
+            variables = parameters.map { astParameter ->
+                LocalVariableDecl(
+                    LocalVariable(
+                        name = astParameter.irInfo.toString(),
+                        type = irType(astParameter.type),
+                    )
+                )
+            }.toMutableList(),
+            body = mutableListOf(Block("0", parameters.map { astParameter ->
+                StoreStatement(
+                    LocalVariable(
+                        name = astParameter.irInfo.toString(),
+                        type = irType(astParameter.type),
+                    ),
+                    LocalVariable(
+                        name = "${astParameter.irInfo}.param",
+                        type = irType(astParameter.type),
+                    )
+                )
+            }.toMutableList())),
+            returnPhi = if (returnIrType.type == TypeProperty.VOID) null
+            else PhiStatement(
+                LocalVariable("__return", returnIrType), mutableListOf()
+            ),
         )
     }
 
@@ -153,7 +160,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         globalInitBlocks.last().statements.add(ReturnStatement(null))
     }
 
-    private fun buildClass(astNode: ast.Class): GlobalClass {
+    private fun registerClass(astNode: ast.Class): GlobalClass {
         if (astNode.environment == null) {
             throw EnvironmentException("The AST node in buildClass has no environment")
         }
@@ -169,6 +176,21 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         }
         val returnClass = GlobalClass(ClassType(astNode.name, memberList), nameMap)
         classes[astNode.name] = returnClass
+        var hasConstructor = false
+        astNode.body.filterIsInstance<ast.Function>().forEach { element ->
+            registerFunction(
+                name = "${astNode.name}.${element.name}",
+                returnIrType = irType(element.returnType),
+                parameters = element.bindings,
+                isMember = true,
+            )
+        }
+        registerFunction(
+            name = "${astNode.name}.${astNode.name}",
+            returnIrType = PrimitiveType(TypeProperty.VOID),
+            parameters = listOf(),
+            isMember = true,
+        )
         return returnClass
     }
 
