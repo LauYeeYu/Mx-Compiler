@@ -54,11 +54,29 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             globalFunctions[function.name] = GlobalFunction(
                 name = function.name,
                 returnType = returnIrType,
-                parameters = function.parameters.map { astParameter ->
-                    FunctionParameter(irType(astParameter.type), astParameter.name)
+                parameters = function.bindings.map { astParameter ->
+                    FunctionParameter(irType(astParameter.type), "${astParameter.irInfo}.param")
                 },
-                variables = mutableListOf(),
-                body = mutableListOf(Block("0", mutableListOf())),
+                variables = function.bindings.map { astParameter ->
+                    LocalVariableDecl(
+                        LocalVariable(
+                            name = astParameter.irInfo.toString(),
+                            type = irType(astParameter.type),
+                        )
+                    )
+                }.toMutableList(),
+                body = mutableListOf(Block("0", function.bindings.map { astParameter ->
+                    StoreStatement(
+                        LocalVariable(
+                            name = astParameter.irInfo.toString(),
+                            type = irType(astParameter.type),
+                        ),
+                        LocalVariable(
+                            name = "${astParameter.irInfo}.param",
+                            type = irType(astParameter.type),
+                        )
+                    )
+                }.toMutableList())),
                 returnPhi = if (function.returnType is ast.VoidType) null
                 else PhiStatement(
                     LocalVariable("__return", returnIrType), mutableListOf()
@@ -1288,7 +1306,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         val type = irType(statement.type)
         for (variable in statement.variables) {
             val binding = variable.binding ?: throw IRBuilderException("Variable has no binding")
-            val dest = LocalVariable(binding.name, type)
+            val dest = LocalVariable(binding.irInfo.toString(), type)
             variableList.add(LocalVariableDecl(dest))
             if (variable.body != null) {
                 val initializer = addExpression(variable.body, function, ExpectedState.VALUE).toArgument()
