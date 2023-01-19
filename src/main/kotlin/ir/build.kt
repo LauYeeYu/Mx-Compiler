@@ -28,7 +28,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     private var unnamedIterator = 0
     private val globalVariableDecl = mutableListOf<GlobalDecl>()
     private val classes = mutableMapOf<String, GlobalClass>()
-    private val globalFunctions = LinkedHashMap<String, GlobalFunction>()
+    private val globalFunctions = linkedMapOf<String, GlobalFunction>()
 
     fun buildRoot(): Root {
         if (root !is ast.TranslateUnit) {
@@ -46,11 +46,28 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             body = mutableListOf(Block("0", mutableListOf())),
         )
         globalFunctions["__global_init"] = globalInit
-        // TODO: Add global functions
+        // register global functions
+        root.content.filterIsInstance<ast.Function>().map { function ->
+            val returnIrType = irType(function.returnType)
+            globalFunctions[function.name] = GlobalFunction(
+                name = function.name,
+                returnType = returnIrType,
+                parameters = function.parameters.map { astParameter ->
+                    FunctionParameter(irType(astParameter.type), astParameter.name)
+                },
+                variables = mutableListOf(),
+                body = mutableListOf(Block("0", mutableListOf())),
+                returnPhi = if (function.returnType is ast.VoidType) null
+                else PhiStatement(
+                    LocalVariable("__return", returnIrType), mutableListOf()
+                ),
+            )
+        }
         buildGlobalList(root.content)
+        root.content.filterIsInstance<ast.Function>().map { buildFunction(it) }
         return Root(
-            classes         = classList,
-            variables       = globalVariableDecl,
+            classes = classList,
+            variables = globalVariableDecl,
             globalFunctions = globalFunctions.values.toList(),
         )
     }
