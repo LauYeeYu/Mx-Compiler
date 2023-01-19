@@ -136,6 +136,7 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
             },
             getType(node.returnType, node.ctx),
         )
+        node.bindings.addAll(functionEnvironmentRecord.parameters)
         for (statement in node.body.statements) {
             functionEnvironmentRecord.checkAndRecord(statement)
         }
@@ -206,7 +207,7 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
             }
             val variableCount: Int = when (val shallowBinding = findVariableAlike(variable.name)) {
                 null -> 0
-                else -> shallowBinding.irInfo.count
+                else -> shallowBinding.irInfo.count + 1
             }
             val variableBinding = Binding(
                 variable.ctx,
@@ -349,11 +350,15 @@ class ClassEnvironmentRecord(
                                 variable.ctx,
                             )
                         }
+                        val count = when (val shallowBinding = findVariableAlike(variable.name)) {
+                            null -> 0
+                            else -> shallowBinding.irInfo.count + 1
+                        }
                         val newBinding = Binding(
                             variable.ctx,
                             variable.name,
                             getType(classElement.type, classElement.ctx),
-                            IrInfo(variable.name, 0, true),
+                            IrInfo(variable.name, count, true),
                         )
                         variableAlikeBindings[variable.name] = newBinding
                         variable.binding = newBinding
@@ -458,8 +463,7 @@ class ClassEnvironmentRecord(
         if (node.name != className) {
             throw SemanticException("Constructor name must be the same as class name", node.ctx)
         }
-        val environmentRecord =
-            FunctionEnvironmentRecord(
+        val environmentRecord = FunctionEnvironmentRecord(
                 this,
                 listOf(),
                 MxVoidType(),
@@ -470,11 +474,7 @@ class ClassEnvironmentRecord(
         functionAlikeBindings[node.name] = Binding(
             node.ctx,
             node.name,
-            MxFunctionType(
-                MxVoidType(),
-                listOf(),
-                environmentRecord,
-            ),
+            MxFunctionType(MxVoidType(), listOf(), environmentRecord),
             IrInfo(className + node.name, 0, false),
         )
     }
