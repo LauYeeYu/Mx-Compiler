@@ -17,6 +17,7 @@
 package ir
 
 import ast.*
+import ast.Statement
 import exceptions.*
 import typecheck.*
 
@@ -181,6 +182,20 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         val function = globalFunctions[astNode.name]
             ?: throw IRBuilderException("Function ${astNode.name} not found")
         addStatement(astNode.body,function)
+        val blocks = function.body ?: throw IRBuilderException("Function has no body")
+        if (function.returnType.type == TypeProperty.VOID) {
+            if (blocks.last().statements.lastOrNull() !is ReturnStatement) {
+                blocks.last().statements.add(BranchStatement(null, "return", null))
+            }
+        } else {
+            if (function.name == "main" &&
+                blocks.last().statements.lastOrNull() !is ReturnStatement) {
+                // main function should return 0
+                blocks.last().statements.add(BranchStatement(null, "return", null))
+                val returnPhi = function.returnPhi ?: throw IRBuilderException("Function has no return phi")
+                returnPhi.incoming.add(Pair(I32Literal(0), blocks.last().label))
+            }
+        }
     }
 
     private fun primitiveVariableDeclInit(
@@ -600,7 +615,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         blocks.last().statements.add(
             BranchStatement(
                 condition = null,
-                trueBlockLabel = loopConditionLabel,
+                trueBlockLabel = loopConditionLabel.toString(),
                 falseBlockLabel = null
             )
         )
@@ -698,8 +713,8 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         blocks[loopConditionLabel].statements.add(
             BranchStatement(
                 condition = compareResult,
-                trueBlockLabel = loopStartLabel,
-                falseBlockLabel = endBlockIndex,
+                trueBlockLabel = loopStartLabel.toString(),
+                falseBlockLabel = endBlockIndex.toString(),
             )
         )
         val iteratorOld = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.I32))
@@ -720,7 +735,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                     StoreStatement(dest = iterators[index], src = iteratorNew),
                     BranchStatement(
                         condition = null,
-                        trueBlockLabel = loopConditionLabel,
+                        trueBlockLabel = loopConditionLabel.toString(),
                         falseBlockLabel = null,
                     ),
                 )
@@ -877,27 +892,29 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     ): ExpressionResult {
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         val lhsResult = addExpression(lhs, function, ExpectedState.VALUE).toArgument()
-        val lhsResultBlockIndex = blocks.lastIndex
+        val lhsResultBlockIndex = blocks.last().label
+        val lhsNext = blocks.size.toString()
         val lhsResultBlock = blocks.last()
         when (lhsResult) {
             is Variable -> {
-                blocks.add(Block((lhsResultBlockIndex + 1).toString(), mutableListOf()))
+                blocks.add(Block(lhsNext, mutableListOf()))
                 when (val rhsResult = addExpression(rhs, function, ExpectedState.VALUE).toArgument()) {
                     is Variable -> {
-                        val rhsResultBlockIndex = blocks.lastIndex
+                        val rhsResultBlockIndex = blocks.last().label
                         val rhsResultBlock = blocks.last()
+                        val rhsNext = blocks.size.toString()
                         lhsResultBlock.statements.add(
                             when (operator) {
                                 ast.BinaryOperator.LOGICAL_AND -> BranchStatement(
                                     condition = lhsResult,
-                                    trueBlockLabel = lhsResultBlockIndex + 1,
-                                    falseBlockLabel = rhsResultBlockIndex + 1,
+                                    trueBlockLabel = lhsNext,
+                                    falseBlockLabel = rhsNext,
                                 )
 
                                 ast.BinaryOperator.LOGICAL_OR -> BranchStatement(
                                     condition = lhsResult,
-                                    trueBlockLabel = rhsResultBlockIndex + 1,
-                                    falseBlockLabel = lhsResultBlockIndex + 1,
+                                    trueBlockLabel = rhsNext,
+                                    falseBlockLabel = lhsNext,
                                 )
 
                                 else -> throw InternalException("Unexpected binary operator")
@@ -906,7 +923,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                         rhsResultBlock.statements.add(
                             BranchStatement(
                                 condition = null,
-                                trueBlockLabel = rhsResultBlockIndex + 1,
+                                trueBlockLabel = rhsNext,
                                 falseBlockLabel = null
                             )
                         )
@@ -918,17 +935,17 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                         unnamedVariableCount++
                         blocks.add(
                             Block(
-                                label = (rhsResultBlockIndex + 1).toString(),
+                                label = rhsNext,
                                 statements = mutableListOf(
                                     PhiStatement(
                                         dest = dest,
                                         incoming = when (operator) {
-                                            ast.BinaryOperator.LOGICAL_AND -> listOf(
+                                            ast.BinaryOperator.LOGICAL_AND -> mutableListOf(
                                                 Pair(I1Literal(0), lhsResultBlockIndex),
                                                 Pair(rhsResult, rhsResultBlockIndex),
                                             )
 
-                                            ast.BinaryOperator.LOGICAL_OR -> listOf(
+                                            ast.BinaryOperator.LOGICAL_OR -> mutableListOf(
                                                 Pair(I1Literal(1), lhsResultBlockIndex),
                                                 Pair(rhsResult, rhsResultBlockIndex),
                                             )
@@ -1243,11 +1260,26 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     }
 
     private fun addStatement(statement: ast.BlockStatement, function: GlobalFunction) {
-        statement.statements.forEach { stmt -> addStatement(stmt, function) }
+        for (stmt in statement.statements) {
+            addStatement(stmt, function)
+            if (stmt is ast.ReturnStatement) return // skip the part after return
+        }
     }
 
     private fun addStatement(statement: ast.ExpressionStatement, function: GlobalFunction) {
         addExpression(statement.expression, function, ExpectedState.VALUE)
+    }
+
+    private fun addStatement(statement: ast.ReturnStatement, function: GlobalFunction) {
+        val blocks = function.body ?: throw IRBuilderException("Function has no body")
+        if (statement.expression != null) {
+            val returnValue = addExpression(statement.expression, function, ExpectedState.VALUE).toArgument()
+            blocks.last().statements.add(BranchStatement(null, "return", null))
+            val returnPhi = function.returnPhi ?: throw IRBuilderException("Non-void function has no return phi")
+            returnPhi.incoming.add(Pair(returnValue, blocks.last().label))
+        } else {
+            blocks.last().statements.add(BranchStatement(null, "return", null))
+        }
     }
 
     private fun addStringLiteral(name: String, string: StringLiteral) {

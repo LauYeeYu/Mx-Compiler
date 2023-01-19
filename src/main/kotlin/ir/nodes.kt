@@ -211,8 +211,8 @@ class ReturnStatement(
 
 class BranchStatement(
     val condition: Argument?, // null if unconditional
-    val trueBlockLabel: Int,
-    val falseBlockLabel: Int?, // null if unconditional
+    val trueBlockLabel: String,
+    val falseBlockLabel: String?, // null if unconditional
 ) : Statement() {
     override fun toString() = when (falseBlockLabel) {
         null -> "br label %$trueBlockLabel"
@@ -278,7 +278,7 @@ class GetElementPtrStatement(
 
 class PhiStatement(
     val dest: LocalVariable,
-    val incoming: List<Pair<Argument, Int>>,
+    val incoming: MutableList<Pair<Argument, String>>,
 ) : Statement() {
     override fun toString(): String {
         var returnString = "${dest.name} = phi ${dest.type}"
