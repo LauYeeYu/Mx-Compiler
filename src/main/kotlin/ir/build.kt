@@ -65,7 +65,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             )
         }
         buildGlobalList(root.content)
-        root.content.filterIsInstance<ast.Function>().map { buildFunction(it) }
+        root.content.filterIsInstance<ast.Function>().forEach { buildFunction(it) }
         return Root(
             classes = classList,
             variables = globalVariableDecl,
@@ -174,11 +174,13 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         else -> throw IRBuilderException("Unknown type in irType")
     }
 
-    private fun buildFunction(astNode: ast.Function): GlobalFunction {
+    private fun buildFunction(astNode: ast.Function) {
         if (astNode.environment == null) {
             throw EnvironmentException("The AST node in buildFunction has no environment")
         }
-        return TODO()
+        val function = globalFunctions[astNode.name]
+            ?: throw IRBuilderException("Function ${astNode.name} not found")
+        addStatement(astNode.body,function)
     }
 
     private fun primitiveVariableDeclInit(
