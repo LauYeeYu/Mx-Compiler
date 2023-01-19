@@ -45,8 +45,9 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             variables = mutableListOf(),
             body = mutableListOf(Block("0", mutableListOf())),
         )
-        globalFunctions["__global_init"] = globalInit
         // register global functions
+        globalFunctions["__global_init"] = globalInit
+        globalFunctions.putAll(builtInFunctionMap)
         root.content.filterIsInstance<ast.Function>().map { function ->
             val returnIrType = irType(function.returnType)
             globalFunctions[function.name] = GlobalFunction(
@@ -122,10 +123,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                                 ExpectedState.VALUE,
                             ).toArgument()
                             globalInitBlocks.last().statements.add(
-                                StoreStatement(
-                                    GlobalVariable(variable.name, type),
-                                    result,
-                                )
+                                StoreStatement(variableProperty, result)
                             )
                         }
                         globalVariableDecl.add(GlobalVariableDecl(variableProperty, 0))
@@ -156,23 +154,23 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     }
 
     private fun irType(astType: ast.Type): PrimitiveType = when (astType) {
-        is ast.VoidType   -> PrimitiveType(TypeProperty.VOID)
-        is ast.BoolType   -> PrimitiveType(TypeProperty.I1)
-        is ast.IntType    -> PrimitiveType(TypeProperty.I32)
+        is ast.VoidType -> PrimitiveType(TypeProperty.VOID)
+        is ast.BoolType -> PrimitiveType(TypeProperty.I1)
+        is ast.IntType -> PrimitiveType(TypeProperty.I32)
         is ast.StringType -> PrimitiveType(TypeProperty.PTR)
-        is ast.ArrayType  -> PrimitiveType(TypeProperty.PTR)
-        is ast.ClassType  -> PrimitiveType(TypeProperty.PTR)
+        is ast.ArrayType -> PrimitiveType(TypeProperty.PTR)
+        is ast.ClassType -> PrimitiveType(TypeProperty.PTR)
         else -> throw IRBuilderException("Unknown type in irType")
     }
 
     private fun irType(internalType: MxType): PrimitiveType = when (internalType) {
-        is MxVoidType   -> PrimitiveType(TypeProperty.VOID)
-        is MxBoolType   -> PrimitiveType(TypeProperty.I1)
-        is MxIntType    -> PrimitiveType(TypeProperty.I32)
+        is MxVoidType -> PrimitiveType(TypeProperty.VOID)
+        is MxBoolType -> PrimitiveType(TypeProperty.I1)
+        is MxIntType -> PrimitiveType(TypeProperty.I32)
         is MxStringType -> PrimitiveType(TypeProperty.PTR)
-        is MxNullType   -> PrimitiveType(TypeProperty.PTR)
-        is MxArrayType  -> PrimitiveType(TypeProperty.PTR)
-        is MxClassType  -> PrimitiveType(TypeProperty.PTR)
+        is MxNullType -> PrimitiveType(TypeProperty.PTR)
+        is MxArrayType -> PrimitiveType(TypeProperty.PTR)
+        is MxClassType -> PrimitiveType(TypeProperty.PTR)
         else -> throw IRBuilderException("Unknown type in irType")
     }
 
@@ -185,7 +183,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
 
     private fun primitiveVariableDeclInit(
         variable: ast.VariableDeclaration,
-        type    : Type,
+        type: Type,
         function: GlobalFunction, // variable initializing statement will not have a branch
     ) {
         val returnValue: Argument = when (variable.body) {
@@ -210,10 +208,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                 globalVariableDecl.add(GlobalVariableDecl(irVariable, 0))
                 val blocks = function.body ?: throw IRBuilderException("Function has no body")
                 blocks.last().statements.add(
-                    StoreStatement(
-                        dest = irVariable,
-                        src = returnValue,
-                    )
+                    StoreStatement(dest = irVariable, src = returnValue)
                 )
             }
 
@@ -229,6 +224,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             else -> throw IRBuilderException("VoidResult cannot be converted to Argument")
         }
     }
+
     class VoidResult : ExpressionResult()
     class ConstExpression(val value: Int, val type: Type) : ExpressionResult()
     class IrVariable(val variable: Variable) : ExpressionResult()
@@ -241,37 +237,42 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     // last statement in the block if the return value is tempVariable and will
     // not be used.
     private fun addExpression(
-        expr         : ast.Expression,
-        function     : GlobalFunction,
+        expr: ast.Expression,
+        function: GlobalFunction,
         expectedState: ExpectedState,
     ): ExpressionResult = when (expr) {
-        is ast.Object              -> addExpression(expr, function, expectedState)
-        is StringLiteral           -> addExpression(expr, function)
-        is IntegerLiteral          -> addExpression(expr)
-        is BooleanLiteral          -> addExpression(expr)
-        is NullLiteral             -> ConstExpression(0, PrimitiveType(TypeProperty.PTR))
-        is ThisLiteral             ->
+        is ast.Object -> addExpression(expr, function, expectedState)
+        is StringLiteral -> addExpression(expr, function)
+        is IntegerLiteral -> addExpression(expr)
+        is BooleanLiteral -> addExpression(expr)
+        is NullLiteral -> ConstExpression(0, PrimitiveType(TypeProperty.PTR))
+        is ThisLiteral ->
             IrVariable(LocalVariable("__this", PrimitiveType(TypeProperty.PTR)))
-        is MemberVariableAccess    -> addExpression(expr, function, expectedState)
-        is MemberFunctionAccess    -> addExpression(expr, function)
-        is ArrayExpression         -> addExpression(expr, function, expectedState)
-        is PrefixUpdateExpression  -> addExpression(expr, function, expectedState)
-        is FunctionCall            -> addExpression(expr, function)
-        is LambdaCall              ->
+
+        is MemberVariableAccess -> addExpression(expr, function, expectedState)
+        is MemberFunctionAccess -> addExpression(expr, function)
+        is ArrayExpression -> addExpression(expr, function, expectedState)
+        is PrefixUpdateExpression -> addExpression(expr, function, expectedState)
+        is FunctionCall -> addExpression(expr, function)
+        is LambdaCall ->
             throw NotSupported("Lambda call is not supported in IRBuilder")
-        is LambdaExpression        ->
+
+        is LambdaExpression ->
             throw NotSupported("Lambda expression is not supported in IRBuilder")
-        is NewExpression           -> addExpression(expr, function)
+
+        is NewExpression -> addExpression(expr, function)
         is PostfixUpdateExpression -> addExpression(expr, function)
-        is UnaryExpression         -> addExpression(expr, function)
-        is BinaryExpression        -> addExpression(expr, function)
-        is AssignExpression        -> addExpression(expr, function)
+        is UnaryExpression -> addExpression(expr, function)
+        is BinaryExpression -> addExpression(expr, function)
+        is AssignExpression -> addExpression(expr, function)
         else -> throw IRBuilderException("Unknown expression in addExpression")
     }
 
-    private fun addExpression(expr         : ast.Object,
-                              function     : GlobalFunction,
-                              expectedState: ExpectedState): ExpressionResult {
+    private fun addExpression(
+        expr: ast.Object,
+        function: GlobalFunction,
+        expectedState: ExpectedState
+    ): ExpressionResult {
         if (expr.binding == null) {
             throw EnvironmentException("The AST node in addExpression has no binding")
         }
@@ -293,8 +294,10 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         }
     }
 
-    private fun addExpression(expr    : StringLiteral,
-                              function: GlobalFunction): ExpressionResult {
+    private fun addExpression(
+        expr: StringLiteral,
+        function: GlobalFunction
+    ): ExpressionResult {
         addStringLiteral("__string_$unnamedStringLiteralCount", expr)
         val destName = unnamedVariableCount
         unnamedVariableCount++
@@ -303,7 +306,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         blocks.last().statements.add(
             LoadStatement(
                 dest = dest,
-                src  = GlobalVariable("__string_$unnamedStringLiteralCount", PrimitiveType(TypeProperty.PTR)),
+                src = GlobalVariable("__string_$unnamedStringLiteralCount", PrimitiveType(TypeProperty.PTR)),
             )
         )
         return IrVariable(dest)
@@ -319,8 +322,8 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         }
 
     private fun addExpression(
-        expr         : MemberVariableAccess,
-        function     : GlobalFunction,
+        expr: MemberVariableAccess,
+        function: GlobalFunction,
         expectedState: ExpectedState,
     ): ExpressionResult {
         if (expr.resultType == null || expr.objectName.resultType == null) {
@@ -342,8 +345,8 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         blocks.last().statements.add(
             GetElementPtrStatement(
-                dest    = ptrDest,
-                src     = source,
+                dest = ptrDest,
+                src = source,
                 srcType = srcType.classType,
                 indexes = listOf<Argument>(I32Literal(0), I32Literal(index)),
             )
@@ -361,7 +364,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     }
 
     private fun addExpression(
-        expr    : MemberFunctionAccess,
+        expr: MemberFunctionAccess,
         function: GlobalFunction,
     ): ExpressionResult {
         if (expr.resultType == null || expr.objectName.resultType == null) {
@@ -393,7 +396,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     }
 
     private fun addExpression(
-        expr    : FunctionCall,
+        expr: FunctionCall,
         function: GlobalFunction,
     ): ExpressionResult {
         if (expr.resultType == null) {
@@ -419,8 +422,8 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     }
 
     private fun addExpression(
-        expr         : ArrayExpression,
-        function     : GlobalFunction,
+        expr: ArrayExpression,
+        function: GlobalFunction,
         expectedState: ExpectedState,
     ): ExpressionResult {
         if (expr.resultType == null || expr.array.resultType == null || expr.index.resultType == null) {
@@ -437,8 +440,8 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         // add the ptr to the target
         blocks.last().statements.add(
             GetElementPtrStatement(
-                dest    = ptrDest,
-                src     = array,
+                dest = ptrDest,
+                src = array,
                 srcType = type,
                 indexes = listOf(index),
             )
@@ -458,8 +461,8 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     }
 
     private fun addExpression(
-        expr         : PrefixUpdateExpression,
-        function     : GlobalFunction,
+        expr: PrefixUpdateExpression,
+        function: GlobalFunction,
         expectedState: ExpectedState,
     ): ExpressionResult {
         if (expr.resultType == null || expr.operand.resultType == null) {
@@ -481,6 +484,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                 blocks.last().statements.add(LoadStatement(dest = loadDest, src = operand))
                 loadDest
             }
+
             ExpectedState.PTR -> operand
         }
         val addDestName = unnamedVariableCount
@@ -501,7 +505,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     }
 
     private fun addExpression(
-        expr    : PostfixUpdateExpression,
+        expr: PostfixUpdateExpression,
         function: GlobalFunction,
     ): ExpressionResult {
         if (expr.resultType == null || expr.operand.resultType == null) {
@@ -533,7 +537,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     }
 
     private fun addExpression(
-        expr    : NewExpression,
+        expr: NewExpression,
         function: GlobalFunction,
     ): ExpressionResult {
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
@@ -753,7 +757,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     }
 
     private fun addExpression(
-        expr    : UnaryExpression,
+        expr: UnaryExpression,
         function: GlobalFunction,
     ): ExpressionResult {
         if (expr.resultType == null || expr.operand.resultType == null) {
@@ -765,10 +769,13 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             return when (expr.operator) {
                 UnaryOperator.NEGATIVE ->
                     ConstExpression(-operand.value, PrimitiveType(TypeProperty.I32))
+
                 UnaryOperator.POSITIVE ->
                     ConstExpression(operand.value, PrimitiveType(TypeProperty.I32))
+
                 UnaryOperator.BITWISE_NOT ->
                     ConstExpression(operand.value.inv(), PrimitiveType(TypeProperty.I32))
+
                 UnaryOperator.LOGICAL_NOT ->
                     ConstExpression(if (operand.value == 0) 1 else 0, PrimitiveType(TypeProperty.I1))
             }
@@ -790,6 +797,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                     )
                 )
             }
+
             UnaryOperator.BITWISE_NOT -> {
                 blocks.last().statements.add(
                     BinaryOperationStatement(
@@ -800,6 +808,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                     )
                 )
             }
+
             UnaryOperator.LOGICAL_NOT -> {
                 blocks.last().statements.add(
                     BinaryOperationStatement(
@@ -810,13 +819,14 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                     )
                 )
             }
+
             else -> throw InternalException("Unexpected unary operator")
         }
         return IrVariable(dest)
     }
 
     private fun addExpression(
-        expr    : BinaryExpression,
+        expr: BinaryExpression,
         function: GlobalFunction,
     ): ExpressionResult = when (expr.left.resultType?.type) {
         is MxStringType -> addStringBinaryExpression(expr.left, expr.right, expr.operator, function)
@@ -824,6 +834,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             ast.BinaryOperator.LOGICAL_AND, ast.BinaryOperator.LOGICAL_OR -> {
                 addBinaryLogicExpression(expr.left, expr.right, expr.operator, function)
             }
+
             else -> {
                 val srcType = expr.resultType?.type
                     ?: throw EnvironmentException("The AST node in addExpression has no result type")
@@ -831,6 +842,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                 addBinaryArithmeticExpression(expr.left, expr.right, expr.operator, type, function)
             }
         }
+
         null -> throw EnvironmentException("The AST node in addExpression has no result type")
         else -> {
             val srcType = expr.resultType?.type
@@ -841,7 +853,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     }
 
     private fun addExpression(
-        expr    : AssignExpression,
+        expr: AssignExpression,
         function: GlobalFunction,
     ): ExpressionResult {
         if (expr.resultType == null || expr.left.resultType == null || expr.right.resultType == null) {
@@ -856,8 +868,8 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     }
 
     private fun addBinaryLogicExpression(
-        lhs     : Expression,
-        rhs     : Expression,
+        lhs: Expression,
+        rhs: Expression,
         operator: ast.BinaryOperator,
         function: GlobalFunction,
     ): ExpressionResult {
@@ -879,18 +891,22 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                                     trueBlockLabel = lhsResultBlockIndex + 1,
                                     falseBlockLabel = rhsResultBlockIndex + 1,
                                 )
+
                                 ast.BinaryOperator.LOGICAL_OR -> BranchStatement(
                                     condition = lhsResult,
                                     trueBlockLabel = rhsResultBlockIndex + 1,
                                     falseBlockLabel = lhsResultBlockIndex + 1,
                                 )
+
                                 else -> throw InternalException("Unexpected binary operator")
                             }
                         )
-                        rhsResultBlock.statements.add(BranchStatement(
-                            condition = null,
-                            trueBlockLabel = rhsResultBlockIndex + 1,
-                            falseBlockLabel = null)
+                        rhsResultBlock.statements.add(
+                            BranchStatement(
+                                condition = null,
+                                trueBlockLabel = rhsResultBlockIndex + 1,
+                                falseBlockLabel = null
+                            )
                         )
 
                         val dest = LocalVariable(
@@ -898,27 +914,32 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                             PrimitiveType(TypeProperty.I1)
                         )
                         unnamedVariableCount++
-                        blocks.add(Block(
-                            label = (rhsResultBlockIndex + 1).toString(),
-                            statements = mutableListOf(
-                                PhiStatement(
-                                    dest = dest,
-                                    incoming = when (operator) {
-                                        ast.BinaryOperator.LOGICAL_AND -> listOf(
-                                            Pair(I1Literal(0), lhsResultBlockIndex),
-                                            Pair(rhsResult, rhsResultBlockIndex),
-                                        )
-                                        ast.BinaryOperator.LOGICAL_OR -> listOf(
-                                            Pair(I1Literal(1), lhsResultBlockIndex),
-                                            Pair(rhsResult, rhsResultBlockIndex),
-                                        )
-                                        else -> throw InternalException("Unexpected binary operator")
-                                    },
+                        blocks.add(
+                            Block(
+                                label = (rhsResultBlockIndex + 1).toString(),
+                                statements = mutableListOf(
+                                    PhiStatement(
+                                        dest = dest,
+                                        incoming = when (operator) {
+                                            ast.BinaryOperator.LOGICAL_AND -> listOf(
+                                                Pair(I1Literal(0), lhsResultBlockIndex),
+                                                Pair(rhsResult, rhsResultBlockIndex),
+                                            )
+
+                                            ast.BinaryOperator.LOGICAL_OR -> listOf(
+                                                Pair(I1Literal(1), lhsResultBlockIndex),
+                                                Pair(rhsResult, rhsResultBlockIndex),
+                                            )
+
+                                            else -> throw InternalException("Unexpected binary operator")
+                                        },
+                                    )
                                 )
                             )
-                        ))
+                        )
                         return IrVariable(dest)
                     }
+
                     is IntLiteral -> {
                         return if (operator == ast.BinaryOperator.LOGICAL_AND && rhsResult.value == 0) {
                             blocks.removeAt(blocks.lastIndex)
@@ -931,10 +952,12 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                             IrVariable(lhsResult)
                         }
                     }
+
                     else -> throw InternalException("Unexpected argument type")
                 }
 
             }
+
             is IntLiteral -> {
                 return if (operator == ast.BinaryOperator.LOGICAL_AND && lhsResult.value == 0) {
                     ConstExpression(0, PrimitiveType(TypeProperty.I1))
@@ -944,15 +967,16 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                     addExpression(rhs, function, ExpectedState.VALUE)
                 }
             }
+
             else -> throw InternalException("Unexpected argument type")
         }
     }
 
     private fun addBinaryArithmeticExpression(
-        lhs     : Expression,
-        rhs     : Expression,
+        lhs: Expression,
+        rhs: Expression,
         operator: ast.BinaryOperator,
-        type    : Type,
+        type: Type,
         function: GlobalFunction,
     ): ExpressionResult {
         val lhsResult = addExpression(lhs, function, ExpectedState.VALUE).toArgument()
@@ -987,10 +1011,10 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     // Add integer compare expression. Please note that if both argument is
     // constant, you should not this expression.
     private fun addCompareExpression(
-        lhs     : Argument,
-        rhs     : Argument,
+        lhs: Argument,
+        rhs: Argument,
         operator: ast.BinaryOperator,
-        function  : GlobalFunction,
+        function: GlobalFunction,
     ): ExpressionResult {
         val dest = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.I1))
         unnamedVariableCount++
@@ -1009,8 +1033,8 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     }
 
     private fun addStringBinaryExpression(
-        lhs     : Expression,
-        rhs     : Expression,
+        lhs: Expression,
+        rhs: Expression,
         operator: ast.BinaryOperator,
         function: GlobalFunction,
     ): ExpressionResult {
@@ -1094,8 +1118,8 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     private fun addIntBinaryExpression(
         lhsResult: Argument,
         rhsResult: Argument,
-        type     : Type,
-        operator : ast.BinaryOperator,
+        type: Type,
+        operator: ast.BinaryOperator,
         function: GlobalFunction,
     ): ExpressionResult {
         if (lhsResult is IntLiteral && rhsResult is IntLiteral) {
@@ -1201,17 +1225,17 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
 
     private fun addStatement(statement: ast.Statement, function: GlobalFunction) {
         when (statement) {
-            is ast.BlockStatement          -> addStatement(statement, function)
-            is ast.ExpressionStatement     -> addStatement(statement, function)
-            is ast.BranchStatement         -> addStatement(statement, function)
-            is ast.WhileStatement          -> addStatement(statement, function)
-            is ast.ForExpressionStatement  -> addStatement(statement, function)
+            is ast.BlockStatement -> addStatement(statement, function)
+            is ast.ExpressionStatement -> addStatement(statement, function)
+            is ast.BranchStatement -> addStatement(statement, function)
+            is ast.WhileStatement -> addStatement(statement, function)
+            is ast.ForExpressionStatement -> addStatement(statement, function)
             is ast.ForDeclarationStatement -> addStatement(statement, function)
-            is ast.ContinueStatement       -> addStatement(statement, function)
-            is ast.BreakStatement          -> addStatement(statement, function)
-            is ast.ReturnStatement         -> addStatement(statement, function)
-            is ast.VariablesDeclaration    -> addStatement(statement, function)
-            is ast.EmptyStatement          -> {}
+            is ast.ContinueStatement -> addStatement(statement, function)
+            is ast.BreakStatement -> addStatement(statement, function)
+            is ast.ReturnStatement -> addStatement(statement, function)
+            is ast.VariablesDeclaration -> addStatement(statement, function)
+            is ast.EmptyStatement -> {}
             else -> throw IRBuilderException("Unknown statement in addStatement")
         }
     }

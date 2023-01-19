@@ -36,9 +36,8 @@ class GlobalClass(
     val classType: ClassType,
     val nameMap: Map<String, Int>,
 ) {
-    override fun toString(): String {
-        return "%class.${classType.name} = type { ${classType.memberList.joinToString(", ")} }"
-    }
+    override fun toString() =
+        "%class.${classType.name} = type { ${classType.memberList.joinToString(", ")} }"
 
     val size: Int
         get() = classType.size
@@ -50,16 +49,10 @@ abstract class Argument (
     val type: Type,
 )
 
-abstract class Variable(
-    name: String,
-    type: Type,
-) : Argument(name, type)
+abstract class Variable(name: String, type: Type) : Argument(name, type)
 
-class GlobalVariable(
-    name: String,
-    type: Type,
-) : Variable(name, type) {
-    override fun toString(): String = when (type) {
+class GlobalVariable(name: String, type: Type) : Variable(name, type) {
+    override fun toString() = when (type) {
         is PrimitiveType -> when (type.type) {
             TypeProperty.VOID -> "void"
             else              -> "$type @$name"
@@ -68,33 +61,29 @@ class GlobalVariable(
     }
 }
 
-class LocalVariable(
-    name: String,
-    type: Type,
-) : Variable(name, type) {
-    override fun toString(): String = when (type) {
+class LocalVariable(name: String, type: Type) : Variable(name, type) {
+    override fun toString() = when (type) {
         is PrimitiveType -> when (type.type) {
             TypeProperty.VOID -> "void"
             else -> "$type %$name"
         }
+
         else -> "$type %$name"
     }
 }
 
-abstract class IntLiteral(
-    val value: Int,
-    type: Type
-) : Argument(value.toString(), type)
+abstract class IntLiteral(val value: Int, type: Type) : Argument(value.toString(), type)
 
 fun getLiteralNode(value: Int, type: Type): IntLiteral {
     return when (type) {
         is PrimitiveType -> when (type.type) {
-            TypeProperty.I1  -> I1Literal(value)
-            TypeProperty.I8  -> I8Literal(value)
+            TypeProperty.I1 -> I1Literal(value)
+            TypeProperty.I8 -> I8Literal(value)
             TypeProperty.I32 -> I32Literal(value)
             TypeProperty.PTR -> PtrLiteral(value)
             else -> throw InternalException("Unsupported type for literal: $type")
         }
+
         else -> throw InternalException("Unsupported type for literal: $type")
     }
 }
@@ -102,45 +91,45 @@ fun getLiteralNode(value: Int, type: Type): IntLiteral {
 class I1Literal(
     value: Int
 ) : IntLiteral(value, PrimitiveType(TypeProperty.I1)) {
-    override fun toString(): String = if (value == 0) "i1 0" else "i1 1"
+    override fun toString() = if (value == 0) "i1 0" else "i1 1"
 }
 
 class I8Literal(
     value: Int
 ) : IntLiteral(value, PrimitiveType(TypeProperty.I8)) {
-    override fun toString(): String = "i8 $value"
+    override fun toString() = "i8 $value"
 }
 
 class I32Literal(
     value: Int
 ) : IntLiteral(value, PrimitiveType(TypeProperty.I32)) {
-    override fun toString(): String = "i32 $value"
+    override fun toString() = "i32 $value"
 }
 
 // Actually used only for null
 class PtrLiteral(
     value: Int
 ) : IntLiteral(value, PrimitiveType(TypeProperty.PTR)) {
-    override fun toString(): String = "ptr $value"
+    override fun toString() = "ptr $value"
 }
 
 class GlobalVariableDecl(
     val property: GlobalVariable,
     val initValue: Int, // Every global variable must have an initial value
 ) : GlobalDecl {
-    override fun toString(): String = when (property.type) {
+    override fun toString() = when (property.type) {
         is PrimitiveType -> when (property.type.type) {
-            TypeProperty.PTR  -> "@${property.name} = global ${property.type} null, align $alignValue"
-            else              -> "@${property.name} = global ${property.type} $initValue, align $alignValue"
+            TypeProperty.PTR -> "@${property.name} = global ${property.type} null, align $alignValue"
+            else -> "@${property.name} = global ${property.type} $initValue, align $alignValue"
         }
-        else                  -> "@${property.name} = global ${property.type} $initValue, align $alignValue"
+
+        else -> "@${property.name} = global ${property.type} $initValue, align $alignValue"
     }
 }
 
 class LocalVariableDecl(val property: LocalVariable) : Statement() {
-    override fun toString(): String {
-        return "%${property.name} = alloca ${property.type}, align $alignValue"
-    }
+    override fun toString() =
+        "%${property.name} = alloca ${property.type}, align $alignValue"
 }
 
 class GlobalFunction(
@@ -157,14 +146,12 @@ class GlobalFunction(
     val returnVariable: LocalVariable
         get() = LocalVariable("__return", returnType)
     val returnBlock: Block?
-        get() {
-            if (body == null) return null
-            if (returnType.type == TypeProperty.VOID) {
-                return Block("return", mutableListOf(ReturnStatement()))
-            } else {
+        get() = if (body == null) null
+        else if (returnType.type == TypeProperty.VOID) {
+                Block("return", mutableListOf(ReturnStatement()))
+        } else {
                 val returnPhiStatement = returnPhi ?: throw InternalException("Return phi statement not found")
-                return Block("return", mutableListOf(returnPhi, ReturnStatement(returnVariable)))
-            }
+                Block("return", mutableListOf(returnPhiStatement, ReturnStatement(returnVariable)))
         }
 
     private val returnBlockString: String
@@ -172,7 +159,8 @@ class GlobalFunction(
             val returnBlock = returnBlock ?: return ""
             return "$returnBlock\n"
         }
-    override fun toString(): String = when (body) {
+
+    override fun toString() = when (body) {
         null -> "declare $returnType @$name(${parameters.joinToString(", ")})"
         else -> "define $returnType @$name(${parameters.joinToString(", ")}) {\n" +
                 (variables?.joinToString("\n")
@@ -185,18 +173,14 @@ class FunctionParameter(
     val type: Type,
     val name: String,
 ) {
-    override fun toString(): String {
-        return "$type %$name"
-    }
+    override fun toString() = "$type %$name"
 }
 
 class Block(
     val label: String,
     val statements: MutableList<Statement>,
 ) {
-    override fun toString(): String {
-        return "$label:\n" + statements.joinToString("\n")
-    }
+    override fun toString() = "$label:\n" + statements.joinToString("\n")
 }
 
 abstract class Statement
@@ -207,7 +191,7 @@ class CallStatement(
     val function: GlobalFunction,
     val arguments: List<Argument>,
 ) : Statement() {
-    override fun toString(): String = when (returnType) {
+    override fun toString() = when (returnType) {
         is PrimitiveType -> when (returnType.type) {
             TypeProperty.VOID -> "call void @${function.name}(${arguments.joinToString(", ")})"
             else -> "%${dest?.name} = call ${returnType.type} @${function.name}(${arguments.joinToString(", ")})"
@@ -219,7 +203,7 @@ class CallStatement(
 class ReturnStatement(
     val value: Variable? = null,
 ) : Statement() {
-    override fun toString(): String = when (value) {
+    override fun toString() = when (value) {
         null -> "ret void"
         else -> "ret ${value.type} ${value.name}"
     }
@@ -230,11 +214,9 @@ class BranchStatement(
     val trueBlockLabel: Int,
     val falseBlockLabel: Int?, // null if unconditional
 ) : Statement() {
-    override fun toString(): String {
-        return when (falseBlockLabel) {
-            null -> "br label %$trueBlockLabel"
-            else -> "br i1 $condition, label %$trueBlockLabel, label %$falseBlockLabel"
-        }
+    override fun toString() = when (falseBlockLabel) {
+        null -> "br label %$trueBlockLabel"
+        else -> "br i1 $condition, label %$trueBlockLabel, label %$falseBlockLabel"
     }
 }
 
@@ -242,18 +224,16 @@ class LoadStatement(
     val dest: LocalVariable,
     val src: Argument,
 ) : Statement() {
-    override fun toString(): String {
-        return "${dest.name} = load ${dest.type}, ptr $src, align $alignValue"
-    }
+    override fun toString() =
+        "${dest.name} = load ${dest.type}, ptr $src, align $alignValue"
 }
 
 class StoreStatement(
     val dest: Variable,
     val src : Argument,
 ) : Statement() {
-    override fun toString(): String {
-        return "store ${dest.type} $src, ptr $dest, align $alignValue"
-    }
+    override fun toString() =
+        "store ${dest.type} $src, ptr $dest, align $alignValue"
 }
 
 class BinaryOperationStatement(
@@ -262,9 +242,8 @@ class BinaryOperationStatement(
     val lhs : Argument,
     val rhs : Argument,
 ) : Statement() {
-    override fun toString(): String {
-        return "${dest.name} = $op ${lhs.type} ${lhs.name}, ${rhs.name}"
-    }
+    override fun toString() =
+        "${dest.name} = $op ${lhs.type} ${lhs.name}, ${rhs.name}"
 }
 
 class IntCmpStatement(
@@ -273,9 +252,8 @@ class IntCmpStatement(
     val lhs : Argument,
     val rhs : Argument,
 ) : Statement() {
-    override fun toString(): String {
-        return "${dest.name} = icmp $op ${lhs.type} ${lhs.name}, ${rhs.name}"
-    }
+    override fun toString() =
+        "${dest.name} = icmp $op ${lhs.type} ${lhs.name}, ${rhs.name}"
 }
 
 class GetElementPtrStatement(
@@ -313,15 +291,6 @@ class PhiStatement(
             count++
         }
         return returnString
-    }
-}
-
-class AllocaStatement(
-    val dest: LocalVariable,
-    val type: Type,
-) : Statement() {
-    override fun toString(): String {
-        return "${dest.name} = alloca ${type}, align $alignValue"
     }
 }
 
