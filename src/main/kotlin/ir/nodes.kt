@@ -218,6 +218,9 @@ class BranchStatement(
         null -> "br label %$trueBlockLabel"
         else -> "br i1 $condition, label %$trueBlockLabel, label %$falseBlockLabel"
     }
+
+    // Unconditional branch
+    constructor(branchLabel: String) : this(null, branchLabel, null)
 }
 
 class LoadStatement(
