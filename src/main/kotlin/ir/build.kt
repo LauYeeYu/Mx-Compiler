@@ -22,6 +22,8 @@ import typecheck.*
 
 fun buildIr(astNode: AstNode): Root = IR(astNode).buildRoot()
 
+val emptyString: StringLiteralDecl = StringLiteralDecl("__empty_string", "")
+
 class IR(private val root: AstNode, private val parent: IR? = null) {
     private var unnamedVariableCount = 0
     private var unnamedStringLiteralCount = 0
@@ -66,32 +68,42 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         parameters: List<Binding>,
         isMember: Boolean = false,
     ) {
+        val ptrType = PrimitiveType(TypeProperty.PTR)
+        val functionParameter = parameters.map { astParameter ->
+            FunctionParameter(irType(astParameter.type), "${astParameter.irInfo}.param")
+        }
+        val variables: MutableList<LocalVariableDecl> = parameters.map { astParameter ->
+            LocalVariableDecl(
+                LocalVariable(
+                    name = astParameter.irInfo.toString(),
+                    type = ptrType,
+                ),
+                irType(astParameter.type),
+            )
+        }.toMutableList()
+        val body: MutableList<Statement> = parameters.map { astParameter ->
+            StoreStatement(
+                dest = LocalVariable(astParameter.irInfo.toString(), ptrType),
+                src = LocalVariable("${astParameter.irInfo}.param", irType(astParameter.type))
+            )
+        }.toMutableList()
         globalFunctions[name] = GlobalFunction(
             name = name,
             returnType = returnIrType,
-            parameters = parameters.map { astParameter ->
-                FunctionParameter(irType(astParameter.type), "${astParameter.irInfo}.param")
+            parameters = if (isMember) {
+                listOf(FunctionParameter(ptrType, "__this.param")) + functionParameter
+            } else {
+                functionParameter
             },
-            variables = parameters.map { astParameter ->
-                LocalVariableDecl(
-                    LocalVariable(
-                        name = astParameter.irInfo.toString(),
-                        type = irType(astParameter.type),
-                    )
-                )
-            }.toMutableList(),
-            body = mutableListOf(Block("0", parameters.map { astParameter ->
+            variables = if (isMember) (listOf(
+                LocalVariableDecl(LocalVariable("__this", ptrType), ptrType)
+            ) + variables).toMutableList() else variables,
+            body = if (isMember) mutableListOf(Block("0", (listOf<Statement>(
                 StoreStatement(
-                    LocalVariable(
-                        name = astParameter.irInfo.toString(),
-                        type = irType(astParameter.type),
-                    ),
-                    LocalVariable(
-                        name = "${astParameter.irInfo}.param",
-                        type = irType(astParameter.type),
-                    )
+                    dest = LocalVariable("__this", ptrType),
+                    src = LocalVariable("__this.param", ptrType),
                 )
-            }.toMutableList())),
+            ) + body).toMutableList())) else mutableListOf(Block("0", body)),
             returnPhi = if (returnIrType.type == TypeProperty.VOID) null
             else PhiStatement(
                 LocalVariable("__return", returnIrType), mutableListOf()
@@ -606,10 +618,10 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         val arguments = expr.arguments.map { addExpression(it, function, ExpectedState.VALUE).toArgument() }
         val iterators = mutableListOf<LocalVariable>()
         for (i in 0 until expr.arguments.size) {
-            iterators.add(LocalVariable("__iterator_$unnamedIterator", PrimitiveType(TypeProperty.I32)))
+            iterators.add(LocalVariable("__iterator_$unnamedIterator", PrimitiveType(TypeProperty.PTR)))
             unnamedIterator++
         }
-        function.variables?.addAll(iterators.map { LocalVariableDecl(it) })
+        function.variables?.addAll(iterators.map { LocalVariableDecl(it, PrimitiveType(TypeProperty.I32)) })
             ?: throw InternalException("Function has no variable list")
         val array = addNewExpressionLoop(blocks, arguments, iterators, expr.dimension, 0, expr.type)
         return IrVariable(array)
@@ -1326,13 +1338,16 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         val variableList = function.variables ?: throw IRBuilderException("Function has no variable list")
         val type = irType(statement.type)
+        val ptrType = PrimitiveType(TypeProperty.PTR)
         for (variable in statement.variables) {
             val binding = variable.binding ?: throw IRBuilderException("Variable has no binding")
-            val dest = LocalVariable(binding.irInfo.toString(), type)
-            variableList.add(LocalVariableDecl(dest))
+            val dest = LocalVariable(binding.irInfo.toString(), ptrType)
+            variableList.add(LocalVariableDecl(dest, type))
             if (variable.body != null) {
                 val initializer = addExpression(variable.body, function, ExpectedState.VALUE).toArgument()
                 blocks.last().statements.add(StoreStatement(dest, initializer))
+            } else if (statement.type is ast.StringType) {
+                blocks.last().statements.add(StoreStatement(dest, GlobalVariable("__empty_string", ptrType)))
             }
         }
     }
