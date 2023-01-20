@@ -29,6 +29,8 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     private var unnamedStringLiteralCount = 0
     private var unnamedIterator = 0
     private var branchCount = 0
+    private var loopCount = 0
+    private var currentLoopCount = 0
     private val globalVariableDecl = mutableListOf<GlobalDecl>()
     private val classes = mutableMapOf<String, GlobalClass>()
     private val globalFunctions = linkedMapOf<String, GlobalFunction>()
@@ -1380,6 +1382,36 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             blocks.last().statements.add(BranchStatement(endBlockLabel))
         }
         blocks.add(Block(endBlockLabel, mutableListOf()))
+    }
+
+    private fun addStatement(statement: ast.WhileStatement, function: GlobalFunction) {
+        val blocks = function.body ?: throw IRBuilderException("Function has no body")
+        val oldLoopCount = currentLoopCount
+        currentLoopCount = loopCount
+        val conditionBlockLabel = "condition_$loopCount"
+        val bodyBlockLabel = "body_$loopCount"
+        val endBlockLabel = "end_$loopCount"
+        loopCount++
+        blocks.last().statements.add(BranchStatement(conditionBlockLabel))
+        blocks.add(Block(conditionBlockLabel, mutableListOf()))
+        val condition = addExpression(statement.condition, function, ExpectedState.VALUE).toArgument()
+        if (condition is IntLiteral) {
+            if (condition.value == 1) {
+                blocks.last().statements.add(BranchStatement(bodyBlockLabel))
+            } else {
+                blocks.removeAt(blocks.lastIndex)
+                blocks.last().statements.removeAt(blocks.last().statements.lastIndex)
+                currentLoopCount = oldLoopCount
+                return
+            }
+        } else {
+            blocks.last().statements.add(BranchStatement(condition, bodyBlockLabel, endBlockLabel))
+        }
+        blocks.add(Block(bodyBlockLabel, mutableListOf()))
+        addStatement(statement.body, function)
+        blocks.last().statements.add(BranchStatement(conditionBlockLabel))
+        blocks.add(Block(endBlockLabel, mutableListOf()))
+        currentLoopCount = oldLoopCount
     }
 
     private fun addStatement(statement: ast.ReturnStatement, function: GlobalFunction) {
