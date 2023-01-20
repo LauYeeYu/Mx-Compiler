@@ -28,6 +28,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     private var unnamedVariableCount = 0
     private var unnamedStringLiteralCount = 0
     private var unnamedIterator = 0
+    private var branchCount = 0
     private val globalVariableDecl = mutableListOf<GlobalDecl>()
     private val classes = mutableMapOf<String, GlobalClass>()
     private val globalFunctions = linkedMapOf<String, GlobalFunction>()
@@ -236,13 +237,13 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         if (function.returnType.type == TypeProperty.VOID) {
             if (blocks.last().statements.lastOrNull() !is ReturnStatement) {
-                blocks.last().statements.add(BranchStatement(null, "return", null))
+                blocks.last().statements.add(BranchStatement("return"))
             }
         } else {
             if (function.name == "main" &&
                 blocks.last().statements.lastOrNull() !is ReturnStatement) {
                 // main function should return 0
-                blocks.last().statements.add(BranchStatement(null, "return", null))
+                blocks.last().statements.add(BranchStatement("return"))
                 val returnPhi = function.returnPhi ?: throw IRBuilderException("Function has no return phi")
                 returnPhi.incoming.add(Pair(I32Literal(0), blocks.last().label))
             }
@@ -1347,15 +1348,49 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         addExpression(statement.expression, function, ExpectedState.VALUE)
     }
 
+    private fun addStatement(statement: ast.BranchStatement, function: GlobalFunction) {
+        val blocks = function.body ?: throw IRBuilderException("Function has no body")
+        val condition = addExpression(statement.condition, function, ExpectedState.VALUE).toArgument()
+        if (condition is IntLiteral) {
+            if (condition.value == 1) {
+                addStatement(statement.trueBranch, function)
+            } else if (statement.falseBranch != null) {
+                addStatement(statement.falseBranch, function)
+            }
+            return
+        }
+        // condition is a variable
+        val trueBlockLabel = "true_$branchCount"
+        val falseBlockLabel = "false_$branchCount"
+        val endBlockLabel = "end_$branchCount"
+        branchCount++
+        blocks.last().statements.add(
+            BranchStatement(
+                condition,
+                trueBlockLabel,
+                if (statement.falseBranch != null) endBlockLabel else endBlockLabel
+            )
+        )
+        blocks.add(Block(trueBlockLabel, mutableListOf()))
+        addStatement(statement.trueBranch, function)
+        blocks.last().statements.add(BranchStatement(endBlockLabel))
+        if (statement.falseBranch != null) {
+            blocks.add(Block(falseBlockLabel, mutableListOf()))
+            addStatement(statement.falseBranch, function)
+            blocks.last().statements.add(BranchStatement(endBlockLabel))
+        }
+        blocks.add(Block(endBlockLabel, mutableListOf()))
+    }
+
     private fun addStatement(statement: ast.ReturnStatement, function: GlobalFunction) {
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         if (statement.expression != null) {
             val returnValue = addExpression(statement.expression, function, ExpectedState.VALUE).toArgument()
-            blocks.last().statements.add(BranchStatement(null, "return", null))
+            blocks.last().statements.add(BranchStatement("return"))
             val returnPhi = function.returnPhi ?: throw IRBuilderException("Non-void function has no return phi")
             returnPhi.incoming.add(Pair(returnValue, blocks.last().label))
         } else {
-            blocks.last().statements.add(BranchStatement(null, "return", null))
+            blocks.last().statements.add(BranchStatement("return"))
         }
     }
 
