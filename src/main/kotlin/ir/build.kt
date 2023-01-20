@@ -188,7 +188,6 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         }
         val returnClass = GlobalClass(ClassType(astNode.name, memberList), nameMap)
         classes[astNode.name] = returnClass
-        var hasConstructor = false
         astNode.body.filterIsInstance<ast.Function>().forEach { element ->
             registerFunction(
                 name = "${astNode.name}.${element.name}",
@@ -342,23 +341,49 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         function: GlobalFunction,
         expectedState: ExpectedState
     ): ExpressionResult {
-        if (expr.binding == null) {
-            throw EnvironmentException("The AST node in addExpression has no binding")
-        }
-        val type = irType(expr.binding!!.type)
-        val srcVariable = when (expr.binding!!.irInfo.isLocal) {
-            true -> LocalVariable(expr.binding!!.irInfo.toString(), PrimitiveType(TypeProperty.PTR))
-            false -> GlobalVariable(expr.binding!!.irInfo.toString(), PrimitiveType(TypeProperty.PTR))
-        }
-        return when (expectedState) {
-            ExpectedState.PTR -> IrVariable(srcVariable)
-            ExpectedState.VALUE -> {
-                val destName = unnamedVariableCount
-                unnamedVariableCount++
-                val dest = LocalVariable(destName.toString(), type)
-                val blocks = function.body ?: throw IRBuilderException("Function has no body")
-                blocks.last().statements.add(LoadStatement(dest = dest, src = srcVariable))
-                return IrVariable(dest)
+        val binding = expr.binding ?: throw IRBuilderException("Object has no binding")
+        val type = irType(binding.type)
+        if (binding.fromClass == null) {
+            val srcVariable = when (binding.irInfo.isLocal) {
+                true -> LocalVariable(binding.irInfo.toString(), PrimitiveType(TypeProperty.PTR))
+                false -> GlobalVariable(binding.irInfo.toString(), PrimitiveType(TypeProperty.PTR))
+            }
+            return when (expectedState) {
+                ExpectedState.PTR -> IrVariable(srcVariable)
+                ExpectedState.VALUE -> {
+                    val destName = unnamedVariableCount
+                    unnamedVariableCount++
+                    val dest = LocalVariable(destName.toString(), type)
+                    val blocks = function.body ?: throw IRBuilderException("Function has no body")
+                    blocks.last().statements.add(LoadStatement(dest = dest, src = srcVariable))
+                    IrVariable(dest)
+                }
+            }
+        } else {
+            val srcClass = classes[binding.fromClass.name]
+                ?: throw IRBuilderException("Class ${binding.fromClass.name} not found")
+            val index = srcClass.nameMap[expr.name]
+                ?: throw IRBuilderException("Cannot find the index of the member")
+            val ptr = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.PTR))
+            unnamedVariableCount++
+            val blocks = function.body ?: throw IRBuilderException("Function has no body")
+            blocks.last().statements.add(
+                GetElementPtrStatement(
+                    dest = ptr,
+                    src = LocalVariable("__this", PrimitiveType(TypeProperty.PTR)),
+                    srcType = srcClass.classType,
+                    indexes = listOf(I32Literal(0), I32Literal(index)),
+                )
+            )
+            return when (expectedState) {
+                ExpectedState.PTR -> IrVariable(ptr)
+                ExpectedState.VALUE -> {
+                    val destName = unnamedVariableCount
+                    unnamedVariableCount++
+                    val dest = LocalVariable(destName.toString(), type)
+                    blocks.last().statements.add(LoadStatement(dest = dest, src = ptr))
+                    IrVariable(dest)
+                }
             }
         }
     }

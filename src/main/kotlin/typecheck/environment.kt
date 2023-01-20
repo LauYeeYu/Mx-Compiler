@@ -21,7 +21,7 @@ import exceptions.InternalException
 import exceptions.SemanticException
 
 class IrInfo(
-    val name: String,
+    private val name: String,
     val count: Int,
     val isLocal: Boolean,
 ) {
@@ -45,6 +45,7 @@ class Binding(
     val name: String,
     val type: MxType,
     val irInfo: IrInfo,
+    val fromClass: ast.Class? = null,
 )
 
 open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
@@ -56,7 +57,7 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
     fun findFunctionAlike(name: String): Binding? =
         functionAlikeBindings[name] ?: parent?.findFunctionAlike(name)
 
-    fun findClass(name: String): Binding? =
+    private fun findClass(name: String): Binding? =
         classBindings[name] ?: parent?.findClass(name)
 
     open fun inClass(): Boolean =
@@ -99,9 +100,7 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
             is ClassType -> {
                 val className = type.name
                 val classBinding = findClass(className)
-                if (classBinding == null) {
-                    throw SemanticException("Class $className not found", ctx)
-                }
+                    ?: throw SemanticException("Class $className not found", ctx)
                 if (classBinding.type !is MxClassType) {
                     throw SemanticException("Expected a class, got ${classBinding.type}", ctx)
                 }
@@ -114,9 +113,7 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
 
     protected fun recordFunction(node: ast.Function) {
         val binding = findFunctionAlike(node.name)
-        if (binding == null) {
-            throw InternalException("Function ${node.name} not found")
-        }
+            ?: throw InternalException("Function ${node.name} not found")
         val functionEnvironmentRecord = FunctionEnvironmentRecord(
             this,
             node.parameters.map {
@@ -177,13 +174,11 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
 
     protected fun recordClass(node: ast.Class) {
         val binding = classBindings[node.name]
-        if (binding == null) {
-            throw InternalException("Class ${node.name} is not found")
-        }
+            ?: throw InternalException("Class ${node.name} is not found")
         node.environment = (binding.type.environment as ClassEnvironmentRecord).checkAndRecord(node)
     }
 
-    protected open fun recordVariable(node: VariablesDeclaration): List<Binding> {
+    protected fun recordVariable(node: VariablesDeclaration): List<Binding> {
         val type = getType(node.type, node.ctx)
         if (!isValidVariableType(type)) {
             throw SemanticException("Variable type cannot be $type", node.ctx)
@@ -286,7 +281,7 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
                 subEnvironments.add(forEnvironment)
             }
             is ForDeclarationStatement -> {
-                val variableList = recordVariable(root.init)
+                recordVariable(root.init)
                 if (root.condition != null &&
                     (checkType(root.condition, this, root.ctx).type !is MxBoolType)) {
                     throw SemanticException("Expected a bool type", root.condition.ctx)
@@ -324,7 +319,7 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
     val classBindings: HashMap<String, Binding> = HashMap()
     var hasReturn = false
     var referredReturnType: MxType? = null
-    protected val subEnvironments: MutableList<EnvironmentRecord> = mutableListOf()
+    private val subEnvironments: MutableList<EnvironmentRecord> = mutableListOf()
 }
 
 class ClassEnvironmentRecord(
@@ -359,6 +354,7 @@ class ClassEnvironmentRecord(
                             variable.name,
                             getType(classElement.type, classElement.ctx),
                             IrInfo(variable.name, count, true),
+                            root,
                         )
                         variableAlikeBindings[variable.name] = newBinding
                         variable.binding = newBinding
@@ -574,7 +570,7 @@ class GlobalEnvironmentRecord : EnvironmentRecord(null) {
         )
     }
 
-    fun registerSymbols(root: TranslateUnit) {
+    private fun registerSymbols(root: TranslateUnit) {
         // register all classes
         for (element in root.content) {
             if (element is ast.Class) {
