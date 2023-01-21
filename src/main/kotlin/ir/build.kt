@@ -59,6 +59,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         }
         buildGlobalList(root.content)
         root.content.filterIsInstance<ast.Function>().forEach { buildFunction(it) }
+        root.content.filterIsInstance<ast.Class>().forEach { buildClass(it) }
         return Root(
             classes = classList,
             variables = globalVariableDecl,
@@ -254,6 +255,70 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                 val returnPhi = function.returnPhi ?: throw IRBuilderException("Function has no return phi")
                 returnPhi.incoming.add(Pair(I32Literal(0), blocks.last().label))
             }
+        }
+    }
+
+    // Build class functions and constructor
+    private fun buildClass(astNode: ast.Class) {
+        if (astNode.environment == null) {
+            throw EnvironmentException("The AST node in buildClass has no environment")
+        }
+        var hasConstructor = false
+        for (node in astNode.body) {
+            if (node is ast.Function) {
+                val function = globalFunctions["${astNode.name}.${node.name}"]
+                    ?: throw IRBuilderException("Function ${astNode.name}.${node.name} not found")
+                addStatement(node.body, function)
+                val blocks = function.body ?: throw IRBuilderException("Function has no body")
+                if (function.returnType.type == TypeProperty.VOID) {
+                    if (blocks.last().statements.lastOrNull() !is ReturnStatement) {
+                        blocks.last().statements.add(BranchStatement("return"))
+                    }
+                }
+            } else if (node is ast.Constructor) {
+                hasConstructor = true
+                buildClassConstructor(astNode, node)
+            }
+        }
+        if (!hasConstructor) buildClassConstructor(astNode, null)
+    }
+
+    private fun buildClassConstructor(classNode: ast.Class, constructor: ast.Constructor?) {
+        val function = globalFunctions["${classNode.name}.${classNode.name}"]
+            ?: throw IRBuilderException("Function ${classNode.name}.${classNode.name} not found")
+        if (constructor != null) addStatement(constructor.body, function)
+        val classIrNode: GlobalClass = classes[classNode.name]
+            ?: throw IRBuilderException("Class ${classNode.name} not found")
+        val blocks = function.body ?: throw IRBuilderException("Function has no body")
+        val thisPtr = LocalVariable("__this", PrimitiveType(TypeProperty.PTR))
+        classNode.body.filterIsInstance<ast.VariablesDeclaration>().forEach { node ->
+            val type = irType(node.type)
+            node.variables.forEach { variable ->
+                val ptr = LocalVariable("__${variable.name}.ptr", PrimitiveType(TypeProperty.PTR))
+                val index = classIrNode.nameMap[variable.name]
+                    ?: throw IRBuilderException("Member ${variable.name} not found")
+                val ptrStatement = GetElementPtrStatement(
+                    dest = ptr,
+                    src = thisPtr,
+                    srcType = classIrNode.classType,
+                    indexes = listOf(I32Literal(0), I32Literal(index)),
+                )
+                if (variable.body != null) {
+                    val value = addExpression(variable.body, function, ExpectedState.VALUE).toArgument()
+                    blocks.last().statements.add(ptrStatement)
+                    blocks.last().statements.add(StoreStatement(dest = ptr, src = value, type = type))
+                } else if (node.type is ast.ClassType || node.type is ast.ArrayType) {
+                    blocks.last().statements.add(ptrStatement)
+                    blocks.last().statements.add(StoreStatement(dest = ptr, src = I32Literal(0), type = type))
+                } else if (node.type is ast.StringType) {
+                    val emptyString = GlobalVariable(name = "__emptyString", type = PrimitiveType(TypeProperty.PTR))
+                    blocks.last().statements.add(ptrStatement)
+                    blocks.last().statements.add(StoreStatement(dest = ptr, src = emptyString, type = type))
+                }
+            }
+        }
+        if (blocks.last().statements.lastOrNull() !is ReturnStatement) {
+            blocks.last().statements.add(BranchStatement("return"))
         }
     }
 
