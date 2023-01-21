@@ -566,12 +566,37 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             throw EnvironmentException("The AST node in addExpression has no result type")
         }
         val type = irType(expr.resultType!!.type)
-        val calledFunction: GlobalFunction = globalFunctions[expr.functionName]
-            ?: throw InternalException("Cannot find find the function ${expr.functionName}")
-        val arguments = expr.arguments.map {
-            addExpression(it, function, ExpectedState.VALUE).toArgument()
+        val fromClass = expr.fromClass
+        val calledFunction: GlobalFunction = if (fromClass != null) {
+            globalFunctions["${fromClass.name}.${expr.functionName}"]
+                ?: throw InternalException("Cannot find find the function ${fromClass.name}.${expr.functionName}")
+        } else {
+            globalFunctions[expr.functionName]
+                ?: throw InternalException("Cannot find find the function ${expr.functionName}")
         }
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
+        val thisPointer = if (fromClass != null) {
+            val thisPtr = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.PTR))
+            unnamedVariableCount++
+            blocks.last().statements.add(
+                LoadStatement(
+                    dest = thisPtr,
+                    src = GlobalVariable("__this", PrimitiveType(TypeProperty.PTR)),
+                )
+            )
+            thisPtr
+        } else {
+            null
+        }
+        val arguments: List<Argument> = if (thisPointer != null) {
+            listOf<Argument>(thisPointer) + expr.arguments.map {
+                addExpression(it, function, ExpectedState.VALUE).toArgument()
+            }
+        } else {
+            expr.arguments.map {
+                addExpression(it, function, ExpectedState.VALUE).toArgument()
+            }
+        }
         return if (expr.resultType!!.type is MxVoidType) {
             blocks.last().statements.add(CallStatement(null, type, calledFunction, arguments))
             VoidResult()
