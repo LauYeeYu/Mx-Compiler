@@ -234,9 +234,12 @@ class LoadStatement(
 class StoreStatement(
     val dest: Variable,
     val src : Argument,
+    val type: PrimitiveType,
 ) : Statement() {
-    override fun toString() =
-        "store ${dest.type} $src, ptr $dest, align $alignValue"
+    override fun toString() = when (src) {
+        is Variable -> "store $type $src, ptr $dest, align $alignValue"
+        else -> "store $type $src, ptr $dest, align $alignValue"
+    }
 }
 
 class BinaryOperationStatement(

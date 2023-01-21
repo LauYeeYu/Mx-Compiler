@@ -86,9 +86,11 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             )
         }.toMutableList()
         val body: MutableList<Statement> = parameters.map { astParameter ->
+            val type = irType(astParameter.type)
             StoreStatement(
                 dest = LocalVariable(astParameter.irInfo.toString(), ptrType),
-                src = LocalVariable("${astParameter.irInfo}.param", irType(astParameter.type))
+                src = LocalVariable("${astParameter.irInfo}.param", type),
+                type = type,
             )
         }.toMutableList()
         globalFunctions[name] = GlobalFunction(
@@ -106,6 +108,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                 StoreStatement(
                     dest = LocalVariable("__this", ptrType),
                     src = LocalVariable("__this.param", ptrType),
+                    type = ptrType,
                 )
             ) + body).toMutableList())) else mutableListOf(Block("0", body)),
             returnPhi = if (returnIrType.type == TypeProperty.VOID) null
@@ -148,6 +151,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                                 StoreStatement(
                                     GlobalVariable(variable.name, PrimitiveType(TypeProperty.PTR)),
                                     result,
+                                    PrimitiveType(TypeProperty.PTR),
                                 )
                             )
                         }
@@ -165,7 +169,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                                 ExpectedState.VALUE,
                             ).toArgument()
                             globalInitBlocks.last().statements.add(
-                                StoreStatement(variableProperty, result)
+                                StoreStatement(dest = variableProperty, src = result, type = type)
                             )
                         }
                         globalVariableDecl.add(GlobalVariableDecl(variableProperty, 0))
@@ -255,17 +259,13 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
 
     private fun primitiveVariableDeclInit(
         variable: ast.VariableDeclaration,
-        type: Type,
+        type: PrimitiveType,
         function: GlobalFunction, // variable initializing statement will not have a branch
     ) {
         val returnValue: Argument = when (variable.body) {
-            null -> when (type) {
-                is PrimitiveType -> when (type.type) {
-                    TypeProperty.I1 -> I1Literal(0)
-                    TypeProperty.I32 -> I32Literal(0)
-                    else -> throw IRBuilderException("Unknown type in primitiveVariableDeclInit")
-                }
-
+            null -> when (type.type) {
+                TypeProperty.I1 -> I1Literal(0)
+                TypeProperty.I32 -> I32Literal(0)
                 else -> throw IRBuilderException("Unknown type in primitiveVariableDeclInit")
             }
 
@@ -280,7 +280,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                 globalVariableDecl.add(GlobalVariableDecl(irVariable, 0))
                 val blocks = function.body ?: throw IRBuilderException("Function has no body")
                 blocks.last().statements.add(
-                    StoreStatement(dest = irVariable, src = returnValue)
+                    StoreStatement(dest = irVariable, src = returnValue, type = type)
                 )
             }
 
@@ -597,6 +597,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             StoreStatement(
                 dest = LocalVariable(storeDest.toString(), type),
                 src = addDest,
+                type = type,
             )
         )
         return IrVariable(addDest)
@@ -629,6 +630,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             StoreStatement(
                 dest = LocalVariable(storeDest.toString(), type),
                 src = addDest,
+                type = type,
             )
         )
         return IrVariable(operand)
@@ -689,7 +691,13 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             )
         )
         // Set the initial number of the iterator, i.e. __iterator__i = 0
-        blocks.last().statements.add(StoreStatement(dest = iterators[index], src = I32Literal(0)))
+        blocks.last().statements.add(
+            StoreStatement(
+                dest = iterators[index],
+                src = I32Literal(0),
+                type = PrimitiveType(TypeProperty.I32),
+            )
+        )
         val loopConditionLabel = blocks.size
         val loopStartLabel = loopConditionLabel + 1
         // Jump to the loop condition
@@ -744,7 +752,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                     is ast.ClassType -> {
                         val newClass = addNewClass(blocks, type)
                         blocks[loopStartLabel].statements.add(
-                            StoreStatement(dest = position, src = newClass)
+                            StoreStatement(dest = position, src = newClass, type = PrimitiveType(TypeProperty.PTR))
                         )
                     }
 
@@ -761,7 +769,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                             )
                         )
                         blocks[loopStartLabel].statements.add(
-                            StoreStatement(dest = position, src = newString)
+                            StoreStatement(dest = position, src = newString, type = PrimitiveType(TypeProperty.PTR))
                         )
                     }
                 }
@@ -778,13 +786,13 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                     )
                 )
                 blocks[loopStartLabel].statements.add(
-                    StoreStatement(dest = position, src = newArray)
+                    StoreStatement(dest = position, src = newArray, type = PrimitiveType(TypeProperty.PTR))
                 )
             }
         } else {
             val newArray = addNewExpressionLoop(blocks, arguments, iterators, dimension - 1, index + 1, type)
             blocks[loopStartLabel].statements.add(
-                StoreStatement(dest = position, src = newArray)
+                StoreStatement(dest = position, src = newArray, type = PrimitiveType(TypeProperty.PTR))
             )
         }
 
@@ -813,7 +821,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                         lhs = iteratorOld,
                         rhs = I32Literal(1),
                     ),
-                    StoreStatement(dest = iterators[index], src = iteratorNew),
+                    StoreStatement(dest = iterators[index], src = iteratorNew, type = PrimitiveType(TypeProperty.I32)),
                     BranchStatement(
                         condition = null,
                         trueBlockLabel = loopConditionLabel.toString(),
@@ -961,7 +969,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             ?: throw InternalException("The left side of the assignment is not a variable")
         val src = addExpression(expr.right, function, ExpectedState.VALUE)
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
-        blocks.last().statements.add(StoreStatement(destPtr, src.toArgument()))
+        blocks.last().statements.add(StoreStatement(destPtr, src.toArgument(), irType(expr.resultType!!.type)))
         return src
     }
 
@@ -1494,9 +1502,9 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             variableList.add(LocalVariableDecl(dest, type))
             if (variable.body != null) {
                 val initializer = addExpression(variable.body, function, ExpectedState.VALUE).toArgument()
-                blocks.last().statements.add(StoreStatement(dest, initializer))
+                blocks.last().statements.add(StoreStatement(dest, initializer, type))
             } else if (statement.type is ast.StringType) {
-                blocks.last().statements.add(StoreStatement(dest, GlobalVariable("__empty_string", ptrType)))
+                blocks.last().statements.add(StoreStatement(dest, GlobalVariable("__empty_string", ptrType), ptrType))
             }
         }
         return false
