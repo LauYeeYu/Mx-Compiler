@@ -65,10 +65,3 @@ class ClassType(
     val size: Int
         get() = memberList.sumOf { it.size }
 }
-
-class ArrayType(
-    val elementType: PrimitiveType,
-    val size: Int,
-) : Type() {
-    override fun toString() = "[$size x $elementType]"
-}
