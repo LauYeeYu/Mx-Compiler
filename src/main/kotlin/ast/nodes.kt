@@ -109,21 +109,28 @@ class WhileStatement(
     body: Statement,
 ) : LoopStatement(ctx, body)
 
-class ForExpressionStatement(
+open class ForStatement(
     ctx: SourceContext,
-    val init: Expression?,
     val condition: Expression?,
     val step: Expression?,
     body: Statement,
 ) : LoopStatement(ctx, body)
 
+class ForExpressionStatement(
+    ctx: SourceContext,
+    val init: Expression?,
+    condition: Expression?,
+    step: Expression?,
+    body: Statement,
+) : ForStatement(ctx, condition, step, body)
+
 class ForDeclarationStatement(
     ctx: SourceContext,
     val init: VariablesDeclaration,
-    val condition: Expression?,
-    val step: Expression?,
+    condition: Expression?,
+    step: Expression?,
     body: Statement,
-) : LoopStatement(ctx, body)
+) : ForStatement(ctx, condition, step, body)
 
 open class ControlFlowStatement(ctx: SourceContext) : Statement(ctx)
 
