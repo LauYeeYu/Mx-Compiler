@@ -1413,7 +1413,10 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         }
         blocks.add(Block(bodyBlockLabel, mutableListOf()))
         addStatement(statement.body, function)
-        blocks.last().statements.add(BranchStatement(conditionBlockLabel))
+        // To avoid two branch statements caused by break or continue
+        if (blocks.last().statements.lastOrNull() !is BranchStatement) {
+            blocks.last().statements.add(BranchStatement(conditionBlockLabel))
+        }
         blocks.add(Block(endBlockLabel, mutableListOf()))
         currentLoopCount = oldLoopCount
         currentLoopHasStep = oldLoopHasStep
