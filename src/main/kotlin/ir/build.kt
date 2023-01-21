@@ -1328,9 +1328,9 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             is ast.BlockStatement -> addStatement(statement, function)
             is ast.ExpressionStatement -> addStatement(statement, function)
             is ast.BranchStatement -> addStatement(statement, function)
-            is ast.WhileStatement -> addStatement(statement, function)
-            is ast.ForExpressionStatement -> addStatement(statement, function)
-            is ast.ForDeclarationStatement -> addStatement(statement, function)
+            is ast.WhileStatement -> addLoopStatement(statement, function)
+            is ast.ForExpressionStatement -> addLoopStatement(statement, function)
+            is ast.ForDeclarationStatement -> addLoopStatement(statement, function)
             is ast.ContinueStatement -> addStatement(statement, function)
             is ast.BreakStatement -> addStatement(statement, function)
             is ast.ReturnStatement -> addStatement(statement, function)
@@ -1385,19 +1385,43 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         blocks.add(Block(endBlockLabel, mutableListOf()))
     }
 
-    private fun addStatement(statement: ast.WhileStatement, function: GlobalFunction) {
+    private fun addLoopStatement(statement: ast.LoopStatement, function: GlobalFunction) {
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         val oldLoopCount = currentLoopCount
         val oldLoopHasStep = currentLoopHasStep
         currentLoopCount = loopCount
-        currentLoopHasStep = false
+        val step = when (statement) {
+            is ForExpressionStatement -> statement.step
+            is ForDeclarationStatement -> statement.step
+            else -> null
+        }
+        currentLoopHasStep = step != null
         val conditionBlockLabel = "condition_$loopCount"
         val bodyBlockLabel = "body_$loopCount"
         val endBlockLabel = "end_$loopCount"
+        val stepBlockLabel = if (currentLoopHasStep) "step_$loopCount" else conditionBlockLabel
         loopCount++
+        // Generate the initialization
+        when (statement) {
+            is ForExpressionStatement -> if (statement.init != null) {
+                addExpression(statement.init, function, ExpectedState.VALUE)
+            }
+
+            is ForDeclarationStatement -> addStatement(statement.init, function)
+            else -> {}
+        }
         blocks.last().statements.add(BranchStatement(conditionBlockLabel))
+
+        // Generate the condition
         blocks.add(Block(conditionBlockLabel, mutableListOf()))
-        val condition = addExpression(statement.condition, function, ExpectedState.VALUE).toArgument()
+        val condition = when (statement) {
+            is ForStatement -> when (statement.condition) {
+                null -> I1Literal(1)
+                else -> addExpression(statement.condition, function, ExpectedState.VALUE).toArgument()
+            }
+            is WhileStatement -> addExpression(statement.condition, function, ExpectedState.VALUE).toArgument()
+            else -> throw IRBuilderException("Unknown loop statement")
+        }
         if (condition is IntLiteral) {
             if (condition.value == 1) {
                 blocks.last().statements.add(BranchStatement(bodyBlockLabel))
@@ -1411,10 +1435,18 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         } else {
             blocks.last().statements.add(BranchStatement(condition, bodyBlockLabel, endBlockLabel))
         }
+
+        // Generate the body
         blocks.add(Block(bodyBlockLabel, mutableListOf()))
         addStatement(statement.body, function)
         // To avoid two branch statements caused by break or continue
         if (blocks.last().statements.lastOrNull() !is BranchStatement) {
+            blocks.last().statements.add(BranchStatement(stepBlockLabel))
+        }
+        // Generate the step
+        if (step != null) {
+            blocks.add(Block(stepBlockLabel, mutableListOf()))
+            addExpression(step, function, ExpectedState.VALUE)
             blocks.last().statements.add(BranchStatement(conditionBlockLabel))
         }
         blocks.add(Block(endBlockLabel, mutableListOf()))
