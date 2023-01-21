@@ -1331,8 +1331,8 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             is ast.WhileStatement -> addLoopStatement(statement, function)
             is ast.ForExpressionStatement -> addLoopStatement(statement, function)
             is ast.ForDeclarationStatement -> addLoopStatement(statement, function)
-            is ast.ContinueStatement -> addStatement(statement, function)
-            is ast.BreakStatement -> addStatement(statement, function)
+            is ast.ContinueStatement -> addContinueStatement(function)
+            is ast.BreakStatement -> addBreakStatement(function)
             is ast.ReturnStatement -> addStatement(statement, function)
             is ast.VariablesDeclaration -> addStatement(statement, function)
             is ast.EmptyStatement -> false
@@ -1455,6 +1455,19 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         currentLoopCount = oldLoopCount
         currentLoopHasStep = oldLoopHasStep
         return false
+    }
+
+    private fun addContinueStatement(function: GlobalFunction): Boolean {
+        val blocks = function.body ?: throw IRBuilderException("Function has no body")
+        val branchLabel = if (currentLoopHasStep) "step_$currentLoopCount" else "condition_$currentLoopCount"
+        blocks.last().statements.add(BranchStatement(branchLabel))
+        return true
+    }
+
+    private fun addBreakStatement(function: GlobalFunction): Boolean {
+        val blocks = function.body ?: throw IRBuilderException("Function has no body")
+        blocks.last().statements.add(BranchStatement("end_$currentLoopCount"))
+        return true
     }
 
     private fun addStatement(statement: ast.ReturnStatement, function: GlobalFunction): Boolean {
