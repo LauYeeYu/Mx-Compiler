@@ -1323,7 +1323,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         }
     }
 
-    private fun addStatement(statement: ast.Statement, function: GlobalFunction) {
+    private fun addStatement(statement: ast.Statement, function: GlobalFunction): Boolean =
         when (statement) {
             is ast.BlockStatement -> addStatement(statement, function)
             is ast.ExpressionStatement -> addStatement(statement, function)
@@ -1335,32 +1335,32 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             is ast.BreakStatement -> addStatement(statement, function)
             is ast.ReturnStatement -> addStatement(statement, function)
             is ast.VariablesDeclaration -> addStatement(statement, function)
-            is ast.EmptyStatement -> {}
+            is ast.EmptyStatement -> false
             else -> throw IRBuilderException("Unknown statement in addStatement")
         }
-    }
 
-    private fun addStatement(statement: ast.BlockStatement, function: GlobalFunction) {
+    private fun addStatement(statement: ast.BlockStatement, function: GlobalFunction): Boolean {
         for (stmt in statement.statements) {
-            addStatement(stmt, function)
-            if (stmt is ast.ReturnStatement) return // skip the part after return
+            val hasReturn = addStatement(stmt, function)
+            if (hasReturn) return true // skip the part after return
         }
+        return false
     }
 
-    private fun addStatement(statement: ast.ExpressionStatement, function: GlobalFunction) {
+    private fun addStatement(statement: ast.ExpressionStatement, function: GlobalFunction): Boolean {
         addExpression(statement.expression, function, ExpectedState.VALUE)
+        return false
     }
 
-    private fun addStatement(statement: ast.BranchStatement, function: GlobalFunction) {
+    private fun addStatement(statement: ast.BranchStatement, function: GlobalFunction): Boolean {
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         val condition = addExpression(statement.condition, function, ExpectedState.VALUE).toArgument()
         if (condition is IntLiteral) {
             if (condition.value == 1) {
-                addStatement(statement.trueBranch, function)
+                return addStatement(statement.trueBranch, function)
             } else if (statement.falseBranch != null) {
-                addStatement(statement.falseBranch, function)
+                return addStatement(statement.falseBranch, function)
             }
-            return
         }
         // condition is a variable
         val trueBlockLabel = "true_$branchCount"
@@ -1371,21 +1371,23 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             BranchStatement(
                 condition,
                 trueBlockLabel,
-                if (statement.falseBranch != null) endBlockLabel else endBlockLabel
+                if (statement.falseBranch != null) falseBlockLabel else endBlockLabel
             )
         )
         blocks.add(Block(trueBlockLabel, mutableListOf()))
-        addStatement(statement.trueBranch, function)
+        val trueHasReturn = addStatement(statement.trueBranch, function)
         blocks.last().statements.add(BranchStatement(endBlockLabel))
         if (statement.falseBranch != null) {
             blocks.add(Block(falseBlockLabel, mutableListOf()))
-            addStatement(statement.falseBranch, function)
+            val falseHasReturn = addStatement(statement.falseBranch, function)
             blocks.last().statements.add(BranchStatement(endBlockLabel))
+            if (trueHasReturn && falseHasReturn) return true
         }
         blocks.add(Block(endBlockLabel, mutableListOf()))
+        return false
     }
 
-    private fun addLoopStatement(statement: ast.LoopStatement, function: GlobalFunction) {
+    private fun addLoopStatement(statement: ast.LoopStatement, function: GlobalFunction): Boolean {
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         val oldLoopCount = currentLoopCount
         val oldLoopHasStep = currentLoopHasStep
@@ -1430,7 +1432,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                 blocks.last().statements.removeAt(blocks.last().statements.lastIndex)
                 currentLoopCount = oldLoopCount
                 currentLoopHasStep = oldLoopHasStep
-                return
+                return false
             }
         } else {
             blocks.last().statements.add(BranchStatement(condition, bodyBlockLabel, endBlockLabel))
@@ -1452,9 +1454,10 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         blocks.add(Block(endBlockLabel, mutableListOf()))
         currentLoopCount = oldLoopCount
         currentLoopHasStep = oldLoopHasStep
+        return false
     }
 
-    private fun addStatement(statement: ast.ReturnStatement, function: GlobalFunction) {
+    private fun addStatement(statement: ast.ReturnStatement, function: GlobalFunction): Boolean {
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         if (statement.expression != null) {
             val returnValue = addExpression(statement.expression, function, ExpectedState.VALUE).toArgument()
@@ -1464,9 +1467,10 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         } else {
             blocks.last().statements.add(BranchStatement("return"))
         }
+        return true
     }
 
-    private fun addStatement(statement: ast.VariablesDeclaration, function: GlobalFunction) {
+    private fun addStatement(statement: ast.VariablesDeclaration, function: GlobalFunction): Boolean {
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         val variableList = function.variables ?: throw IRBuilderException("Function has no variable list")
         val type = irType(statement.type)
@@ -1482,6 +1486,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                 blocks.last().statements.add(StoreStatement(dest, GlobalVariable("__empty_string", ptrType)))
             }
         }
+        return false
     }
 
     private fun addStringLiteral(name: String, string: StringLiteral) {
