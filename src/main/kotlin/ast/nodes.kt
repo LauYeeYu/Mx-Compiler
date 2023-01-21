@@ -220,7 +220,9 @@ class FunctionCall(
     ctx: SourceContext,
     val functionName: String,
     val arguments: List<Expression>,
-) : Expression(ctx)
+) : Expression(ctx) {
+    var fromClass: Class? = null
+}
 
 class LambdaCall(
     ctx: SourceContext,

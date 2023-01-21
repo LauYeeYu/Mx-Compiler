@@ -95,11 +95,9 @@ fun checkType(expression: MemberVariableAccess,
             expression.ctx
         )
     }
-    val memberVariable: Binding? =
+    val memberVariable: Binding =
         objectProperty.type.environment?.variableAlikeBindings?.get(expression.variableName)
-    if (memberVariable == null) {
-        throw ContextException("Cannot find member variable", expression.ctx)
-    }
+            ?: throw ContextException("Cannot find member variable", expression.ctx)
     expression.resultType = TypeProperty(memberVariable.type, Status.LVALUE)
     return expression.resultType!!
 }
@@ -112,11 +110,9 @@ fun checkType(expression: MemberFunctionAccess,
         objectProperty.type !is MxArrayType) {
         throw TypeMismatchException("Cannot access member function of non-class type", expression.ctx)
     }
-    val memberFunction: Binding? =
+    val memberFunction: Binding =
         objectProperty.type.environment?.functionAlikeBindings?.get(expression.functionName)
-    if (memberFunction == null) {
-        throw ContextException("Cannot find member function", expression.ctx)
-    }
+            ?: throw ContextException("Cannot find member function", expression.ctx)
     expression.resultType = TypeProperty((memberFunction.type as MxFunctionType).returnType, Status.RVALUE)
     return expression.resultType!!
 }
@@ -176,11 +172,8 @@ fun checkType(expression: PostfixUpdateExpression,
 fun checkType(expression: FunctionCall,
               environmentRecord: EnvironmentRecord,
               ctx: SourceContext?): TypeProperty {
-    val functionBinding: Binding? =
-        environmentRecord.findFunctionAlike(expression.functionName)
-    if (functionBinding == null) {
-        throw ContextException("Cannot find function", expression.ctx)
-    }
+    val functionBinding: Binding = environmentRecord.findFunctionAlike(expression.functionName)
+        ?: throw ContextException("Cannot find function", expression.ctx)
     if (expression.arguments.size !=
         (functionBinding.type as MxFunctionType).parameterTypes.size) {
         throw ContextException("Argument number mismatch", expression.ctx)
@@ -191,6 +184,7 @@ fun checkType(expression: FunctionCall,
             throw TypeMismatchException("Argument type mismatch", expression.ctx)
         }
     }
+    expression.fromClass = functionBinding.fromClass
     expression.resultType = TypeProperty(functionBinding.type.returnType, Status.RVALUE)
     return expression.resultType!!
 }

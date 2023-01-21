@@ -381,6 +381,7 @@ class ClassEnvironmentRecord(
                         MxFunctionType(
                             getType(classElement.returnType, classElement.ctx),
                             classElement.parameters.map { getType(it.type, it.ctx) },
+                            root,
                             null,
                         ),
                         IrInfo("$className.${classElement.name}", 0, false),
@@ -409,7 +410,7 @@ class ClassEnvironmentRecord(
                     }
                 }
                 is ast.Function -> recordFunction(classElement)
-                is ast.Constructor -> recordConstructor(classElement)
+                is ast.Constructor -> recordConstructor(root, classElement)
             }
         }
         return this
@@ -455,7 +456,7 @@ class ClassEnvironmentRecord(
         return this
     }
 
-    private fun recordConstructor(node: ast.Constructor) {
+    private fun recordConstructor(classNode: ast.Class, node: ast.Constructor) {
         if (node.name != className) {
             throw SemanticException("Constructor name must be the same as class name", node.ctx)
         }
@@ -470,7 +471,7 @@ class ClassEnvironmentRecord(
         functionAlikeBindings[node.name] = Binding(
             node.ctx,
             node.name,
-            MxFunctionType(MxVoidType(), listOf(), environmentRecord),
+            MxFunctionType(MxVoidType(), listOf(), classNode, environmentRecord),
             IrInfo(className + node.name, 0, false),
         )
     }

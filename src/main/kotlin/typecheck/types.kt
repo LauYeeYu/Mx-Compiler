@@ -130,8 +130,14 @@ open class MxClassType(
 class MxFunctionType(
     val returnType: MxType,
     val parameterTypes: List<MxType>,
+    val fromClass: ast.Class?,
     environment: FunctionEnvironmentRecord?,
 ) : MxType(environment) {
+    constructor(
+        returnType: MxType,
+        parameterTypes: List<MxType>,
+        environment: FunctionEnvironmentRecord?,
+    ) : this(returnType, parameterTypes, null, environment)
     override fun toString() = "$returnType(${
         parameterTypes.joinToString(", ") { it.toString() }
     })"
