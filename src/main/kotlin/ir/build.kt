@@ -31,6 +31,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     private var branchCount = 0
     private var loopCount = 0
     private var currentLoopCount = 0
+    private var currentLoopHasStep = false
     private val globalVariableDecl = mutableListOf<GlobalDecl>()
     private val classes = mutableMapOf<String, GlobalClass>()
     private val globalFunctions = linkedMapOf<String, GlobalFunction>()
@@ -1387,7 +1388,9 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     private fun addStatement(statement: ast.WhileStatement, function: GlobalFunction) {
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         val oldLoopCount = currentLoopCount
+        val oldLoopHasStep = currentLoopHasStep
         currentLoopCount = loopCount
+        currentLoopHasStep = false
         val conditionBlockLabel = "condition_$loopCount"
         val bodyBlockLabel = "body_$loopCount"
         val endBlockLabel = "end_$loopCount"
@@ -1402,6 +1405,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                 blocks.removeAt(blocks.lastIndex)
                 blocks.last().statements.removeAt(blocks.last().statements.lastIndex)
                 currentLoopCount = oldLoopCount
+                currentLoopHasStep = oldLoopHasStep
                 return
             }
         } else {
@@ -1412,6 +1416,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         blocks.last().statements.add(BranchStatement(conditionBlockLabel))
         blocks.add(Block(endBlockLabel, mutableListOf()))
         currentLoopCount = oldLoopCount
+        currentLoopHasStep = oldLoopHasStep
     }
 
     private fun addStatement(statement: ast.ReturnStatement, function: GlobalFunction) {
