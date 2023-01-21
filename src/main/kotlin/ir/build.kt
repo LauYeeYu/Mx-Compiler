@@ -1149,7 +1149,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         lhs: Expression,
         rhs: Expression,
         operator: ast.BinaryOperator,
-        type: Type,
+        type: PrimitiveType,
         function: GlobalFunction,
     ): ExpressionResult {
         val lhsResult = addExpression(lhs, function, ExpectedState.VALUE).toArgument()
@@ -1291,7 +1291,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     private fun addIntBinaryExpression(
         lhsResult: Argument,
         rhsResult: Argument,
-        type: Type,
+        type: PrimitiveType,
         operator: ast.BinaryOperator,
         function: GlobalFunction,
     ): ExpressionResult {

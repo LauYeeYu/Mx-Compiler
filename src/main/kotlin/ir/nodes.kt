@@ -46,33 +46,26 @@ class GlobalClass(
 sealed interface GlobalDecl
 abstract class Argument (
     val name: String,
-    val type: Type,
+    val type: PrimitiveType,
 )
 
-abstract class Variable(name: String, type: Type) : Argument(name, type)
+abstract class Variable(name: String, type: PrimitiveType) : Argument(name, type)
 
-class GlobalVariable(name: String, type: Type) : Variable(name, type) {
-    override fun toString() = when (type) {
-        is PrimitiveType -> when (type.type) {
-            TypeProperty.VOID -> "void"
-            else              -> "$type @$name"
-        }
-        else                  -> "$type @$name"
+class GlobalVariable(name: String, type: PrimitiveType) : Variable(name, type) {
+    override fun toString() = when (type.type) {
+        TypeProperty.VOID -> "void"
+        else -> "$type @$name"
     }
 }
 
-class LocalVariable(name: String, type: Type) : Variable(name, type) {
-    override fun toString() = when (type) {
-        is PrimitiveType -> when (type.type) {
-            TypeProperty.VOID -> "void"
-            else -> "$type %$name"
-        }
-
+class LocalVariable(name: String, type: PrimitiveType) : Variable(name, type) {
+    override fun toString() = when (type.type) {
+        TypeProperty.VOID -> "void"
         else -> "$type %$name"
     }
 }
 
-abstract class IntLiteral(val value: Int, type: Type) : Argument(value.toString(), type)
+abstract class IntLiteral(val value: Int, type: PrimitiveType) : Argument(value.toString(), type)
 
 fun getLiteralNode(value: Int, type: Type): IntLiteral {
     return when (type) {
@@ -117,12 +110,8 @@ class GlobalVariableDecl(
     val property: GlobalVariable,
     val initValue: Int, // Every global variable must have an initial value
 ) : GlobalDecl {
-    override fun toString() = when (property.type) {
-        is PrimitiveType -> when (property.type.type) {
-            TypeProperty.PTR -> "@${property.name} = global ${property.type} null, align $alignValue"
-            else -> "@${property.name} = global ${property.type} $initValue, align $alignValue"
-        }
-
+    override fun toString() = when (property.type.type) {
+        TypeProperty.PTR -> "@${property.name} = global ${property.type} null, align $alignValue"
         else -> "@${property.name} = global ${property.type} $initValue, align $alignValue"
     }
 }
