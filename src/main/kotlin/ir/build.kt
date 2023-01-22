@@ -122,6 +122,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             ?: throw IRBuilderException("Global init function not found")
         val globalInitBlocks = globalInit.body
             ?: throw IRBuilderException("Global init function has no body")
+        globalVariableDecl.add(emptyString)
         sourceList.filterIsInstance<ast.VariablesDeclaration>().forEach { element ->
             when (element.type) {
                 is ast.BoolType, is ast.IntType -> {
