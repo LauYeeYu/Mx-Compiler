@@ -26,8 +26,8 @@ class Root(
     val globalFunctions: List<GlobalFunction>,
 ) {
     override fun toString(): String {
-        return classes.joinToString("\n") + "\n" +
-                variables.joinToString("\n") + "\n" +
+        return classes.joinToString("\n") + "\n\n" +
+                variables.joinToString("\n") + "\n\n" +
                 globalFunctions.joinToString("\n")
     }
 }
@@ -168,17 +168,17 @@ class GlobalFunction(
             val stringBuilder = StringBuilder()
             if (body.isNotEmpty()) {
                 for (i in body.indices) {
-                    if (i == 0) stringBuilder.append("${body[0].statementsString}\n")
-                    else stringBuilder.append("${body[i]}\n")
+                    if (i == 0) stringBuilder.append("${body[0].statementsString}\n\n")
+                    else stringBuilder.append("${body[i]}\n\n")
                 }
             }
             return stringBuilder.toString()
         }
 
     override fun toString() = when (body) {
-        null -> "declare $returnType @$name(${parameters.joinToString(", ")})"
+        null -> "declare $returnType @$name(${parameters.joinToString(", ")})\n"
         else -> "define $returnType @$name(${parameters.joinToString(", ")}) {\n" +
-                variablesString + bodyString + "\n" + returnBlockString + "}"
+                variablesString + bodyString + returnBlockString + "}\n"
     }
 }
 
@@ -239,10 +239,10 @@ class BranchStatement(
 
 class LoadStatement(
     val dest: LocalVariable,
-    val src: Argument,
+    val src: Variable,
 ) : Statement() {
     override fun toString() =
-        "${dest.name} = load ${dest.type}, ptr $src, align $alignValue"
+        "%${dest.name} = load ${dest.type}, $src, align $alignValue"
 }
 
 class StoreStatement(
@@ -250,8 +250,8 @@ class StoreStatement(
     val src : Argument,
 ) : Statement() {
     override fun toString() = when (src) {
-        is Variable -> "store $src, ptr $dest, align $alignValue"
-        else -> "store $src, ptr $dest, align $alignValue"
+        is Variable -> "store $src, $dest, align $alignValue"
+        else -> "store $src, $dest, align $alignValue"
     }
 }
 
@@ -262,7 +262,7 @@ class BinaryOperationStatement(
     val rhs : Argument,
 ) : Statement() {
     override fun toString() =
-        "${dest.name} = $op ${lhs.type} ${lhs.name}, ${rhs.name}"
+        "%${dest.name} = $op ${lhs.type} ${lhs.name}, ${rhs.name}"
 }
 
 class IntCmpStatement(
@@ -272,7 +272,7 @@ class IntCmpStatement(
     val rhs : Argument,
 ) : Statement() {
     override fun toString() =
-        "${dest.name} = icmp $op ${lhs.type} ${lhs.name}, ${rhs.name}"
+        "%${dest.name} = icmp $op ${lhs.type} ${lhs.name}, ${rhs.name}"
 }
 
 class GetElementPtrStatement(
@@ -284,8 +284,8 @@ class GetElementPtrStatement(
     override fun toString(): String {
         var returnString = when (src) {
             // Note that the offset is i32 (Maybe changed in future)
-            is GlobalVariable -> "${dest.name} = getelementptr ${srcType}, ptr @${src.name}"
-            is LocalVariable  -> "${dest.name} = getelementptr ${srcType}, ptr %${src.name}"
+            is GlobalVariable -> "%${dest.name} = getelementptr ${srcType}, ptr @${src.name}"
+            is LocalVariable  -> "%${dest.name} = getelementptr ${srcType}, ptr %${src.name}"
             else              -> throw InternalError("IR: Unknown variable type")
         }
         for (index in indexes) {
@@ -300,10 +300,10 @@ class PhiStatement(
     val incoming: MutableList<Pair<Argument, String>>,
 ) : Statement() {
     override fun toString(): String {
-        var returnString = "${dest.name} = phi ${dest.type}"
+        var returnString = "%${dest.name} = phi ${dest.type} "
         var count = 0
         for ((value, label) in incoming) {
-            returnString += "[$value, %$label]"
+            returnString += "[${value.name}, %$label]"
             if (count != incoming.size - 1) {
                 returnString += ", "
             }
