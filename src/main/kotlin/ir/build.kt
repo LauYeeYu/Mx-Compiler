@@ -241,6 +241,18 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         }
         val function = globalFunctions[astNode.name]
             ?: throw IRBuilderException("Function ${astNode.name} not found")
+        if (astNode.name == "main") {
+            val blocks = function.body ?: throw IRBuilderException("Function has no body")
+            blocks.last().statements.add(
+                CallStatement(
+                    dest = null,
+                    returnType = PrimitiveType(TypeProperty.VOID),
+                    function = globalFunctions["__global_init"]
+                        ?: throw IRBuilderException("Function __global_init not found"),
+                    arguments = listOf(),
+                )
+            )
+        }
         addStatement(astNode.body,function)
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         if (function.returnType.type == TypeProperty.VOID) {
