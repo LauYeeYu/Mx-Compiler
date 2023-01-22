@@ -256,12 +256,12 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         addStatement(astNode.body,function)
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         if (function.returnType.type == TypeProperty.VOID) {
-            if (blocks.last().statements.lastOrNull() !is ReturnStatement) {
+            if (blocks.last().statements.lastOrNull() !is BranchStatement) {
                 blocks.last().statements.add(BranchStatement("return"))
             }
         } else {
             if (function.name == "main" &&
-                blocks.last().statements.lastOrNull() !is ReturnStatement) {
+                blocks.last().statements.lastOrNull() !is BranchStatement) {
                 // main function should return 0
                 blocks.last().statements.add(BranchStatement("return"))
                 val returnPhi = function.returnPhi ?: throw IRBuilderException("Function has no return phi")
