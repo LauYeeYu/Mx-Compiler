@@ -297,10 +297,12 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         val function = globalFunctions["${classNode.name}.${classNode.name}"]
             ?: throw IRBuilderException("Function ${classNode.name}.${classNode.name} not found")
         if (constructor != null) addStatement(constructor.body, function)
+
+        // Add variable initialization
         val classIrNode: GlobalClass = classes[classNode.name]
             ?: throw IRBuilderException("Class ${classNode.name} not found")
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
-        val thisPtr = LocalVariable("__this", PrimitiveType(TypeProperty.PTR))
+        val thisPtr = getThisPtr(function)
         classNode.body.filterIsInstance<ast.VariablesDeclaration>().forEach { node ->
             val type = irType(node.type)
             node.variables.forEach { variable ->
@@ -393,9 +395,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         is IntegerLiteral -> addExpression(expr)
         is BooleanLiteral -> addExpression(expr)
         is NullLiteral -> ConstExpression(0, PrimitiveType(TypeProperty.PTR))
-        is ThisLiteral ->
-            IrVariable(LocalVariable("__this", PrimitiveType(TypeProperty.PTR)))
-
+        is ThisLiteral -> IrVariable(getThisPtr(function))
         is MemberVariableAccess -> addExpression(expr, function, expectedState)
         is MemberFunctionAccess -> addExpression(expr, function)
         is ArrayExpression -> addExpression(expr, function, expectedState)
@@ -415,6 +415,16 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         else -> throw IRBuilderException("Unknown expression in addExpression")
     }
 
+    private fun getThisPtr(function: GlobalFunction): LocalVariable {
+        val blocks = function.body ?: throw IRBuilderException("Function has no body")
+        val thisPtr = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.PTR))
+        unnamedVariableCount++
+        blocks.last().statements.add(
+            LoadStatement(dest = thisPtr, src = LocalVariable("__this", PrimitiveType(TypeProperty.PTR)))
+        )
+        return thisPtr
+    }
+
     private fun addExpression(
         expr: ast.Object,
         function: GlobalFunction,
@@ -423,7 +433,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         val binding = expr.binding ?: throw IRBuilderException("Object has no binding")
         val type = irType(binding.type)
         if (binding.fromClass == null) {
-            val srcVariable = when (binding.irInfo.isLocal) {
+            val srcVariable: Variable = when (binding.irInfo.isLocal) {
                 true -> LocalVariable(binding.irInfo.toString(), PrimitiveType(TypeProperty.PTR))
                 false -> GlobalVariable(binding.irInfo.toString(), PrimitiveType(TypeProperty.PTR))
             }
@@ -438,18 +448,19 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                     IrVariable(dest)
                 }
             }
-        } else {
+        } else { // member variable
             val srcClass = classes[binding.fromClass.name]
                 ?: throw IRBuilderException("Class ${binding.fromClass.name} not found")
             val index = srcClass.nameMap[expr.name]
                 ?: throw IRBuilderException("Cannot find the index of the member")
+            val thisPtr = getThisPtr(function)
             val ptr = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.PTR))
             unnamedVariableCount++
             val blocks = function.body ?: throw IRBuilderException("Function has no body")
             blocks.last().statements.add(
                 GetElementPtrStatement(
                     dest = ptr,
-                    src = LocalVariable("__this", PrimitiveType(TypeProperty.PTR)),
+                    src = thisPtr,
                     srcType = srcClass.classType,
                     indexes = listOf(I32Literal(0), I32Literal(index)),
                 )
