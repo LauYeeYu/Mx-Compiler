@@ -178,7 +178,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                 }
             }
         }
-        globalInitBlocks.last().statements.add(ReturnStatement(null))
+        globalInitBlocks.last().statements.add(BranchStatement("return"))
     }
 
     private fun registerClass(astNode: ast.Class): GlobalClass {
