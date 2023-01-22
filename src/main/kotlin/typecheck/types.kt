@@ -59,10 +59,7 @@ class MxIntType : MxPrimitiveType(null) {
     }
 }
 
-class MxStringType : MxClassType(
-    "string",
-    null
-) {
+class MxStringType : MxClassType("string", null) {
     init {
         environment = ClassEnvironmentRecord(null, "string", hashMapOf())
             .loadStringBuiltin(this)
@@ -85,7 +82,6 @@ class MxNullType : MxPrimitiveType(null) {
     override fun equals(other: Any?) = when (other) {
         is MxNullType -> true
         is MxClassType -> true
-        is MxArrayType -> true
         else -> false
     }
 
@@ -97,8 +93,11 @@ class MxNullType : MxPrimitiveType(null) {
 class MxArrayType(
     val elementType: MxType,
     val dimension: Int
-    ) : MxType(ClassEnvironmentRecord(null, "array", hashMapOf())
-        .loadArrayBuiltin()) {
+    ) : MxClassType("array", null) {
+    init {
+        environment = ClassEnvironmentRecord(null, "array", hashMapOf())
+            .loadArrayBuiltin()
+    }
     override fun toString() = "$elementType" + "[]".repeat(dimension)
 
     override fun equals(other: Any?): Boolean = when (other) {
@@ -132,14 +131,8 @@ open class MxClassType(
 class MxFunctionType(
     val returnType: MxType,
     val parameterTypes: List<MxType>,
-    val fromClass: ast.Class?,
     environment: FunctionEnvironmentRecord?,
 ) : MxType(environment) {
-    constructor(
-        returnType: MxType,
-        parameterTypes: List<MxType>,
-        environment: FunctionEnvironmentRecord?,
-    ) : this(returnType, parameterTypes, null, environment)
     override fun toString() = "$returnType(${
         parameterTypes.joinToString(", ") { it.toString() }
     })"

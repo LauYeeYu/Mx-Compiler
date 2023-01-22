@@ -390,10 +390,10 @@ class ClassEnvironmentRecord(
                         MxFunctionType(
                             getType(classElement.returnType, classElement.ctx),
                             classElement.parameters.map { getType(it.type, it.ctx) },
-                            root,
                             null,
                         ),
                         IrInfo("$className.${classElement.name}", 0, false),
+                        root,
                     )
                 }
 
@@ -481,8 +481,9 @@ class ClassEnvironmentRecord(
         functionAlikeBindings[node.name] = Binding(
             node.ctx,
             node.name,
-            MxFunctionType(MxVoidType(), listOf(), classNode, environmentRecord),
+            MxFunctionType(MxVoidType(), listOf(), environmentRecord),
             IrInfo(className + node.name, 0, false),
+            classNode,
         )
     }
 
@@ -644,7 +645,6 @@ class GlobalEnvironmentRecord(
                 is ast.Function -> recordFunction(node)
                 is ast.Class -> recordClass(node)
                 is ast.VariablesDeclaration -> recordVariable(node)
-                else -> throw InternalException("Unexpected node type")
             }
         }
         return this
