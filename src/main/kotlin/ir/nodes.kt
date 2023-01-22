@@ -248,11 +248,10 @@ class LoadStatement(
 class StoreStatement(
     val dest: Variable,
     val src : Argument,
-    val type: PrimitiveType,
 ) : Statement() {
     override fun toString() = when (src) {
-        is Variable -> "store $type $src, ptr $dest, align $alignValue"
-        else -> "store $type $src, ptr $dest, align $alignValue"
+        is Variable -> "store $src, ptr $dest, align $alignValue"
+        else -> "store $src, ptr $dest, align $alignValue"
     }
 }
 
