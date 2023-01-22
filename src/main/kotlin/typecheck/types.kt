@@ -93,7 +93,7 @@ class MxNullType : MxPrimitiveType(null) {
 class MxArrayType(
     val elementType: MxType,
     val dimension: Int
-    ) : MxClassType("array", null) {
+    ) : MxClassType("__array", null) {
     init {
         environment = ClassEnvironmentRecord(null, "array", hashMapOf())
             .loadArrayBuiltin()

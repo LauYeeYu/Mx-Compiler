@@ -113,7 +113,7 @@ bool string_greaterOrEqual(char *str1, char *str2) {
     return strcmp(str1, str2) >= 0;
 }
 
-int array_size(void *__this) {
+int __array_size(void *__this) {
     return ((int*)__this)[-1];
 }
 

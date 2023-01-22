@@ -160,7 +160,7 @@ val builtInFunction = listOf(
         const = true,
     ),
     GlobalFunction(
-        name = "array.size",
+        name = "__array.size",
         returnType = PrimitiveType(TypeProperty.I32),
         parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.PTR), "__this")),
         const = true,

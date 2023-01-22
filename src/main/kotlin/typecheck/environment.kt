@@ -460,7 +460,7 @@ class ClassEnvironmentRecord(
             null,
             "size",
             MxFunctionType(MxIntType(), listOf(), null),
-            IrInfo("Array.size", 0, false),
+            IrInfo("__array.size", 0, false),
         )
         return this
     }
