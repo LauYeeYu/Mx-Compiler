@@ -149,12 +149,36 @@ class GlobalFunction(
             return "$returnBlock\n"
         }
 
+    private val variablesString: String
+        get() {
+            val variables = variables
+                ?: throw InternalException("A function definition has no variable list")
+            val stringBuilder = StringBuilder()
+            if (variables.isNotEmpty()) {
+                for (variable in variables) {
+                    stringBuilder.append("${variable}\n")
+                }
+            }
+            return stringBuilder.toString()
+        }
+
+    private val bodyString: String
+        get() {
+            val body = body ?: return ""
+            val stringBuilder = StringBuilder()
+            if (body.isNotEmpty()) {
+                for (i in body.indices) {
+                    if (i == 0) stringBuilder.append("${body[0].statementsString}\n")
+                    else stringBuilder.append("${body[i]}\n")
+                }
+            }
+            return stringBuilder.toString()
+        }
+
     override fun toString() = when (body) {
         null -> "declare $returnType @$name(${parameters.joinToString(", ")})"
         else -> "define $returnType @$name(${parameters.joinToString(", ")}) {\n" +
-                (variables?.joinToString("\n")
-                    ?: throw InternalException("A function definition has no variable list")) + "\n" +
-                body.joinToString("\n") + "\n" + returnBlockString + "}"
+                variablesString + bodyString + "\n" + returnBlockString + "}"
     }
 }
 
@@ -169,7 +193,8 @@ class Block(
     val label: String,
     val statements: MutableList<Statement>,
 ) {
-    override fun toString() = "$label:\n" + statements.joinToString("\n")
+    val statementsString get() = statements.joinToString("\n")
+    override fun toString() = "$label:\n$statementsString"
 }
 
 abstract class Statement
@@ -194,7 +219,7 @@ class ReturnStatement(
 ) : Statement() {
     override fun toString() = when (value) {
         null -> "ret void"
-        else -> "ret ${value.type} ${value.name}"
+        else -> "ret $value"
     }
 }
 
