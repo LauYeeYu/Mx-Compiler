@@ -64,7 +64,8 @@ class MxStringType : MxClassType(
     null
 ) {
     init {
-        environment = ClassEnvironmentRecord(null, "string").loadStringBuiltin(this)
+        environment = ClassEnvironmentRecord(null, "string", hashMapOf())
+            .loadStringBuiltin(this)
     }
     override fun toString() = "string"
 
@@ -96,7 +97,8 @@ class MxNullType : MxPrimitiveType(null) {
 class MxArrayType(
     val elementType: MxType,
     val dimension: Int
-    ) : MxType(ClassEnvironmentRecord(null, "array").loadArrayBuiltin()) {
+    ) : MxType(ClassEnvironmentRecord(null, "array", hashMapOf())
+        .loadArrayBuiltin()) {
     override fun toString() = "$elementType" + "[]".repeat(dimension)
 
     override fun equals(other: Any?): Boolean = when (other) {

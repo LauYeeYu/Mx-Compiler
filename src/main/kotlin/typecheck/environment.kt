@@ -35,7 +35,8 @@ fun checkAndRecord(ast: AstNode): GlobalEnvironmentRecord {
     if (ast !is TranslateUnit) {
         throw SemanticException("Expected a TranslateUnit, got ${ast::class.simpleName}", ast.ctx)
     }
-    val rootEnvironment = GlobalEnvironmentRecord().checkAndRecord(ast)
+    val variableCount = HashMap<String, Int>()
+    val rootEnvironment = GlobalEnvironmentRecord(variableCount).checkAndRecord(ast)
     ast.environment = rootEnvironment
     return rootEnvironment
 }
@@ -48,7 +49,7 @@ class Binding(
     val fromClass: ast.Class? = null,
 )
 
-open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
+open class EnvironmentRecord(protected val parent: EnvironmentRecord?, val variableCount: HashMap<String, Int>) {
     // Check whether there is a variable or class with the given name
     fun findVariableAlike(name: String): Binding? =
         variableAlikeBindings[name] ?: parent?.findVariableAlike(name)
@@ -59,6 +60,13 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
 
     private fun findClass(name: String): Binding? =
         classBindings[name] ?: parent?.findClass(name)
+
+    // Get the next available variable count
+    fun nextVariableCount(name: String): Int {
+        val count = variableCount[name] ?: 0
+        variableCount[name] = count + 1
+        return count
+    }
 
     open fun inClass(): Boolean =
         throw InternalException("cannot call inClass() on a base EnvironmentRecord")
@@ -123,15 +131,13 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
                     getType(it.type, it.ctx),
                     IrInfo(
                         it.name,
-                        when (findVariableAlike(it.name)) {
-                            null -> 0
-                            else -> findVariableAlike(it.name)!!.irInfo.count + 1
-                        },
+                        nextVariableCount(it.name),
                         true,
                     ),
                 )
             },
             getType(node.returnType, node.ctx),
+            variableCount,
         )
         node.bindings.addAll(functionEnvironmentRecord.parameters)
         for (statement in node.body.statements) {
@@ -200,15 +206,11 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
                     variable.ctx,
                 )
             }
-            val variableCount: Int = when (val shallowBinding = findVariableAlike(variable.name)) {
-                null -> 0
-                else -> shallowBinding.irInfo.count + 1
-            }
             val variableBinding = Binding(
                 variable.ctx,
                 variable.name,
                 type,
-                IrInfo(variable.name, variableCount, parent != null),
+                IrInfo(variable.name, nextVariableCount(variable.name), parent != null),
             )
             variableAlikeBindings[variable.name] = variableBinding
             variable.binding = variableBinding
@@ -220,7 +222,7 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
     open fun checkAndRecord(root: Statement): EnvironmentRecord {
         when (root) {
             is BlockStatement -> {
-                val newEnvironment = BlockEnvironmentRecord(this)
+                val newEnvironment = BlockEnvironmentRecord(this, variableCount)
                 for (statement in root.statements) {
                     newEnvironment.checkAndRecord(statement)
                 }
@@ -236,8 +238,12 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
                     throw SemanticException("Expected a bool type", root.condition.ctx)
                 }
                 if (root.falseBranch != null) {
-                    val trueBranchEnvironment = BlockEnvironmentRecord(this).checkAndRecord(root.trueBranch)
-                    val falseBranchEnvironment = BlockEnvironmentRecord(this).checkAndRecord(root.falseBranch)
+                    val trueBranchEnvironment =
+                        BlockEnvironmentRecord(this, variableCount)
+                            .checkAndRecord(root.trueBranch)
+                    val falseBranchEnvironment =
+                        BlockEnvironmentRecord(this, variableCount)
+                            .checkAndRecord(root.falseBranch)
                     root.trueBranch.environment = trueBranchEnvironment
                     root.falseBranch.environment = falseBranchEnvironment
                     if (trueBranchEnvironment.hasReturn && falseBranchEnvironment.hasReturn) {
@@ -252,7 +258,7 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
                     subEnvironments.add(trueBranchEnvironment)
                     subEnvironments.add(falseBranchEnvironment)
                 } else {
-                    val trueBranchEnvironment = BlockEnvironmentRecord(this).checkAndRecord(root.trueBranch)
+                    val trueBranchEnvironment = BlockEnvironmentRecord(this, variableCount).checkAndRecord(root.trueBranch)
                     root.trueBranch.environment = trueBranchEnvironment
                     subEnvironments.add(trueBranchEnvironment)
                 }
@@ -262,7 +268,9 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
                 if (checkType(root.condition, this, root.ctx).type !is MxBoolType) {
                     throw SemanticException("Expected a bool type", root.condition.ctx)
                 }
-                root.environment = BlockEnvironmentRecord(this, listOf(), true).checkAndRecord(root.body)
+                root.environment =
+                    BlockEnvironmentRecord(this, listOf(), true, variableCount)
+                        .checkAndRecord(root.body)
             }
 
             is ForExpressionStatement -> {
@@ -276,7 +284,9 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
                 if (root.step != null) {
                     checkType(root.step, this, root.ctx)
                 }
-                val forEnvironment = BlockEnvironmentRecord(this, listOf(), true).checkAndRecord(root.body)
+                val forEnvironment =
+                    BlockEnvironmentRecord(this, listOf(), true, variableCount)
+                        .checkAndRecord(root.body)
                 root.environment = forEnvironment
                 subEnvironments.add(forEnvironment)
             }
@@ -289,7 +299,9 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
                 if (root.step != null) {
                     checkType(root.step, this, root.ctx)
                 }
-                val forEnvironment = BlockEnvironmentRecord(this, listOf(), true).checkAndRecord(root.body)
+                val forEnvironment =
+                    BlockEnvironmentRecord(this, listOf(), true, variableCount)
+                        .checkAndRecord(root.body)
                 root.environment = forEnvironment
                 subEnvironments.add(forEnvironment)
             }
@@ -324,8 +336,9 @@ open class EnvironmentRecord(protected val parent: EnvironmentRecord?) {
 
 class ClassEnvironmentRecord(
     parent: EnvironmentRecord?,
-    private val className: String
-) : EnvironmentRecord(parent) {
+    private val className: String,
+    variableCount: HashMap<String, Int>,
+) : EnvironmentRecord(parent, variableCount) {
     override fun inClass() = true
     override fun inLoop() = false
     override fun functionReturnType() =
@@ -345,15 +358,11 @@ class ClassEnvironmentRecord(
                                 variable.ctx,
                             )
                         }
-                        val count = when (val shallowBinding = findVariableAlike(variable.name)) {
-                            null -> 0
-                            else -> shallowBinding.irInfo.count + 1
-                        }
                         val newBinding = Binding(
                             variable.ctx,
                             variable.name,
                             getType(classElement.type, classElement.ctx),
-                            IrInfo(variable.name, count, true),
+                            IrInfo(variable.name, nextVariableCount(variable.name), true),
                             root,
                         )
                         variableAlikeBindings[variable.name] = newBinding
@@ -464,6 +473,7 @@ class ClassEnvironmentRecord(
                 this,
                 listOf(),
                 MxVoidType(),
+                variableCount,
             ).checkAndRecord(node.body) as FunctionEnvironmentRecord
         if (environmentRecord.hasReturn && environmentRecord.referredReturnType !is MxVoidType) {
             throw SemanticException("Constructor do not a return statement", node.ctx)
@@ -482,8 +492,9 @@ class ClassEnvironmentRecord(
 class FunctionEnvironmentRecord(
     parent: EnvironmentRecord?,
     val parameters: List<Binding>,
-    var returnType: MxType
-) : EnvironmentRecord(parent) {
+    var returnType: MxType,
+    variableCount: HashMap<String, Int>,
+) : EnvironmentRecord(parent, variableCount) {
     override fun inClass(): Boolean = when (parent) {
         null -> false
         else -> parent.inClass()
@@ -505,7 +516,9 @@ class FunctionEnvironmentRecord(
     }
 }
 
-class GlobalEnvironmentRecord : EnvironmentRecord(null) {
+class GlobalEnvironmentRecord(
+    variableCount: HashMap<String, Int>,
+) : EnvironmentRecord(null, variableCount) {
     override fun inClass() = false
     override fun inLoop() = false
 
@@ -617,7 +630,8 @@ class GlobalEnvironmentRecord : EnvironmentRecord(null) {
                     throw InternalException("Class ${element.name} is not registered")
                 } else {
                     classBinding.type.environment =
-                        ClassEnvironmentRecord(this, element.name).registerClassElement(element)
+                        ClassEnvironmentRecord(this, element.name, variableCount)
+                            .registerClassElement(element)
                 }
             }
         }
@@ -630,13 +644,17 @@ class GlobalEnvironmentRecord : EnvironmentRecord(null) {
                 is ast.Function -> recordFunction(node)
                 is ast.Class -> recordClass(node)
                 is ast.VariablesDeclaration -> recordVariable(node)
+                else -> throw InternalException("Unexpected node type")
             }
         }
         return this
     }
 }
 
-class BlockEnvironmentRecord(parent: EnvironmentRecord?) : EnvironmentRecord(parent) {
+class BlockEnvironmentRecord(
+    parent: EnvironmentRecord?,
+    variableCount: HashMap<String, Int>,
+) : EnvironmentRecord(parent, variableCount) {
     override fun inClass(): Boolean = when (parent) {
         null -> false
         else -> parent.inClass()
@@ -663,7 +681,9 @@ class BlockEnvironmentRecord(parent: EnvironmentRecord?) : EnvironmentRecord(par
 
     constructor(parent: EnvironmentRecord?,
                 variableBindings: List<Binding>,
-                inLoop: Boolean) : this(parent) {
+                inLoop: Boolean,
+                variableCount: HashMap<String, Int>,
+    ) : this(parent, variableCount) {
         for (variableBinding in variableBindings) {
             variableAlikeBindings[variableBinding.name] = variableBinding
         }
@@ -694,6 +714,7 @@ fun buildLambdaBinding(parent: EnvironmentRecord, expression: LambdaExpression):
             )
         },
         MxType(null), // need to replace later
+        parent.variableCount,
     )
 
     for (statement in expression.body.statements) {
