@@ -14,15 +14,39 @@ The program will undergo the following steps to generate IR:
 
 ## Building IR Nodes
 ### Specification
-- Member functions of classes are named as `<className>.<functionName>`.
-- A pointer to an array points to the first element of the array.
-- Global variables are named as its original name.
-- Global functions are named as its original name.
-- See [builtin functions section](#builtin-functions) and
-  [builtin types section](#builtin-types) for things about builtin functions
-  and types.
-- See [internal usage section](#internal-usage) for things about internal
-  usage.
+Also see [builtin functions section](#builtin-functions) and
+[builtin types section](#builtin-types) for things about builtin functions
+and types.
+
+Also see [internal usage section](#internal-usage) for things about internal
+usage.
+
+#### Classes
+Member functions of classes are named as `<className>.<functionName>`.
+
+The name of the constructor is `<className>.<className>`.
+
+#### Arrays
+A pointer to an array points to the first element of the array.
+
+### Global Items
+Global variables and global functions are named as its original name.
+
+#### Blocks
+The first block of a function is labelled as `0`.
+
+##### Return Blocks
+THe return block of a function is labelled as `return`. For a void function,
+the return block has only one statement: `ret void`; for a non-void
+function, the return block has a phi statement
+`%__return = phi <type> [<value>, %label], ...` followed by a return
+statement: `ret <type> __return`.
+
+##### Branch Blocks
+The block that will be taken if the condition is true is labelled as
+`true_<num>`; the block that will be taken if the condition is false
+is labelled as `false_<num>`. The block that will be taken after the
+condition is evaluated is labelled as `end_<num>`.
 
 ## Builtin Functions
 ### print
@@ -73,6 +97,12 @@ The string literal is regarded as an array of `i8` (`[ n x i8 ]`) with a null
 terminator.
 
 Please note that the `n` is `string.length() + 1`.
+
+#### string.string
+To construct an empty string:
+```llvm
+define ptr @string.string(ptr %str)
+```
 
 #### string.length
 The `string.length` function is used for the member function `length` of the
@@ -158,8 +188,8 @@ the array itself.
 Please note that the pointer to the array points right at the first element
 of the array, not the element representing its length.
 
-#### array.size
-The `array.size` function is used for the member function `size` of the array
+#### __array.size
+The `__array.size` function is used for the member function `size` of the array
 type.
 ```llvm
 declare i32 @array.size(ptr %__this)
@@ -184,6 +214,37 @@ ptr %__this
 ```
 
 The `__this` pointer is used to access the current object.
+
+### __return
+
+`__return` is used to store the return value of a function.
+
+### __newPtrArray
+```llvm
+define ptr @__newPtrArray(i32 %size)
+```
+
+The `__newPtrArray` function is used to allocate a new array of pointers.
+It returns a pointer to the array. The size of the array is right at the
+`[-4, -1]` position.
+
+### __newIntArray
+```llvm
+define ptr @__newIntArray(i32 %size)
+```
+
+The `__newIntArray` function is used to allocate a new array of integers.
+It returns a pointer to the array. The size of the array is right at the
+`[-4, -1]` position.
+
+### __newBoolArray
+```llvm
+define ptr @__newBoolArray(i32 %size)
+```
+
+The `__newBoolArray` function is used to allocate a new array of booleans.
+It returns a pointer to the array. The size of the array is right at the
+`[-4, -1]` position.
 
 ### String Literals
 Every string literal is store with the identifier `__string_[0-9]+`.
