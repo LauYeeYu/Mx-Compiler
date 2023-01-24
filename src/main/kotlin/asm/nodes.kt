@@ -25,7 +25,7 @@ class GlobalVariable(
 
 class Function(
     val name: String,
-    val body: List<Block>,
+    val body: MutableList<Block>,
 ) {
     override fun toString(): String {
         val builder = StringBuilder()
@@ -43,7 +43,7 @@ class Function(
 
 class Block(
     val label: String,
-    val instructions: List<Instruction>,
+    val instructions: MutableList<Instruction>,
 ) {
     override fun toString() = "$label:\n\t${instructions.joinToString("\n\t")}"
 }
