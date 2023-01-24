@@ -23,3 +23,14 @@ fun escapeStringLiteralToAsm(string: String): String {
     }
     return builder.append("\\000").toString()
 }
+
+fun buildGlobalVariable(variable: ir.GlobalDecl): GlobalVariable = when(variable) {
+    is ir.GlobalVariableDecl -> GlobalVariable(
+        label = ".${variable.property.name}",
+        body = listOf(WordLiteral(variable.initValue)),
+    )
+    is ir.StringLiteralDecl -> GlobalVariable(
+        label = ".${variable.name}",
+        body = listOf(StringLiteral(escapeStringLiteralToAsm(variable.content))),
+    )
+}
