@@ -16,21 +16,65 @@
 
 package asm
 
-enum class Register(reg: String) {
-    ZERO("zero"), // zero constant
-    RA("ra"), // return address
-    SP("sp"), // stack pointer
-    GP("gp"), // global pointer
-    TP("tp"), // thread pointer
-    T0("t0"), T1("t1"), T2("t2"), // temporary registers
-    S0("s0"), S1("s1"), // saved registers
-    A0("a0"), A1("a1"), A2("a2"), A3("a3"),
-    A4("a4"), A5("a5"), A6("a6"), A7("a7"), // argument registers
-    S2("s2"), S3("s3"), S4("s4"), S5("s5"), S6("s6"),
-    S7("s7"), S8("s8"), S9("s9"), S10("s10"), S11("s11"), // saved registers
-    T3("t3"), T4("t4"), T5("t5"), T6("t6"); // temporary registers
+enum class Register {
+    ZERO, // zero constant
+    RA, // return address
+    SP, // stack pointer
+    GP, // global pointer
+    TP, // thread pointer
+    T0, T1, T2, // temporary registers
+    S0, S1, // saved registers
+    A0, A1, A2, A3, A4, A5, A6, A7, // argument registers
+    S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, // saved registers
+    T3, T4, T5, T6; // temporary registers
 
     override fun toString() = name.lowercase()
+    enum class Saver {
+        CALLER, CALLEE, PRESERVED;
+    }
+    val saver: Saver = when {
+        name == "ra" -> Saver.CALLER
+        name == "gp"|| name == "tp" -> Saver.PRESERVED
+        name.startsWith("a", true)|| name.startsWith("s", true) -> Saver.CALLEE
+        name.startsWith("t", true) -> Saver.CALLER
+        else -> Saver.PRESERVED
+    }
+}
+
+fun toRegister(register: String) = when (register) {
+    "zero" -> Register.ZERO
+    "ra" -> Register.RA
+    "sp" -> Register.SP
+    "gp" -> Register.GP
+    "tp" -> Register.TP
+    "t0" -> Register.T0
+    "t1" -> Register.T1
+    "t2" -> Register.T2
+    "s0" -> Register.S0
+    "s1" -> Register.S1
+    "a0" -> Register.A0
+    "a1" -> Register.A1
+    "a2" -> Register.A2
+    "a3" -> Register.A3
+    "a4" -> Register.A4
+    "a5" -> Register.A5
+    "a6" -> Register.A6
+    "a7" -> Register.A7
+    "s2" -> Register.S2
+    "s3" -> Register.S3
+    "s4" -> Register.S4
+    "s5" -> Register.S5
+    "s6" -> Register.S6
+    "s7" -> Register.S7
+    "s8" -> Register.S8
+    "s9" -> Register.S9
+    "s10" -> Register.S10
+    "s11" -> Register.S11
+    "t3" -> Register.T3
+    "t4" -> Register.T4
+    "t5" -> Register.T5
+    "t6" -> Register.T6
+    else -> throw IllegalArgumentException("Invalid register name: $register")
 }
 
 abstract class Immediate
