@@ -116,7 +116,7 @@ class GlobalVariableDecl(
     }
 }
 
-class LocalVariableDecl(val property: LocalVariable, val type: PrimitiveType) : Statement() {
+class LocalVariableDecl(val property: LocalVariable, val type: PrimitiveType) : Statement(2) {
     override fun toString() =
         "%${property.name} = alloca $type, align $alignValue"
 }
@@ -183,7 +183,7 @@ class GlobalFunction(
 }
 
 class FunctionParameter(
-    val type: Type,
+    val type: PrimitiveType,
     val name: String,
 ) {
     override fun toString() = "$type %$name"
@@ -197,26 +197,23 @@ class Block(
     override fun toString() = "$label:\n$statementsString"
 }
 
-abstract class Statement
+abstract class Statement(val newVariableCount: Int)
 
 class CallStatement(
     val dest: Variable?,
-    val returnType: Type,
+    val returnType: PrimitiveType,
     val function: GlobalFunction,
     val arguments: List<Argument>,
-) : Statement() {
-    override fun toString() = when (returnType) {
-        is PrimitiveType -> when (returnType.type) {
-            TypeProperty.VOID -> "call void @${function.name}(${arguments.joinToString(", ")})"
-            else -> "%${dest?.name} = call ${returnType.type} @${function.name}(${arguments.joinToString(", ")})"
-        }
-        else -> "%${dest?.name} = call $returnType @${function.name}(${arguments.joinToString(", ")})"
+) : Statement(if (returnType.type != TypeProperty.VOID) 1 else 0) {
+    override fun toString() = when (returnType.type) {
+        TypeProperty.VOID -> "call void @${function.name}(${arguments.joinToString(", ")})"
+        else -> "%${dest?.name} = call ${returnType.type} @${function.name}(${arguments.joinToString(", ")})"
     }
 }
 
 class ReturnStatement(
     val value: Variable? = null,
-) : Statement() {
+) : Statement(0) {
     override fun toString() = when (value) {
         null -> "ret void"
         else -> "ret $value"
@@ -227,7 +224,7 @@ class BranchStatement(
     val condition: Argument?, // null if unconditional
     val trueBlockLabel: String,
     val falseBlockLabel: String?, // null if unconditional
-) : Statement() {
+) : Statement(0) {
     override fun toString() = when (falseBlockLabel) {
         null -> "br label %$trueBlockLabel"
         else -> "br i1 $condition, label %$trueBlockLabel, label %$falseBlockLabel"
@@ -240,7 +237,7 @@ class BranchStatement(
 class LoadStatement(
     val dest: LocalVariable,
     val src: Variable,
-) : Statement() {
+) : Statement(1) {
     override fun toString() =
         "%${dest.name} = load ${dest.type}, $src, align $alignValue"
 }
@@ -248,7 +245,7 @@ class LoadStatement(
 class StoreStatement(
     val dest: Variable,
     val src : Argument,
-) : Statement() {
+) : Statement(0) {
     override fun toString() = when (src) {
         is Variable -> "store $src, $dest, align $alignValue"
         else -> "store $src, $dest, align $alignValue"
@@ -260,7 +257,7 @@ class BinaryOperationStatement(
     val op  : BinaryOperator,
     val lhs : Argument,
     val rhs : Argument,
-) : Statement() {
+) : Statement(1) {
     override fun toString() =
         "%${dest.name} = $op ${lhs.type} ${lhs.name}, ${rhs.name}"
 }
@@ -270,7 +267,7 @@ class IntCmpStatement(
     val op  : IntCmpOperator,
     val lhs : Argument,
     val rhs : Argument,
-) : Statement() {
+) : Statement(1) {
     override fun toString() =
         "%${dest.name} = icmp $op ${lhs.type} ${lhs.name}, ${rhs.name}"
 }
@@ -280,7 +277,7 @@ class GetElementPtrStatement(
     val src    : Variable,
     val srcType: Type,
     val indexes: List<Argument>,
-) : Statement() {
+) : Statement(1) {
     override fun toString(): String {
         var returnString = when (src) {
             // Note that the offset is i32 (Maybe changed in future)
@@ -298,7 +295,7 @@ class GetElementPtrStatement(
 class PhiStatement(
     val dest: LocalVariable,
     val incoming: MutableList<Pair<Argument, String>>,
-) : Statement() {
+) : Statement(1) {
     override fun toString(): String {
         var returnString = "%${dest.name} = phi ${dest.type} "
         var count = 0
