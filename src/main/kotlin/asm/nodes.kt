@@ -12,14 +12,41 @@
 package asm
 
 class TranslateUnit(
-    val functions: List<Instruction>,
+    val functions: List<Function>,
     val globalVariables: List<GlobalVariable>,
 )
 
 class GlobalVariable(
     val label: String,
     val body: List<Literal>,
-)
+) {
+    override fun toString() = "$label:\n\t${body.joinToString("\n\t")}"
+}
+
+class Function(
+    val name: String,
+    val body: List<Block>,
+) {
+    override fun toString(): String {
+        val builder = StringBuilder()
+        builder.append("$name:\n")
+        for (i in body.indices) {
+            if (i == 0) {
+                builder.append("\t${body[i].instructions.joinToString("\n\t")}\n")
+            } else {
+                builder.append("${body[i]}\n")
+            }
+        }
+        return builder.toString()
+    }
+}
+
+class Block(
+    val label: String,
+    val instructions: List<Instruction>,
+) {
+    override fun toString() = "$label:\n\t${instructions.joinToString("\n\t")}"
+}
 
 abstract class Literal
 
