@@ -304,7 +304,6 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         val thisPtr = getThisPtr(function)
         classNode.body.filterIsInstance<ast.VariablesDeclaration>().forEach { node ->
-            val type = irType(node.type)
             node.variables.forEach { variable ->
                 val ptr = LocalVariable("__${variable.name}.ptr", PrimitiveType(TypeProperty.PTR))
                 val index = classIrNode.nameMap[variable.name]
