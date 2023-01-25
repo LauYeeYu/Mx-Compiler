@@ -45,27 +45,30 @@ class FunctionBuilder(private val irFunction: IrFunction) {
 
     private fun toAsm(): Function {
         val blocks = linkedMapOf(
-            "0" to Block(
-                irFunction.name, mutableListOf(
-                    ImmCalcInstruction(
-                        op = ImmCalcInstruction.ImmCalcOp.ADDI,
-                        dest = Register.SP,
+            irFunction.name to Block(
+                irFunction.name,
+                mutableListOf(
+                    BinaryRegInstruction(
+                        op = BinaryRegInstruction.BinaryRegOp.MV,
+                        dest = Register.T0,
                         src = Register.SP,
-                        imm = ImmediateInt(-stackSize),
-                    )
+                    ),
                 )
             )
         )
-        saveFunctionParameters(blocks)
+        val block = blocks[irFunction.name]
+            ?: throw AsmBuilderException("The first function block not found")
+        // set stack
+        addImmediateToRegister(block, Register.SP, Register.SP, -stackSize, Register.T1)
+        saveFunctionParameters(block)
+        variables.forEach { buildInstruction(it, block, blocks) }
         buildBody(blocks)
         return Function(irFunction.name, blocks.values.toList())
     }
 
-    private fun saveFunctionParameters(blocks: LinkedHashMap<String, Block>) {
-        val block = blocks[irFunction.name]
-            ?: throw AsmBuilderException("The first function block not found")
+    private fun saveFunctionParameters(block: Block) {
         for ((index, parameter) in irFunction.parameters.withIndex()) {
-            val offset = stackSize + (index - 8) * 4
+            val offset = (index - 8) * 4
             localVariableMap[parameter.name] = offset
             if (index < 8) {
                 block.instructions.add(
