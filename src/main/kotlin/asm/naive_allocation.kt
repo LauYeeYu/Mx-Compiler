@@ -34,13 +34,16 @@ class FunctionBuilder(private val irFunction: IrFunction) {
         get() = this.toAsm()
 
     private val localVariableMap = mutableMapOf<String, Int>()
-    private val sourceBody = irFunction.body ?: throw Exception("Function ${irFunction.name} has no body")
+    private val sourceBody = irFunction.body
+        ?: throw AsmBuilderException("Function ${irFunction.name} has no body")
+    private val variables = irFunction.variables
+        ?: throw AsmBuilderException("Function ${irFunction.name} has no variable list")
+    private val stackSize = ((variables.sumOf { it.newVariableCount } +
+            sourceBody.sumOf { block -> block.statements.sumOf { it.newVariableCount } } +
+            min(irFunction.parameters.size, 8) + 1) * 4 + 15) / 16 * 16
     private var stackRemained = 0
 
     private fun toAsm(): Function {
-        val stackSize = ((sourceBody.sumOf { block ->
-            block.statements.sumOf { it.newVariableCount }
-        } + min(irFunction.parameters.size, 8) + 1) * 4 + 15) / 16 * 16
         val blocks = linkedMapOf(
             "0" to Block(
                 irFunction.name, mutableListOf(
@@ -53,12 +56,12 @@ class FunctionBuilder(private val irFunction: IrFunction) {
                 )
             )
         )
-        saveFunctionParameters(blocks, stackSize)
+        saveFunctionParameters(blocks)
         buildBody(blocks)
         return Function(irFunction.name, blocks.values.toList())
     }
 
-    private fun saveFunctionParameters(blocks: LinkedHashMap<String, Block>, stackSize: Int) {
+    private fun saveFunctionParameters(blocks: LinkedHashMap<String, Block>) {
         val block = blocks[irFunction.name]
             ?: throw AsmBuilderException("The first function block not found")
         for ((index, parameter) in irFunction.parameters.withIndex()) {
@@ -111,13 +114,30 @@ class FunctionBuilder(private val irFunction: IrFunction) {
             }
         }
     }
+
     private fun buildBlock(irBlock: IrBlock, block: Block, blocks: LinkedHashMap<String, Block>) {
         irBlock.statements.forEach { statement ->
             buildInstruction(statement, block, blocks)
         }
     }
 
-    private fun buildInstruction(statement: IrStatement, currentBlock: Block, blocks: LinkedHashMap<String, Block>) {
-        //TODO
+    private fun buildInstruction(
+        statement: IrStatement,
+        currentBlock: Block,
+        blocks: LinkedHashMap<String, Block>,
+    ) {
+        when (statement) {
+            is ir.LocalVariableDecl -> buildInstruction(statement, currentBlock, blocks)
+            is ir.CallStatement -> buildInstruction(statement, currentBlock, blocks)
+            is ir.ReturnStatement -> buildInstruction(statement, currentBlock, blocks)
+            is ir.BranchStatement -> buildInstruction(statement, currentBlock, blocks)
+            is ir.LoadStatement -> buildInstruction(statement, currentBlock, blocks)
+            is ir.StoreStatement -> buildInstruction(statement, currentBlock, blocks)
+            is ir.BinaryOperationStatement -> buildInstruction(statement, currentBlock, blocks)
+            is ir.IntCmpStatement -> buildInstruction(statement, currentBlock, blocks)
+            is ir.GetElementPtrStatement -> buildInstruction(statement, currentBlock, blocks)
+            is ir.PhiStatement -> buildInstruction(statement, currentBlock, blocks)
+            else -> throw AsmBuilderException("Unexpected statement class")
+        }
     }
 }
