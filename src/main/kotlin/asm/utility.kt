@@ -35,6 +35,39 @@ fun buildGlobalVariable(variable: ir.GlobalDecl): GlobalVariable = when(variable
     )
 }
 
+fun withinImmediateRange(immediate: Int) =
+    immediate < (1 shl 11) && immediate >= -(1 shl 11)
+
+fun addImmediateToRegister(
+    block: Block,
+    dest: Register,
+    src: Register,
+    immediate: Int,
+    temp: Register = Register.T0,
+) {
+    if (withinImmediateRange(immediate)) {
+        block.instructions.add(
+            ImmCalcInstruction(
+                ImmCalcInstruction.ImmCalcOp.ADDI,
+                dest,
+                src,
+                ImmediateInt(immediate),
+            )
+        )
+    } else {
+        block.instructions.add(Lui(temp, ImmediateInt(immediate ushr 12)))
+        block.instructions.add(
+            ImmCalcInstruction(
+                ImmCalcInstruction.ImmCalcOp.ADDI,
+                temp,
+                temp,
+                ImmediateInt(immediate and 0xFFF),
+            )
+        )
+        block.instructions.add(RegCalcInstruction(RegCalcInstruction.RegCalcOp.ADD, dest, temp, src))
+    }
+}
+
 enum class RegStatus {
     FREE, // Nothing is stored in this register, or the data is stored in memory
     OCCUPIED, // Something is stored in this register, but not in the memory
