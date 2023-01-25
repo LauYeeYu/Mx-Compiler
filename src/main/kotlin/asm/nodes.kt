@@ -25,7 +25,7 @@ class GlobalVariable(
 
 class Function(
     val name: String,
-    val body: MutableList<Block>,
+    val body: List<Block>,
 ) {
     override fun toString(): String {
         val builder = StringBuilder()
