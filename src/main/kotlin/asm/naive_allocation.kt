@@ -17,14 +17,16 @@
 package asm
 
 import kotlin.math.min
+import ir.Root as IrRoot
+import ir.GlobalFunction as IrGlobalFunction
 
-fun naiveAllocation(irRoot: ir.Root) = TranslateUnit(
+fun naiveAllocation(irRoot: IrRoot) = TranslateUnit(
     functions = irRoot.globalFunctions.filter { it.body != null }
         .map { FunctionBuilder(it).function },
     globalVariables = irRoot.variables.map { buildGlobalVariable(it) }
 )
 
-class FunctionBuilder(private val irFunction: ir.GlobalFunction) {
+class FunctionBuilder(private val irFunction: IrGlobalFunction) {
     val function: Function
         get() = this.toAsm()
 
@@ -53,7 +55,8 @@ class FunctionBuilder(private val irFunction: ir.GlobalFunction) {
 
     private fun saveFunctionParameters(blocks: MutableList<Block>, stackSize: Int) {
         for ((index, parameter) in irFunction.parameters.withIndex()) {
-            localVariableMap[parameter.name] = stackSize + index - 8
+            val offset = stackSize + (index - 8) * 4
+            localVariableMap[parameter.name] = offset
             if (index < 8) {
                 blocks.last().instructions.add(
                     StoreInstruction(
@@ -63,7 +66,7 @@ class FunctionBuilder(private val irFunction: ir.GlobalFunction) {
                             else -> throw Exception("Invalid parameter size")
                         },
                         src = toRegister("a$index"),
-                        offset = ImmediateInt(stackSize + index - 8),
+                        offset = ImmediateInt(offset),
                         base = Register.SP,
                     )
                 )
