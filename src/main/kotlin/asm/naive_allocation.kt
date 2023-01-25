@@ -143,4 +143,23 @@ class FunctionBuilder(private val irFunction: IrFunction) {
             else -> throw AsmBuilderException("Unexpected statement class")
         }
     }
+
+    private fun buildInstruction(
+        statement: ir.LocalVariableDecl,
+        currentBlock: Block,
+        blocks: LinkedHashMap<String, Block>,
+    ) {
+        stackRemained -= 8
+        localVariableMap[statement.property.name] = stackRemained
+        addImmediateToRegister(currentBlock, Register.T1, Register.SP, stackRemained) // pointer address
+        addImmediateToRegister(currentBlock, Register.T0, Register.SP, stackRemained + 4) // data address
+        currentBlock.instructions.add(
+            StoreInstruction(
+                op = StoreInstruction.StoreOp.SW,
+                src = Register.T0,
+                offset = ImmediateInt(0),
+                base = Register.T1,
+            )
+        )
+    }
 }
