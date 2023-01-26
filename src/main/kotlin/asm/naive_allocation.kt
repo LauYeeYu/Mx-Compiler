@@ -194,7 +194,7 @@ class FunctionBuilder(private val irFunction: IrFunction) {
             is ir.BinaryOperationStatement -> buildInstruction(statement, currentBlock)
             is ir.IntCmpStatement -> buildInstruction(statement, currentBlock)
             is ir.GetElementPtrStatement -> buildInstruction(statement, currentBlock)
-            is ir.PhiStatement -> buildInstruction(statement, currentBlock, blocks, nextLabel)
+            is ir.PhiStatement -> buildInstruction(statement, currentBlock, blocks)
             else -> throw AsmBuilderException("Unexpected statement class")
         }
     }
@@ -628,6 +628,32 @@ class FunctionBuilder(private val irFunction: IrFunction) {
             block = currentBlock,
             op = StoreInstruction.StoreOp.SW,
             src = Register.A0,
+            offset = localVariableMap[statement.dest.name]
+                ?: throw AsmBuilderException("Local variable not found"),
+            base = Register.SP,
+        )
+    }
+
+    private fun buildInstruction(
+        statement: ir.PhiStatement,
+        currentBlock: Block,
+        blocks: LinkedHashMap<String, Block>,
+    ) {
+        // Put the data in T6
+        if (statement.incoming.size == 1) {
+            loadDataToRegister(currentBlock, Register.T6, statement.incoming[0].first)
+        } else {
+            statement.incoming.forEach { (data, irBlock) ->
+                val blockName = if (irBlock == "0") irFunction.name else "${irFunction.name}.${irBlock}"
+                val block = blocks[blockName]
+                    ?: throw AsmBuilderException("Block not found")
+                loadDataToRegister(block, Register.T6, data)
+            }
+        }
+        storeRegisterToMemory(
+            block = currentBlock,
+            op = StoreInstruction.StoreOp.SW,
+            src = Register.T6,
             offset = localVariableMap[statement.dest.name]
                 ?: throw AsmBuilderException("Local variable not found"),
             base = Register.SP,
