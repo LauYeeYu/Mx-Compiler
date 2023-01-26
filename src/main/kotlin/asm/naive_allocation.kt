@@ -37,8 +37,13 @@ class FunctionBuilder(private val irFunction: IrFunction) {
         get() = this.toAsm()
 
     private val localVariableMap = mutableMapOf<String, Int>()
-    private val sourceBody = irFunction.body
-        ?: throw AsmBuilderException("Function ${irFunction.name} has no body")
+    private val sourceBody = (
+            irFunction.body
+                ?: throw AsmBuilderException("Function ${irFunction.name} has no body")
+            ) + (
+            irFunction.returnBlock
+                ?: throw AsmBuilderException("Function ${irFunction.name} has no return block")
+            )
     private val variables = irFunction.variables
         ?: throw AsmBuilderException("Function ${irFunction.name} has no variable list")
     private val maxCallParameterSize: Int
@@ -75,7 +80,7 @@ class FunctionBuilder(private val irFunction: IrFunction) {
         // set stack
         addImmediateToRegister(block, Register.SP, Register.SP, -stackSize, Register.T1)
         saveFunctionParameters(block)
-        variables.forEach { buildInstruction(it, block, blocks) }
+        variables.forEach { buildInstruction(it, block) }
         buildBody(blocks)
         return Function(irFunction.name, blocks.values.toList())
     }
@@ -118,23 +123,33 @@ class FunctionBuilder(private val irFunction: IrFunction) {
                 blocks[blockName] = Block(blockName, mutableListOf())
             }
         }
-        for ((index, irBlock) in sourceBody.withIndex()) {
+        for ((index, irBlock) in sourceBody.zipWithNext().withIndex()) {
             if (index == 0) {
                 val block = blocks[irFunction.name]
                     ?: throw AsmBuilderException("The first function block not found")
-                buildBlock(irBlock, block, blocks)
+                buildBlock(irBlock.first, block, blocks, irBlock.second.label)
             } else {
-                val blockName = "${irFunction.name}.${irBlock.label}"
+                val blockName = "${irFunction.name}.${irBlock.first.label}"
                 val block = blocks[blockName]
                     ?: throw AsmBuilderException("asm block $blockName not found")
-                buildBlock(irBlock, block, blocks)
+                buildBlock(irBlock.first, block, blocks, irBlock.second.label)
             }
         }
+        val returnBlock = sourceBody.last()
+        val blockName = "${irFunction.name}.return"
+        val block = blocks[blockName]
+            ?: throw AsmBuilderException("asm block $blockName not found")
+        buildBlock(returnBlock, block, blocks, "") // return block has no branch statement
     }
 
-    private fun buildBlock(irBlock: IrBlock, block: Block, blocks: LinkedHashMap<String, Block>) {
+    private fun buildBlock(
+        irBlock: IrBlock,
+        block: Block,
+        blocks: LinkedHashMap<String, Block>,
+        nextLabel: String,
+    ) {
         irBlock.statements.forEach { statement ->
-            buildInstruction(statement, block, blocks)
+            buildInstruction(statement, block, blocks, nextLabel)
         }
     }
 
@@ -142,18 +157,19 @@ class FunctionBuilder(private val irFunction: IrFunction) {
         statement: IrStatement,
         currentBlock: Block,
         blocks: LinkedHashMap<String, Block>,
+        nextLabel: String,
     ) {
         when (statement) {
             is ir.LocalVariableDecl -> buildInstruction(statement, currentBlock)
             is ir.CallStatement -> buildInstruction(statement, currentBlock)
-            is ir.ReturnStatement -> buildInstruction(statement, currentBlock, blocks)
-            is ir.BranchStatement -> buildInstruction(statement, currentBlock, blocks)
-            is ir.LoadStatement -> buildInstruction(statement, currentBlock, blocks)
-            is ir.StoreStatement -> buildInstruction(statement, currentBlock, blocks)
-            is ir.BinaryOperationStatement -> buildInstruction(statement, currentBlock, blocks)
-            is ir.IntCmpStatement -> buildInstruction(statement, currentBlock, blocks)
-            is ir.GetElementPtrStatement -> buildInstruction(statement, currentBlock, blocks)
-            is ir.PhiStatement -> buildInstruction(statement, currentBlock, blocks)
+            is ir.ReturnStatement -> buildInstruction(statement, currentBlock, blocks, nextLabel)
+            is ir.BranchStatement -> buildInstruction(statement, currentBlock, blocks, nextLabel)
+            is ir.LoadStatement -> buildInstruction(statement, currentBlock, blocks, nextLabel)
+            is ir.StoreStatement -> buildInstruction(statement, currentBlock, blocks, nextLabel)
+            is ir.BinaryOperationStatement -> buildInstruction(statement, currentBlock, blocks, nextLabel)
+            is ir.IntCmpStatement -> buildInstruction(statement, currentBlock, blocks, nextLabel)
+            is ir.GetElementPtrStatement -> buildInstruction(statement, currentBlock, blocks, nextLabel)
+            is ir.PhiStatement -> buildInstruction(statement, currentBlock, blocks, nextLabel)
             else -> throw AsmBuilderException("Unexpected statement class")
         }
     }
