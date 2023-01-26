@@ -189,7 +189,7 @@ class FunctionBuilder(private val irFunction: IrFunction) {
             is ir.LocalVariableDecl -> buildInstruction(statement, currentBlock)
             is ir.CallStatement -> buildInstruction(statement, currentBlock)
             is ir.ReturnStatement -> buildInstruction(statement, currentBlock)
-            is ir.BranchStatement -> buildInstruction(statement, currentBlock, blocks, nextLabel)
+            is ir.BranchStatement -> buildInstruction(statement, currentBlock, nextLabel)
             is ir.LoadStatement -> buildInstruction(statement, currentBlock, blocks, nextLabel)
             is ir.StoreStatement -> buildInstruction(statement, currentBlock, blocks, nextLabel)
             is ir.BinaryOperationStatement -> buildInstruction(statement, currentBlock, blocks, nextLabel)
@@ -306,5 +306,64 @@ class FunctionBuilder(private val irFunction: IrFunction) {
             )
         }
         currentBlock.instructions.add(ReturnInstruction())
+    }
+
+    private fun buildInstruction(
+        statement: ir.BranchStatement,
+        currentBlock: Block,
+        nextLabel: String,
+    ) {
+        if (statement.condition == null) { // unconditional jump
+            if (statement.trueBlockLabel != nextLabel) {
+                currentBlock.instructions.add(
+                    PseudoJumpInstruction(
+                        PseudoJumpInstruction.JumpOp.J,
+                        ImmediateLabel(statement.trueBlockLabel)
+                    )
+                )
+            }
+        } else { // conditional jump
+            loadMemoryToRegister(
+                block = currentBlock,
+                op = LoadInstruction.LoadOp.LBU,
+                dest = Register.A0,
+                offset = localVariableMap[statement.condition.name]
+                    ?: throw AsmBuilderException("Local variable not found"),
+                base = Register.SP,
+            )
+            val falseBlockLabel = statement.falseBlockLabel
+                ?: throw AsmBuilderException("False block label is null")
+            if (statement.trueBlockLabel == nextLabel) {
+                currentBlock.instructions.add(
+                    BranchCompZeroInstruction(
+                        BranchCompZeroInstruction.BranchCompZeroOp.BEQZ,
+                        Register.A0,
+                        ImmediateLabel(falseBlockLabel),
+                    )
+                )
+            } else if (falseBlockLabel == nextLabel) {
+                currentBlock.instructions.add(
+                    BranchCompZeroInstruction(
+                        BranchCompZeroInstruction.BranchCompZeroOp.BNEZ,
+                        Register.A0,
+                        ImmediateLabel(statement.trueBlockLabel),
+                    )
+                )
+            } else {
+                currentBlock.instructions.add(
+                    BranchCompZeroInstruction(
+                        BranchCompZeroInstruction.BranchCompZeroOp.BNEZ,
+                        Register.A0,
+                        ImmediateLabel(statement.trueBlockLabel),
+                    )
+                )
+                currentBlock.instructions.add(
+                    PseudoJumpInstruction(
+                        PseudoJumpInstruction.JumpOp.J,
+                        ImmediateLabel(falseBlockLabel)
+                    )
+                )
+            }
+        }
     }
 }
