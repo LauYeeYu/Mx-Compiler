@@ -59,8 +59,37 @@ class FunctionBuilder(private val irFunction: IrFunction) {
         }
     private val stackSize = ((variables.sumOf { it.newVariableCount } +
             sourceBody.sumOf { block -> block.statements.sumOf { it.newVariableCount } } +
-            min(irFunction.parameters.size, 8) + maxCallParameterSize +1) * 4 + 15) / 16 * 16
-    private var stackRemained = 0
+            min(irFunction.parameters.size, 8) + maxCallParameterSize + 1) * 4 + 15) / 16 * 16
+
+    init { // set local variable map
+        var offset = stackSize - min(irFunction.parameters.size, 8) * 4
+        irFunction.parameters.forEach { functionParameter ->
+            localVariableMap[functionParameter.name] = offset
+            offset += 4
+        }
+        offset = stackSize - min(irFunction.parameters.size, 8) * 4 - 4
+        val addLocalVariable = { name: String, size: Int ->
+            localVariableMap[name] = offset - size * 4
+            offset -= size * 4
+        }
+        variables.forEach { variable -> addLocalVariable(variable.property.name, 2) }
+        sourceBody.forEach { block ->
+            block.statements.forEach { statement ->
+                when (statement) {
+                    is ir.CallStatement -> if (statement.dest != null) {
+                        addLocalVariable(statement.dest.name, 1)
+                    }
+                    is ir.LocalVariableDecl -> addLocalVariable(statement.property.name, 2)
+                    is ir.LoadStatement -> addLocalVariable(statement.dest.name, 1)
+                    is ir.BinaryOperationStatement -> addLocalVariable(statement.dest.name, 1)
+                    is ir.IntCmpStatement -> addLocalVariable(statement.dest.name, 1)
+                    is ir.GetElementPtrStatement -> addLocalVariable(statement.dest.name, 1)
+                    is ir.PhiStatement -> addLocalVariable(statement.dest.name, 1)
+                    else -> {}
+                }
+            }
+        }
+    }
 
     private fun toAsm(): Function {
         val blocks = linkedMapOf(
@@ -87,32 +116,28 @@ class FunctionBuilder(private val irFunction: IrFunction) {
 
     private fun saveFunctionParameters(block: Block) {
         for ((index, parameter) in irFunction.parameters.withIndex()) {
-            val offset = (index - 8) * 4
-            localVariableMap[parameter.name] = stackSize + offset
+            val offset = stackSize + (index - 8) * 4
             if (index < 8) {
-                block.instructions.add(
-                    StoreInstruction(
-                        op = when (parameter.type.size) {
-                            1 -> StoreInstruction.StoreOp.SB
-                            4 -> StoreInstruction.StoreOp.SW
-                            else -> throw Exception("Invalid parameter size")
-                        },
-                        src = toRegister("a$index"),
-                        offset = ImmediateInt(offset),
-                        base = Register.SP,
-                    )
+                storeRegisterToMemory(
+                    block = block,
+                    op = when (parameter.type.size) {
+                        1 -> StoreInstruction.StoreOp.SB
+                        4 -> StoreInstruction.StoreOp.SW
+                        else -> throw Exception("Invalid parameter size")
+                    },
+                    src = toRegister("a$index"),
+                    offset = offset,
+                    base = Register.SP,
                 )
             }
         }
-        stackRemained = stackSize - min(irFunction.parameters.size, 8) * 4 - 4
         // save ra
-        block.instructions.add(
-            StoreInstruction(
-                op = StoreInstruction.StoreOp.SW,
-                src = Register.RA,
-                offset = ImmediateInt(stackRemained),
-                base = Register.SP,
-            )
+        storeRegisterToMemory(
+            block = block,
+            op = StoreInstruction.StoreOp.SW,
+            src = Register.RA,
+            offset = stackSize - min(irFunction.parameters.size, 8) * 4 - 4,
+            base = Register.SP,
         )
     }
 
@@ -178,10 +203,10 @@ class FunctionBuilder(private val irFunction: IrFunction) {
         statement: ir.LocalVariableDecl,
         currentBlock: Block,
     ) {
-        stackRemained -= 8
-        localVariableMap[statement.property.name] = stackRemained
-        addImmediateToRegister(currentBlock, Register.T1, Register.SP, stackRemained) // pointer address
-        addImmediateToRegister(currentBlock, Register.T0, Register.SP, stackRemained + 4) // data address
+        val offset = localVariableMap[statement.property.name]
+            ?: throw AsmBuilderException("Local variable not found")
+        addImmediateToRegister(currentBlock, Register.T1, Register.SP, offset) // pointer address
+        addImmediateToRegister(currentBlock, Register.T0, Register.SP, offset + 4) // data address
         currentBlock.instructions.add(
             StoreInstruction(
                 op = StoreInstruction.StoreOp.SW,
@@ -239,13 +264,13 @@ class FunctionBuilder(private val irFunction: IrFunction) {
             CallInstruction(ImmediateLabel(statement.function.name))
         )
         if (statement.dest != null) {
-            stackRemained -= 4
-            localVariableMap[statement.dest.name] = stackRemained
+            val offset = localVariableMap[statement.dest.name]
+                ?: throw AsmBuilderException("Local variable not found")
             storeRegisterToMemory(
                 block = currentBlock,
                 op = StoreInstruction.StoreOp.SW,
                 src = Register.A0,
-                offset = stackRemained,
+                offset = offset,
                 base = Register.SP,
             )
         }
