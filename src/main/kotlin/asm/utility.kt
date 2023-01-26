@@ -123,6 +123,26 @@ fun loadMemoryToRegister(
     }
 }
 
+fun storeRegisterToMemory(
+    block: Block,
+    op: StoreInstruction.StoreOp,
+    src: Register,
+    offset: Int,
+    base: Register,
+    temp: Register = Register.T0,
+) {
+    if (withinImmediateRange(offset)) {
+        block.instructions.add(StoreInstruction(op, src, ImmediateInt(offset), base))
+    } else {
+        if (temp == base || temp == src) throw AsmBuilderException(
+            "Temporary register cannot be the same as source register"
+        )
+        block.instructions.add(Lui(temp, highImm(offset)))
+        block.instructions.add(RegCalcInstruction(RegCalcInstruction.RegCalcOp.ADD, temp, temp, base))
+        block.instructions.add(StoreInstruction(op, src, lowImm(offset), temp))
+    }
+}
+
 enum class RegStatus {
     FREE, // Nothing is stored in this register, or the data is stored in memory
     OCCUPIED, // Something is stored in this register, but not in the memory
