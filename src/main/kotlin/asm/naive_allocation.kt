@@ -17,6 +17,7 @@
 package asm
 
 import exceptions.AsmBuilderException
+import ir.IntCmpOperator
 import kotlin.math.min
 import kotlin.math.max
 import ir.Root as IrRoot
@@ -190,8 +191,8 @@ class FunctionBuilder(private val irFunction: IrFunction) {
             is ir.BranchStatement -> buildInstruction(statement, currentBlock, nextLabel)
             is ir.LoadStatement -> buildInstruction(statement, currentBlock)
             is ir.StoreStatement -> buildInstruction(statement, currentBlock)
-            is ir.BinaryOperationStatement -> buildInstruction(statement, currentBlock, blocks, nextLabel)
-            is ir.IntCmpStatement -> buildInstruction(statement, currentBlock, blocks, nextLabel)
+            is ir.BinaryOperationStatement -> buildInstruction(statement, currentBlock)
+            is ir.IntCmpStatement -> buildInstruction(statement, currentBlock)
             is ir.GetElementPtrStatement -> buildInstruction(statement, currentBlock, blocks, nextLabel)
             is ir.PhiStatement -> buildInstruction(statement, currentBlock, blocks, nextLabel)
             else -> throw AsmBuilderException("Unexpected statement class")
@@ -420,6 +421,130 @@ class FunctionBuilder(private val irFunction: IrFunction) {
                 offset = ImmediateInt(0),
                 base = Register.A0,
             )
+        )
+    }
+
+    private fun buildInstruction(
+        statement: ir.BinaryOperationStatement,
+        currentBlock: Block,
+    ) {
+        loadDataToRegister(currentBlock, Register.A0, statement.lhs)
+        if (statement.rhs is ir.IntLiteral &&
+            withinImmediateRange(statement.rhs.value) &&
+            statement.op.hasImmOp) {
+            currentBlock.instructions.add(
+                ImmCalcInstruction(
+                    op = statement.op.asmImmOp,
+                    dest = Register.A0,
+                    src = Register.A0,
+                    imm = ImmediateInt(statement.rhs.value),
+                )
+            )
+        } else {
+            loadDataToRegister(currentBlock, Register.A1, statement.rhs)
+            currentBlock.instructions.add(
+                RegCalcInstruction(
+                    op = statement.op.asmOp,
+                    dest = Register.A0,
+                    lhs = Register.A0,
+                    rhs = Register.A1,
+                )
+            )
+        }
+        storeRegisterToMemory(
+            block = currentBlock,
+            op = when (statement.lhs.type.size) {
+                1 -> StoreInstruction.StoreOp.SB
+                4 -> StoreInstruction.StoreOp.SW
+                else -> throw Exception("Invalid parameter size")
+            },
+            src = Register.A0,
+            offset = localVariableMap[statement.lhs.name]
+                ?: throw AsmBuilderException("Local variable not found"),
+            base = Register.SP,
+        )
+    }
+
+    private fun buildInstruction(
+        statement: ir.IntCmpStatement,
+        currentBlock: Block,
+    ) {
+        loadDataToRegister(currentBlock, Register.A0, statement.lhs)
+        loadDataToRegister(currentBlock, Register.A1, statement.rhs)
+        // The result of the comparison is stored in A0
+        when (statement.op) {
+            IntCmpOperator.EQ, IntCmpOperator.NE -> {
+                currentBlock.instructions.add(
+                    RegCalcInstruction(
+                        op = RegCalcInstruction.RegCalcOp.XOR,
+                        dest = Register.A0,
+                        lhs = Register.A0,
+                        rhs = Register.A1,
+                    )
+                )
+                currentBlock.instructions.add(
+                    SetCompZeroInstruction(
+                        op = when (statement.op) {
+                            IntCmpOperator.EQ -> SetCompZeroInstruction.SetCompZeroOp.SEQZ
+                            IntCmpOperator.NE -> SetCompZeroInstruction.SetCompZeroOp.SNEZ
+                            else -> throw Exception("Invalid operator")
+                        },
+                        dest = Register.A0,
+                        src = Register.A0,
+                    )
+                )
+            }
+
+            IntCmpOperator.SLT, IntCmpOperator.SGE -> {
+                currentBlock.instructions.add(
+                    RegCalcInstruction(
+                        op = RegCalcInstruction.RegCalcOp.SLT,
+                        dest = Register.A0,
+                        lhs = Register.A0,
+                        rhs = Register.A1,
+                    )
+                )
+                if (statement.op == IntCmpOperator.SGE) {
+                    currentBlock.instructions.add(
+                        ImmCalcInstruction(
+                            op = ImmCalcInstruction.ImmCalcOp.XORI,
+                            dest = Register.A0,
+                            src = Register.A0,
+                            imm = ImmediateInt(1),
+                        )
+                    )
+                }
+            }
+
+            IntCmpOperator.SLE, IntCmpOperator.SGT -> {
+                currentBlock.instructions.add(
+                    RegCalcInstruction(
+                        op = RegCalcInstruction.RegCalcOp.SLT,
+                        dest = Register.A0,
+                        lhs = Register.A1,
+                        rhs = Register.A0,
+                    )
+                )
+                if (statement.op == IntCmpOperator.SGT) {
+                    currentBlock.instructions.add(
+                        ImmCalcInstruction(
+                            op = ImmCalcInstruction.ImmCalcOp.XORI,
+                            dest = Register.A0,
+                            src = Register.A0,
+                            imm = ImmediateInt(1),
+                        )
+                    )
+                }
+            }
+        }
+
+        storeRegisterToMemory(
+            block = currentBlock,
+            op = StoreInstruction.StoreOp.SW,
+            src = Register.A0,
+            offset = localVariableMap[statement.lhs.name]
+                ?: throw AsmBuilderException("Local variable not found"),
+            base = Register.SP,
         )
     }
 
