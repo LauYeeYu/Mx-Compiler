@@ -17,8 +17,6 @@
 package asm
 
 import exceptions.AsmBuilderException
-import ir.IntLiteral
-import ir.LocalVariable
 import kotlin.math.min
 import kotlin.math.max
 import ir.Root as IrRoot
@@ -191,7 +189,7 @@ class FunctionBuilder(private val irFunction: IrFunction) {
             is ir.ReturnStatement -> buildInstruction(statement, currentBlock)
             is ir.BranchStatement -> buildInstruction(statement, currentBlock, nextLabel)
             is ir.LoadStatement -> buildInstruction(statement, currentBlock)
-            is ir.StoreStatement -> buildInstruction(statement, currentBlock, blocks, nextLabel)
+            is ir.StoreStatement -> buildInstruction(statement, currentBlock)
             is ir.BinaryOperationStatement -> buildInstruction(statement, currentBlock, blocks, nextLabel)
             is ir.IntCmpStatement -> buildInstruction(statement, currentBlock, blocks, nextLabel)
             is ir.GetElementPtrStatement -> buildInstruction(statement, currentBlock, blocks, nextLabel)
@@ -223,38 +221,21 @@ class FunctionBuilder(private val irFunction: IrFunction) {
         currentBlock: Block,
     ) {
         for ((index, argument) in statement.arguments.withIndex()) {
-            // Load data to T0
-            when (argument) {
-                is IntLiteral ->
-                    loadImmediateToRegister(currentBlock, Register.T0, argument.value)
-                is LocalVariable ->
-                    loadMemoryToRegister(
-                        block = currentBlock,
-                        op = when (argument.type.size) {
-                            1 -> LoadInstruction.LoadOp.LBU
-                            4 -> LoadInstruction.LoadOp.LW
-                            else -> throw Exception("Invalid parameter size")
-                        },
-                        dest = Register.T0,
-                        offset = localVariableMap[argument.name]
-                            ?: throw AsmBuilderException("Local variable not found"),
-                        base = Register.SP,
-                    )
-                else -> throw AsmBuilderException("Unexpected argument type")
-            }
+            // Load data to T1
+            loadDataToRegister(currentBlock, Register.T1, argument)
             if (index < 8) {
                 currentBlock.instructions.add(
                     BinaryRegInstruction(
                         op = BinaryRegInstruction.BinaryRegOp.MV,
                         dest = toRegister("a$index"),
-                        src = Register.T0,
+                        src = Register.T1,
                     )
                 )
             } else {
                 currentBlock.instructions.add(
                     StoreInstruction(
                         op = StoreInstruction.StoreOp.SW,
-                        src = Register.T0,
+                        src = Register.T1,
                         offset = ImmediateInt((index - 8) * 4),
                         base = Register.SP,
                     )
@@ -377,33 +358,38 @@ class FunctionBuilder(private val irFunction: IrFunction) {
             is ir.GlobalVariable ->
                 currentBlock.instructions.add(
                     LoadGlobalInstruction(
-                        op = LoadGlobalInstruction.LoadGlobalOp.LW,
+                        op = when (statement.src.type.size) {
+                            1 -> LoadGlobalInstruction.LoadGlobalOp.LB
+                            4 -> LoadGlobalInstruction.LoadGlobalOp.LW
+                            else -> throw Exception("Invalid parameter size")
+                        },
                         dest = Register.A0,
                         label = ".${statement.src.name}",
                     )
                 )
-            is ir.LocalVariable ->
+            is ir.LocalVariable -> {
                 loadMemoryToRegister(
                     block = currentBlock,
                     op = LoadInstruction.LoadOp.LW,
-                    dest = Register.A0,
+                    dest = Register.A1,
                     offset = localVariableMap[statement.src.name]
                         ?: throw AsmBuilderException("Local variable not found"),
                     base = Register.SP,
                 )
+                loadMemoryToRegister(
+                    block = currentBlock,
+                    op = when (statement.dest.type.size) {
+                        1 -> LoadInstruction.LoadOp.LBU
+                        4 -> LoadInstruction.LoadOp.LW
+                        else -> throw Exception("Invalid parameter size")
+                    },
+                    dest = Register.A0,
+                    offset = 0,
+                    base = Register.A1,
+                )
+            }
             else -> throw AsmBuilderException("Unexpected argument type")
         }
-        loadMemoryToRegister(
-            block = currentBlock,
-            op = when (statement.dest.type.size) {
-                1 -> LoadInstruction.LoadOp.LBU
-                4 -> LoadInstruction.LoadOp.LW
-                else -> throw Exception("Invalid parameter size")
-            },
-            dest = Register.A1,
-            offset = 0,
-            base = Register.A0,
-        )
         storeRegisterToMemory(
             block = currentBlock,
             op = when (statement.dest.type.size) {
@@ -411,9 +397,55 @@ class FunctionBuilder(private val irFunction: IrFunction) {
                 4 -> StoreInstruction.StoreOp.SW
                 else -> throw Exception("Invalid parameter size")
             },
-            src = Register.T0,
+            src = Register.A1,
             offset = offset,
             base = Register.SP,
         )
+    }
+
+    private fun buildInstruction(
+        statement: ir.StoreStatement,
+        currentBlock: Block,
+    ) {
+        loadDataToRegister(currentBlock, Register.A1, statement.src)
+        loadDataToRegister(currentBlock, Register.A0, statement.dest)
+        currentBlock.instructions.add(
+            StoreInstruction(
+                op = when (statement.src.type.size) {
+                    1 -> StoreInstruction.StoreOp.SB
+                    4 -> StoreInstruction.StoreOp.SW
+                    else -> throw Exception("Invalid parameter size")
+                },
+                src = Register.A1,
+                offset = ImmediateInt(0),
+                base = Register.A0,
+            )
+        )
+    }
+
+    private fun loadDataToRegister(
+        block: Block,
+        dest: Register,
+        data: ir.Argument,
+    ) {
+        when (data) {
+            is ir.LocalVariable ->
+                loadMemoryToRegister(
+                    block = block,
+                    op = when (data.type.size) {
+                        1 -> LoadInstruction.LoadOp.LBU
+                        4 -> LoadInstruction.LoadOp.LW
+                        else -> throw Exception("Invalid parameter size")
+                    },
+                    dest = dest,
+                    offset = localVariableMap[data.name]
+                        ?: throw AsmBuilderException("Local variable not found"),
+                    base = Register.SP,
+                )
+
+            is ir.IntLiteral -> loadImmediateToRegister(block, dest, data.value)
+            is ir.GlobalVariable -> loadGlobalLabelToRegister(block, dest, ".${data.name}")
+            else -> throw AsmBuilderException("Unexpected argument type")
+        }
     }
 }
