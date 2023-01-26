@@ -276,7 +276,7 @@ class GetElementPtrStatement(
     val dest   : LocalVariable,
     val src    : Variable,
     val srcType: Type,
-    val indexes: List<Argument>,
+    val indices: List<Argument>,
 ) : Statement(1) {
     override fun toString(): String {
         var returnString = when (src) {
@@ -285,7 +285,7 @@ class GetElementPtrStatement(
             is LocalVariable  -> "%${dest.name} = getelementptr ${srcType}, ptr %${src.name}"
             else              -> throw InternalError("IR: Unknown variable type")
         }
-        for (index in indexes) {
+        for (index in indices) {
             returnString += ", ptr $index"
         }
         return returnString

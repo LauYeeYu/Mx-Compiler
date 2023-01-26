@@ -312,7 +312,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                     dest = ptr,
                     src = thisPtr,
                     srcType = classIrNode.classType,
-                    indexes = listOf(I32Literal(0), I32Literal(index)),
+                    indices = listOf(I32Literal(0), I32Literal(index)),
                 )
                 if (variable.body != null) {
                     val value = addExpression(variable.body, function, ExpectedState.VALUE).toArgument()
@@ -461,7 +461,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                     dest = ptr,
                     src = thisPtr,
                     srcType = srcClass.classType,
-                    indexes = listOf(I32Literal(0), I32Literal(index)),
+                    indices = listOf(I32Literal(0), I32Literal(index)),
                 )
             )
             return when (expectedState) {
@@ -531,7 +531,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                 dest = ptrDest,
                 src = source,
                 srcType = srcType.classType,
-                indexes = listOf<Argument>(I32Literal(0), I32Literal(index)),
+                indices = listOf<Argument>(I32Literal(0), I32Literal(index)),
             )
         )
         return when (expectedState) {
@@ -651,7 +651,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                 dest = ptrDest,
                 src = array,
                 srcType = type,
-                indexes = listOf(index),
+                indices = listOf(index),
             )
         )
         return when (expectedState) {
@@ -848,7 +848,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                         dest = position,
                         src = array,
                         srcType = PrimitiveType(TypeProperty.PTR),
-                        indexes = listOf(iteratorValue),
+                        indices = listOf(iteratorValue),
                     )
                 )
             )
