@@ -60,6 +60,7 @@ class FunctionBuilder(private val irFunction: IrFunction) {
     private val stackSize = ((variables.sumOf { it.newVariableCount } +
             sourceBody.sumOf { block -> block.statements.sumOf { it.newVariableCount } } +
             min(irFunction.parameters.size, 8) + maxCallParameterSize + 1) * 4 + 15) / 16 * 16
+    private val raOffset = stackSize - min(irFunction.parameters.size, 8) * 4 - 4
 
     init { // set local variable map
         var offset = stackSize - min(irFunction.parameters.size, 8) * 4
@@ -136,7 +137,7 @@ class FunctionBuilder(private val irFunction: IrFunction) {
             block = block,
             op = StoreInstruction.StoreOp.SW,
             src = Register.RA,
-            offset = stackSize - min(irFunction.parameters.size, 8) * 4 - 4,
+            offset = raOffset,
             base = Register.SP,
         )
     }
@@ -187,7 +188,7 @@ class FunctionBuilder(private val irFunction: IrFunction) {
         when (statement) {
             is ir.LocalVariableDecl -> buildInstruction(statement, currentBlock)
             is ir.CallStatement -> buildInstruction(statement, currentBlock)
-            is ir.ReturnStatement -> buildInstruction(statement, currentBlock, blocks, nextLabel)
+            is ir.ReturnStatement -> buildInstruction(statement, currentBlock)
             is ir.BranchStatement -> buildInstruction(statement, currentBlock, blocks, nextLabel)
             is ir.LoadStatement -> buildInstruction(statement, currentBlock, blocks, nextLabel)
             is ir.StoreStatement -> buildInstruction(statement, currentBlock, blocks, nextLabel)
@@ -274,5 +275,36 @@ class FunctionBuilder(private val irFunction: IrFunction) {
                 base = Register.SP,
             )
         }
+    }
+
+    private fun buildInstruction(
+        statement: ir.ReturnStatement,
+        currentBlock: Block,
+    ) {
+        // Restore the stack pointer
+        addImmediateToRegister(currentBlock, Register.SP, Register.SP, stackSize, Register.T1)
+        // Set back the return address
+        loadMemoryToRegister(
+            block = currentBlock,
+            op = LoadInstruction.LoadOp.LW,
+            dest = Register.RA,
+            offset = raOffset,
+            base = Register.SP,
+        )
+        if (statement.value != null) {
+            loadMemoryToRegister(
+                block = currentBlock,
+                op = when (statement.value.type.size) {
+                    1 -> LoadInstruction.LoadOp.LB
+                    4 -> LoadInstruction.LoadOp.LW
+                    else -> throw Exception("Invalid parameter size")
+                },
+                dest = Register.A0,
+                offset = localVariableMap[statement.value.name]
+                    ?: throw AsmBuilderException("Local variable not found"),
+                base = Register.SP,
+            )
+        }
+        currentBlock.instructions.add(ReturnInstruction())
     }
 }
