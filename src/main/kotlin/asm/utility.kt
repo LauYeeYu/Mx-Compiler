@@ -159,6 +159,46 @@ fun storeRegisterToMemory(
     }
 }
 
+val ir.BinaryOperator.asmOp: RegCalcInstruction.RegCalcOp
+    get() = when (this) {
+        ir.BinaryOperator.ADD -> RegCalcInstruction.RegCalcOp.ADD
+        ir.BinaryOperator.SUB -> RegCalcInstruction.RegCalcOp.SUB
+        ir.BinaryOperator.MUL -> RegCalcInstruction.RegCalcOp.MUL
+        ir.BinaryOperator.SDIV -> RegCalcInstruction.RegCalcOp.DIV
+        ir.BinaryOperator.SREM -> RegCalcInstruction.RegCalcOp.REM
+        ir.BinaryOperator.SHL -> RegCalcInstruction.RegCalcOp.SLL
+        ir.BinaryOperator.ASHR -> RegCalcInstruction.RegCalcOp.SRA
+        ir.BinaryOperator.AND -> RegCalcInstruction.RegCalcOp.AND
+        ir.BinaryOperator.OR -> RegCalcInstruction.RegCalcOp.OR
+        ir.BinaryOperator.XOR -> RegCalcInstruction.RegCalcOp.XOR
+    }
+
+val ir.BinaryOperator.hasImmOp: Boolean
+    get() = when (this) {
+        ir.BinaryOperator.ADD -> true
+        ir.BinaryOperator.SUB -> true
+        ir.BinaryOperator.MUL -> false
+        ir.BinaryOperator.SDIV -> false
+        ir.BinaryOperator.SREM -> false
+        ir.BinaryOperator.SHL -> true
+        ir.BinaryOperator.ASHR -> true
+        ir.BinaryOperator.AND -> true
+        ir.BinaryOperator.OR -> true
+        ir.BinaryOperator.XOR -> true
+    }
+
+val ir.BinaryOperator.asmImmOp: ImmCalcInstruction.ImmCalcOp
+    get() = when (this) {
+        ir.BinaryOperator.ADD -> ImmCalcInstruction.ImmCalcOp.ADDI
+        ir.BinaryOperator.SUB -> ImmCalcInstruction.ImmCalcOp.ADDI
+        ir.BinaryOperator.SHL -> ImmCalcInstruction.ImmCalcOp.SLLI
+        ir.BinaryOperator.ASHR -> ImmCalcInstruction.ImmCalcOp.SRAI
+        ir.BinaryOperator.AND -> ImmCalcInstruction.ImmCalcOp.ANDI
+        ir.BinaryOperator.OR -> ImmCalcInstruction.ImmCalcOp.ORI
+        ir.BinaryOperator.XOR -> ImmCalcInstruction.ImmCalcOp.XORI
+        else -> throw AsmBuilderException("Invalid operator for immediate operation")
+    }
+
 enum class RegStatus {
     FREE, // Nothing is stored in this register, or the data is stored in memory
     OCCUPIED, // Something is stored in this register, but not in the memory
