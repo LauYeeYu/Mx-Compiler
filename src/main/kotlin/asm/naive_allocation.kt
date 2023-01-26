@@ -193,7 +193,7 @@ class FunctionBuilder(private val irFunction: IrFunction) {
             is ir.StoreStatement -> buildInstruction(statement, currentBlock)
             is ir.BinaryOperationStatement -> buildInstruction(statement, currentBlock)
             is ir.IntCmpStatement -> buildInstruction(statement, currentBlock)
-            is ir.GetElementPtrStatement -> buildInstruction(statement, currentBlock, blocks, nextLabel)
+            is ir.GetElementPtrStatement -> buildInstruction(statement, currentBlock)
             is ir.PhiStatement -> buildInstruction(statement, currentBlock, blocks, nextLabel)
             else -> throw AsmBuilderException("Unexpected statement class")
         }
@@ -543,6 +543,92 @@ class FunctionBuilder(private val irFunction: IrFunction) {
             op = StoreInstruction.StoreOp.SW,
             src = Register.A0,
             offset = localVariableMap[statement.lhs.name]
+                ?: throw AsmBuilderException("Local variable not found"),
+            base = Register.SP,
+        )
+    }
+
+    private fun buildInstruction(
+        statement: ir.GetElementPtrStatement,
+        currentBlock: Block,
+    ) {
+        loadDataToRegister(currentBlock, Register.A0, statement.src)
+        when (statement.srcType) {
+            is ir.ClassType -> {
+                if (statement.indices.size != 2) {
+                    throw AsmBuilderException("GetElementPtr for class type now only supports 2 indices")
+                }
+                val offset = statement.indices[1]
+                if (offset is ir.IntLiteral && withinImmediateRange(offset.value * 4)) {
+                    currentBlock.instructions.add(
+                        ImmCalcInstruction(
+                            op = ImmCalcInstruction.ImmCalcOp.ADDI,
+                            dest = Register.A0,
+                            src = Register.A0,
+                            imm = ImmediateInt(offset.value * 4),
+                        )
+                    )
+                } else {
+                    loadDataToRegister(currentBlock, Register.A1, offset)
+                    currentBlock.instructions.add(
+                        ImmCalcInstruction(
+                            op = ImmCalcInstruction.ImmCalcOp.SLLI,
+                            dest = Register.A1,
+                            src = Register.A1,
+                            imm = ImmediateInt(2),
+                        )
+                    )
+                    currentBlock.instructions.add(
+                        RegCalcInstruction(
+                            op = RegCalcInstruction.RegCalcOp.ADD,
+                            dest = Register.A0,
+                            lhs = Register.A0,
+                            rhs = Register.A1,
+                        )
+                    )
+                }
+            }
+
+            is ir.PrimitiveType -> {
+                if (statement.indices.size != 1) {
+                    throw AsmBuilderException("GetElementPtr for primitive type now only supports 1 index")
+                }
+                val offset = statement.indices[0]
+                if (offset is ir.IntLiteral && withinImmediateRange(offset.value)) {
+                    currentBlock.instructions.add(
+                        ImmCalcInstruction(
+                            op = ImmCalcInstruction.ImmCalcOp.ADDI,
+                            dest = Register.A0,
+                            src = Register.A0,
+                            imm = ImmediateInt(offset.value * 4),
+                        )
+                    )
+                } else {
+                    loadDataToRegister(currentBlock, Register.A1, offset)
+                    currentBlock.instructions.add(
+                        ImmCalcInstruction(
+                            op = ImmCalcInstruction.ImmCalcOp.SLLI,
+                            dest = Register.A1,
+                            src = Register.A1,
+                            imm = ImmediateInt(2),
+                        )
+                    )
+                    currentBlock.instructions.add(
+                        RegCalcInstruction(
+                            op = RegCalcInstruction.RegCalcOp.ADD,
+                            dest = Register.A0,
+                            lhs = Register.A0,
+                            rhs = Register.A1,
+                        )
+                    )
+                }
+            }
+        }
+        storeRegisterToMemory(
+            block = currentBlock,
+            op = StoreInstruction.StoreOp.SW,
+            src = Register.A0,
+            offset = localVariableMap[statement.dest.name]
                 ?: throw AsmBuilderException("Local variable not found"),
             base = Register.SP,
         )
