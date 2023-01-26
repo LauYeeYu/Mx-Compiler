@@ -83,7 +83,7 @@ class ImmediateInt(val value: Int) : Immediate() {
     override fun toString() = value.toString()
 }
 
-class ImmediateFunction(val function: ImmFunction, val label: String) {
+class ImmediateFunction(val function: ImmFunction, val label: String): Immediate() {
     enum class ImmFunction {
         HI, // get the high 20 bits of the label
         LO, // get the low 12 bits of the label
