@@ -191,4 +191,63 @@ class FunctionBuilder(private val irFunction: IrFunction) {
             )
         )
     }
+
+    private fun buildInstruction(
+        statement: ir.CallStatement,
+        currentBlock: Block,
+    ) {
+        for ((index, argument) in statement.arguments.withIndex()) {
+            // Load data to T0
+            when (argument) {
+                is IntLiteral ->
+                    loadImmediateToRegister(currentBlock, Register.T0, argument.value)
+                is LocalVariable ->
+                    loadMemoryToRegister(
+                        block = currentBlock,
+                        op = when (argument.type.size) {
+                            1 -> LoadInstruction.LoadOp.LB
+                            4 -> LoadInstruction.LoadOp.LW
+                            else -> throw Exception("Invalid parameter size")
+                        },
+                        dest = Register.T0,
+                        offset = localVariableMap[argument.name]
+                            ?: throw AsmBuilderException("Local variable not found"),
+                        base = Register.SP,
+                    )
+                else -> throw AsmBuilderException("Unexpected argument type")
+            }
+            if (index < 8) {
+                currentBlock.instructions.add(
+                    BinaryRegInstruction(
+                        op = BinaryRegInstruction.BinaryRegOp.MV,
+                        dest = toRegister("a$index"),
+                        src = Register.T0,
+                    )
+                )
+            } else {
+                currentBlock.instructions.add(
+                    StoreInstruction(
+                        op = StoreInstruction.StoreOp.SW,
+                        src = Register.T0,
+                        offset = ImmediateInt((index - 8) * 4),
+                        base = Register.SP,
+                    )
+                )
+            }
+        }
+        currentBlock.instructions.add(
+            CallInstruction(ImmediateLabel(statement.function.name))
+        )
+        if (statement.dest != null) {
+            stackRemained -= 4
+            localVariableMap[statement.dest.name] = stackRemained
+            storeRegisterToMemory(
+                block = currentBlock,
+                op = StoreInstruction.StoreOp.SW,
+                src = Register.A0,
+                offset = stackRemained,
+                base = Register.SP,
+            )
+        }
+    }
 }
