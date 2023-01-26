@@ -17,7 +17,10 @@
 package asm
 
 import exceptions.AsmBuilderException
+import ir.IntLiteral
+import ir.LocalVariable
 import kotlin.math.min
+import kotlin.math.max
 import ir.Root as IrRoot
 import ir.GlobalFunction as IrFunction
 import ir.Block as IrBlock
@@ -38,9 +41,20 @@ class FunctionBuilder(private val irFunction: IrFunction) {
         ?: throw AsmBuilderException("Function ${irFunction.name} has no body")
     private val variables = irFunction.variables
         ?: throw AsmBuilderException("Function ${irFunction.name} has no variable list")
+    private val maxCallParameterSize: Int
+        get() {
+            var max = 0
+            sourceBody.forEach { block ->
+                block.statements.filterIsInstance<ir.CallStatement>()
+                    .forEach { statement ->
+                    max = max(max, statement.arguments.size - 8)
+                }
+            }
+            return max
+        }
     private val stackSize = ((variables.sumOf { it.newVariableCount } +
             sourceBody.sumOf { block -> block.statements.sumOf { it.newVariableCount } } +
-            min(irFunction.parameters.size, 8) + 1) * 4 + 15) / 16 * 16
+            min(irFunction.parameters.size, 8) + maxCallParameterSize +1) * 4 + 15) / 16 * 16
     private var stackRemained = 0
 
     private fun toAsm(): Function {
@@ -69,7 +83,7 @@ class FunctionBuilder(private val irFunction: IrFunction) {
     private fun saveFunctionParameters(block: Block) {
         for ((index, parameter) in irFunction.parameters.withIndex()) {
             val offset = (index - 8) * 4
-            localVariableMap[parameter.name] = offset
+            localVariableMap[parameter.name] = stackSize + offset
             if (index < 8) {
                 block.instructions.add(
                     StoreInstruction(
@@ -130,8 +144,8 @@ class FunctionBuilder(private val irFunction: IrFunction) {
         blocks: LinkedHashMap<String, Block>,
     ) {
         when (statement) {
-            is ir.LocalVariableDecl -> buildInstruction(statement, currentBlock, blocks)
-            is ir.CallStatement -> buildInstruction(statement, currentBlock, blocks)
+            is ir.LocalVariableDecl -> buildInstruction(statement, currentBlock)
+            is ir.CallStatement -> buildInstruction(statement, currentBlock)
             is ir.ReturnStatement -> buildInstruction(statement, currentBlock, blocks)
             is ir.BranchStatement -> buildInstruction(statement, currentBlock, blocks)
             is ir.LoadStatement -> buildInstruction(statement, currentBlock, blocks)
@@ -147,7 +161,6 @@ class FunctionBuilder(private val irFunction: IrFunction) {
     private fun buildInstruction(
         statement: ir.LocalVariableDecl,
         currentBlock: Block,
-        blocks: LinkedHashMap<String, Block>,
     ) {
         stackRemained -= 8
         localVariableMap[statement.property.name] = stackRemained
