@@ -68,6 +68,31 @@ fun addImmediateToRegister(
     }
 }
 
+fun loadImmediateToRegister(
+    block: Block,
+    dest: Register,
+    immediate: Int,
+) {
+    if (withinImmediateRange(immediate)) {
+        block.instructions.add(
+            LoadImmediateInstruction(
+                dest,
+                ImmediateInt(immediate),
+            )
+        )
+    } else {
+        block.instructions.add(Lui(dest, ImmediateInt(immediate ushr 12)))
+        block.instructions.add(
+            ImmCalcInstruction(
+                ImmCalcInstruction.ImmCalcOp.ADDI,
+                dest,
+                dest,
+                ImmediateInt(immediate and 0xFFF),
+            )
+        )
+    }
+}
+
 enum class RegStatus {
     FREE, // Nothing is stored in this register, or the data is stored in memory
     OCCUPIED, // Something is stored in this register, but not in the memory
