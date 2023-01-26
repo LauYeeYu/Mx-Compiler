@@ -11,6 +11,8 @@
 
 package asm
 
+import exceptions.AsmBuilderException
+
 fun escapeStringLiteralToAsm(string: String): String {
     val builder = StringBuilder()
     for (c in string) {
@@ -38,6 +40,14 @@ fun buildGlobalVariable(variable: ir.GlobalDecl): GlobalVariable = when(variable
 fun withinImmediateRange(immediate: Int) =
     immediate < (1 shl 11) && immediate >= -(1 shl 11)
 
+fun highImm(immediate: Int) =
+    ImmediateInt((immediate ushr 12) + (if ((immediate and 0x800) != 0) 1 else 0))
+
+fun lowImm(immediate: Int) = ImmediateInt(
+    if ((immediate and 0x800) != 0) (immediate or 0xFFFFF000.toInt())
+    else (immediate and 0xFFF)
+)
+
 fun addImmediateToRegister(
     block: Block,
     dest: Register,
@@ -55,13 +65,13 @@ fun addImmediateToRegister(
             )
         )
     } else {
-        block.instructions.add(Lui(temp, ImmediateInt(immediate ushr 12)))
+        if (temp == src) throw AsmBuilderException(
+            "Temporary register cannot be the same as source register"
+        )
+        block.instructions.add(Lui(temp, highImm(immediate)))
         block.instructions.add(
             ImmCalcInstruction(
-                ImmCalcInstruction.ImmCalcOp.ADDI,
-                temp,
-                temp,
-                ImmediateInt(immediate and 0xFFF),
+                ImmCalcInstruction.ImmCalcOp.ADDI, temp, temp, lowImm(immediate)
             )
         )
         block.instructions.add(RegCalcInstruction(RegCalcInstruction.RegCalcOp.ADD, dest, temp, src))
@@ -81,13 +91,13 @@ fun loadImmediateToRegister(
             )
         )
     } else {
-        block.instructions.add(Lui(dest, ImmediateInt(immediate ushr 12)))
+        block.instructions.add(Lui(dest, highImm(immediate)))
         block.instructions.add(
             ImmCalcInstruction(
                 ImmCalcInstruction.ImmCalcOp.ADDI,
                 dest,
                 dest,
-                ImmediateInt(immediate and 0xFFF),
+                lowImm(immediate),
             )
         )
     }
