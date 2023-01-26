@@ -103,6 +103,22 @@ fun loadImmediateToRegister(
     }
 }
 
+fun loadGlobalLabelToRegister(
+    block: Block,
+    dest: Register,
+    label: String,
+) {
+    block.instructions.add(Lui(dest, ImmediateFunction(ImmediateFunction.ImmFunction.HI, label)))
+    block.instructions.add(
+        ImmCalcInstruction(
+            ImmCalcInstruction.ImmCalcOp.ADDI,
+            dest,
+            dest,
+            ImmediateFunction(ImmediateFunction.ImmFunction.LO, label),
+        )
+    )
+}
+
 fun loadMemoryToRegister(
     block: Block,
     op: LoadInstruction.LoadOp,
