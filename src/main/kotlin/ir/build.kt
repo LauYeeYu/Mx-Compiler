@@ -479,9 +479,8 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         function: GlobalFunction
     ): ExpressionResult {
         addStringLiteral("__string_$unnamedStringLiteralCount", expr)
-        val destName = unnamedVariableCount
+        val dest = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.PTR))
         unnamedVariableCount++
-        val dest = LocalVariable(destName.toString(), PrimitiveType(TypeProperty.PTR))
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         blocks.last().statements.add(
             LoadStatement(
@@ -489,6 +488,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                 src = GlobalVariable("__string_$unnamedStringLiteralCount", PrimitiveType(TypeProperty.PTR)),
             )
         )
+        unnamedStringLiteralCount++
         return IrVariable(dest)
     }
 
