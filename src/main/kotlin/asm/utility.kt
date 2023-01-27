@@ -33,7 +33,7 @@ fun buildGlobalVariable(variable: ir.GlobalDecl): GlobalVariable = when(variable
     )
     is ir.StringLiteralDecl -> GlobalVariable(
         label = ".${variable.name}",
-        body = listOf(StringLiteral(escapeStringLiteralToAsm(variable.content))),
+        body = listOf(StringLiteral(variable.content)),
     )
 }
 
