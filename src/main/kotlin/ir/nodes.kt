@@ -51,17 +51,23 @@ abstract class Argument (
 
 abstract class Variable(name: String, type: PrimitiveType) : Argument(name, type)
 
-class GlobalVariable(name: String, type: PrimitiveType) : Variable(name, type) {
+class GlobalVariable(
+    variableName: String,
+    type: PrimitiveType,
+) : Variable("@$variableName", type) {
     override fun toString() = when (type.type) {
         TypeProperty.VOID -> "void"
-        else -> "$type @$name"
+        else -> "$type $name"
     }
 }
 
-class LocalVariable(name: String, type: PrimitiveType) : Variable(name, type) {
+class LocalVariable(
+    variableName: String,
+    type: PrimitiveType,
+) : Variable("%$variableName", type) {
     override fun toString() = when (type.type) {
         TypeProperty.VOID -> "void"
-        else -> "$type %$name"
+        else -> "$type $name"
     }
 }
 
@@ -111,14 +117,14 @@ class GlobalVariableDecl(
     val initValue: Int, // Every global variable must have an initial value
 ) : GlobalDecl {
     override fun toString() = when (property.type.type) {
-        TypeProperty.PTR -> "@${property.name} = global ${property.type} null, align $alignValue"
-        else -> "@${property.name} = global ${property.type} $initValue, align $alignValue"
+        TypeProperty.PTR -> "${property.name} = global ${property.type} null, align $alignValue"
+        else -> "${property.name} = global ${property.type} $initValue, align $alignValue"
     }
 }
 
 class LocalVariableDecl(val property: LocalVariable, val type: PrimitiveType) : Statement(2) {
     override fun toString() =
-        "%${property.name} = alloca $type, align $alignValue"
+        "${property.name} = alloca $type, align $alignValue"
 }
 
 class GlobalFunction(
@@ -207,7 +213,7 @@ class CallStatement(
 ) : Statement(if (returnType.type != TypeProperty.VOID) 1 else 0) {
     override fun toString() = when (returnType.type) {
         TypeProperty.VOID -> "call void @${function.name}(${arguments.joinToString(", ")})"
-        else -> "%${dest?.name} = call ${returnType.type} @${function.name}(${arguments.joinToString(", ")})"
+        else -> "${dest?.name} = call ${returnType.type} @${function.name}(${arguments.joinToString(", ")})"
     }
 }
 
@@ -239,7 +245,7 @@ class LoadStatement(
     val src: Variable,
 ) : Statement(1) {
     override fun toString() =
-        "%${dest.name} = load ${dest.type}, $src, align $alignValue"
+        "${dest.name} = load ${dest.type}, $src, align $alignValue"
 }
 
 class StoreStatement(
@@ -259,7 +265,7 @@ class BinaryOperationStatement(
     val rhs : Argument,
 ) : Statement(1) {
     override fun toString() =
-        "%${dest.name} = $op ${lhs.type} ${lhs.name}, ${rhs.name}"
+        "${dest.name} = $op ${lhs.type} ${lhs.name}, ${rhs.name}"
 }
 
 class IntCmpStatement(
@@ -269,7 +275,7 @@ class IntCmpStatement(
     val rhs : Argument,
 ) : Statement(1) {
     override fun toString() =
-        "%${dest.name} = icmp $op ${lhs.type} ${lhs.name}, ${rhs.name}"
+        "${dest.name} = icmp $op ${lhs.type} ${lhs.name}, ${rhs.name}"
 }
 
 class GetElementPtrStatement(
@@ -279,16 +285,11 @@ class GetElementPtrStatement(
     val indices: List<Argument>,
 ) : Statement(1) {
     override fun toString(): String {
-        var returnString = when (src) {
-            // Note that the offset is i32 (Maybe changed in future)
-            is GlobalVariable -> "%${dest.name} = getelementptr ${srcType}, ptr @${src.name}"
-            is LocalVariable  -> "%${dest.name} = getelementptr ${srcType}, ptr %${src.name}"
-            else              -> throw InternalError("IR: Unknown variable type")
-        }
+        val stringBuilder = StringBuilder("${dest.name} = getelementptr ${srcType}, ptr ${src.name}")
         for (index in indices) {
-            returnString += ", ptr $index"
+            stringBuilder.append(", ptr $index")
         }
-        return returnString
+        return stringBuilder.toString()
     }
 }
 
@@ -297,7 +298,7 @@ class PhiStatement(
     val incoming: MutableList<Pair<Argument, String>>,
 ) : Statement(1) {
     override fun toString(): String {
-        var returnString = "%${dest.name} = phi ${dest.type} "
+        var returnString = "${dest.name} = phi ${dest.type} "
         var count = 0
         for ((value, label) in incoming) {
             returnString += "[${value.name}, %$label]"
