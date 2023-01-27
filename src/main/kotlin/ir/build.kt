@@ -853,7 +853,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                         returnType = PrimitiveType(TypeProperty.VOID),
                         function = globalFunctions["__newPtrArray"]
                             ?: throw InternalException("Function __newPtrArray not found"),
-                        arguments = listOf(arguments[index + 1]),
+                        arguments = listOf(arguments[index]),
                     )
                 )
                 blocks[loopStartLabel].statements.add(
