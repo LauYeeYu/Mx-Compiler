@@ -23,19 +23,20 @@ import org.antlr.v4.runtime.ParserRuleContext
 fun buildAst(parseResult: ParseResult) = Ast(parseResult).build()
 
 fun unEscapeString(str: String, ctx: SourceContext): String {
+    val string = str.substring(1, str.length - 1)
     val sb = StringBuilder()
     var i = 0
-    while (i < str.length) {
-        if (str[i] == '\\') {
-            when (str[i + 1]) {
+    while (i < string.length) {
+        if (string[i] == '\\') {
+            when (string[i + 1]) {
                 'n' -> sb.append('\n')
                 '\\' -> sb.append('\\')
                 '"' -> sb.append('"')
-                else -> throw SemanticException("Invalid escape sequence: ${str[i + 1]}", ctx)
+                else -> throw SemanticException("Invalid escape sequence: ${string[i + 1]}", ctx)
             }
             i += 2
         } else {
-            sb.append(str[i])
+            sb.append(string[i])
             i++
         }
     }
