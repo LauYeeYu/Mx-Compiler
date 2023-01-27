@@ -64,7 +64,7 @@ class FunctionBuilder(private val irFunction: IrFunction) {
     init { // set local variable map
         var offset = stackSize - min(irFunction.parameters.size, 8) * 4
         irFunction.parameters.forEach { functionParameter ->
-            localVariableMap[functionParameter.name] = offset
+            localVariableMap["%${functionParameter.name}"] = offset
             offset += 4
         }
         offset = stackSize - min(irFunction.parameters.size, 8) * 4 - 4
@@ -353,8 +353,6 @@ class FunctionBuilder(private val irFunction: IrFunction) {
         statement: ir.LoadStatement,
         currentBlock: Block,
     ) {
-        val offset = localVariableMap[statement.dest.name]
-            ?: throw AsmBuilderException("Local variable not found")
         when (statement.src) {
             is ir.GlobalVariable ->
                 currentBlock.instructions.add(
@@ -399,7 +397,8 @@ class FunctionBuilder(private val irFunction: IrFunction) {
                 else -> throw Exception("Invalid parameter size")
             },
             src = Register.A1,
-            offset = offset,
+            offset = localVariableMap[statement.dest.name]
+                ?: throw AsmBuilderException("Local variable not found"),
             base = Register.SP,
         )
     }
@@ -459,7 +458,7 @@ class FunctionBuilder(private val irFunction: IrFunction) {
                 else -> throw Exception("Invalid parameter size")
             },
             src = Register.A0,
-            offset = localVariableMap[statement.lhs.name]
+            offset = localVariableMap[statement.dest.name]
                 ?: throw AsmBuilderException("Local variable not found"),
             base = Register.SP,
         )
@@ -542,7 +541,7 @@ class FunctionBuilder(private val irFunction: IrFunction) {
             block = currentBlock,
             op = StoreInstruction.StoreOp.SW,
             src = Register.A0,
-            offset = localVariableMap[statement.lhs.name]
+            offset = localVariableMap[statement.dest.name]
                 ?: throw AsmBuilderException("Local variable not found"),
             base = Register.SP,
         )
