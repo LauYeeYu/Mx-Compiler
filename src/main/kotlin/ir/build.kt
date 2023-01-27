@@ -1006,27 +1006,26 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         expr: BinaryExpression,
         function: GlobalFunction,
     ): ExpressionResult = when (expr.left.resultType?.type) {
-        is MxStringType -> addStringBinaryExpression(expr.left, expr.right, expr.operator, function)
-        is MxIntType -> when (expr.operator) {
-            ast.BinaryOperator.LOGICAL_AND, ast.BinaryOperator.LOGICAL_OR -> {
-                addBinaryLogicExpression(expr.left, expr.right, expr.operator, function)
-            }
+        is MxStringType ->
+            addStringBinaryExpression(expr.left, expr.right, expr.operator, function)
 
-            else -> {
-                val srcType = expr.resultType?.type
-                    ?: throw EnvironmentException("The AST node in addExpression has no result type")
-                val type = irType(srcType)
-                addBinaryArithmeticExpression(expr.left, expr.right, expr.operator, type, function)
-            }
-        }
+        is MxBoolType ->
+            addBinaryLogicExpression(expr.left, expr.right, expr.operator, function)
 
-        null -> throw EnvironmentException("The AST node in addExpression has no result type")
-        else -> {
+        is MxIntType -> {
             val srcType = expr.resultType?.type
                 ?: throw EnvironmentException("The AST node in addExpression has no result type")
             val type = irType(srcType)
             addBinaryArithmeticExpression(expr.left, expr.right, expr.operator, type, function)
-        } // should be ptr only
+        }
+
+        null -> throw EnvironmentException("The AST node in addExpression has no result type")
+        else -> { // should be ptr only
+            val srcType = expr.resultType?.type
+                ?: throw EnvironmentException("The AST node in addExpression has no result type")
+            val type = irType(srcType)
+            addBinaryArithmeticExpression(expr.left, expr.right, expr.operator, type, function)
+        }
     }
 
     private fun addExpression(
