@@ -175,9 +175,15 @@ enum class UnaryOperator {
 }
 
 // Nodes for Expressions
-open class Expression(ctx: SourceContext) : AstNode(ctx) {
+abstract class Expression(ctx: SourceContext) : AstNode(ctx) {
     var resultType: TypeProperty? = null
 }
+
+abstract class UpdateExpression(
+    ctx: SourceContext,
+    val operator: UpdateOperator,
+    val operand: Expression,
+) : Expression(ctx)
 
 class Object(ctx: SourceContext, val name: String) : Expression(ctx) {
     var binding: Binding? = null
@@ -212,9 +218,9 @@ class ArrayExpression(
 
 class PrefixUpdateExpression(
     ctx: SourceContext,
-    val operator: UpdateOperator,
-    val operand: Expression,
-) : Expression(ctx)
+    operator: UpdateOperator,
+    operand: Expression,
+) : UpdateExpression(ctx, operator, operand)
 
 class FunctionCall(
     ctx: SourceContext,
@@ -246,9 +252,9 @@ class NewExpression(
 
 class PostfixUpdateExpression(
     ctx: SourceContext,
-    val operator: UpdateOperator,
-    val operand: Expression,
-) : Expression(ctx)
+    operator: UpdateOperator,
+    operand: Expression,
+) : UpdateExpression(ctx, operator, operand)
 
 class UnaryExpression(
     ctx: SourceContext,
