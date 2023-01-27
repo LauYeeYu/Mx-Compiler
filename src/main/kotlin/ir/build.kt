@@ -398,7 +398,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         is MemberVariableAccess -> addExpression(expr, function, expectedState)
         is MemberFunctionAccess -> addExpression(expr, function)
         is ArrayExpression -> addExpression(expr, function, expectedState)
-        is PrefixUpdateExpression -> addExpression(expr, function, expectedState)
+        is PrefixUpdateExpression -> addUpdateExpression(expr, function, expectedState)
         is FunctionCall -> addExpression(expr, function)
         is LambdaCall ->
             throw NotSupported("Lambda call is not supported in IRBuilder")
@@ -407,7 +407,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
             throw NotSupported("Lambda expression is not supported in IRBuilder")
 
         is NewExpression -> addExpression(expr, function)
-        is PostfixUpdateExpression -> addExpression(expr, function)
+        is PostfixUpdateExpression -> addUpdateExpression(expr, function, ExpectedState.VALUE)
         is UnaryExpression -> addExpression(expr, function)
         is BinaryExpression -> addExpression(expr, function)
         is AssignExpression -> addExpression(expr, function)
@@ -668,80 +668,47 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         }
     }
 
-    private fun addExpression(
-        expr: PrefixUpdateExpression,
+    private fun addUpdateExpression(
+        expr: UpdateExpression,
         function: GlobalFunction,
         expectedState: ExpectedState,
     ): ExpressionResult {
         if (expr.resultType == null || expr.operand.resultType == null) {
             throw EnvironmentException("The AST node in addExpression has no result type")
         }
+        val blocks = function.body ?: throw IRBuilderException("Function has no body")
         val type = irType(expr.resultType!!.type)
-        val operand = addExpression(expr.operand, function, expectedState).toArgument() as? Variable
+        val operand = addExpression(expr.operand, function, ExpectedState.PTR).toArgument() as? Variable
             ?: throw InternalException("The operand is not a variable")
         val rhs = when (expr.operator) {
             UpdateOperator.INCREMENT -> I32Literal(1)
             UpdateOperator.DECREMENT -> I32Literal(-1)
         }
-        val blocks = function.body ?: throw IRBuilderException("Function has no body")
-        val addSrc = when (expectedState) {
-            ExpectedState.VALUE -> {
-                val loadDestName = unnamedVariableCount
-                val loadDest = LocalVariable(loadDestName.toString(), type)
-                unnamedVariableCount++
-                blocks.last().statements.add(LoadStatement(dest = loadDest, src = operand))
-                loadDest
+        // load the value
+        val value = LocalVariable(unnamedVariableCount.toString(), type)
+        unnamedVariableCount++
+        blocks.last().statements.add(LoadStatement(dest = value, src = operand))
+        // update the value
+        val addDest = LocalVariable(unnamedVariableCount.toString(), type)
+        unnamedVariableCount++
+        blocks.last().statements.add(
+            BinaryOperationStatement(dest = addDest, op = BinaryOperator.ADD, lhs = value, rhs = rhs)
+        )
+        // store the value
+        blocks.last().statements.add(
+            StoreStatement(
+                dest = operand,
+                src = addDest,
+            )
+        )
+        return when (expectedState) {
+            ExpectedState.PTR -> IrVariable(operand)
+            ExpectedState.VALUE -> when (expr) {
+                is PostfixUpdateExpression -> IrVariable(value)
+                is PrefixUpdateExpression -> IrVariable(addDest)
+                else -> throw InternalException("Unknown update expression")
             }
-
-            ExpectedState.PTR -> operand
         }
-        val addDestName = unnamedVariableCount
-        val addDest = LocalVariable(addDestName.toString(), type)
-        unnamedVariableCount++
-        blocks.last().statements.add(
-            BinaryOperationStatement(dest = addDest, op = BinaryOperator.ADD, lhs = addSrc, rhs = rhs)
-        )
-        val storeDest = unnamedVariableCount
-        unnamedVariableCount++
-        blocks.last().statements.add(
-            StoreStatement(
-                dest = LocalVariable(storeDest.toString(), type),
-                src = addDest,
-            )
-        )
-        return IrVariable(addDest)
-    }
-
-    private fun addExpression(
-        expr: PostfixUpdateExpression,
-        function: GlobalFunction,
-    ): ExpressionResult {
-        if (expr.resultType == null || expr.operand.resultType == null) {
-            throw EnvironmentException("The AST node in addExpression has no result type")
-        }
-        val type = irType(expr.resultType!!.type)
-        val operand = addExpression(expr.operand, function, ExpectedState.VALUE).toArgument() as? Variable
-            ?: throw InternalException("The operand is not a variable")
-        val rhs = when (expr.operator) {
-            UpdateOperator.INCREMENT -> I32Literal(1)
-            UpdateOperator.DECREMENT -> I32Literal(-1)
-        }
-        val addDestName = unnamedVariableCount
-        val addDest = LocalVariable(addDestName.toString(), type)
-        unnamedVariableCount++
-        val blocks = function.body ?: throw IRBuilderException("Function has no body")
-        blocks.last().statements.add(
-            BinaryOperationStatement(dest = addDest, op = BinaryOperator.ADD, lhs = operand, rhs = rhs)
-        )
-        val storeDest = unnamedVariableCount
-        unnamedVariableCount++
-        blocks.last().statements.add(
-            StoreStatement(
-                dest = LocalVariable(storeDest.toString(), type),
-                src = addDest,
-            )
-        )
-        return IrVariable(operand)
     }
 
     private fun addExpression(
