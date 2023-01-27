@@ -14,7 +14,13 @@ package asm
 class TranslateUnit(
     val functions: List<Function>,
     val globalVariables: List<GlobalVariable>,
-)
+) {
+    override fun toString() = """
+        |${functions.joinToString()}
+        |
+        |${globalVariables.joinToString("\n\n")}
+    """.trimMargin()
+}
 
 class GlobalVariable(
     val label: String,
