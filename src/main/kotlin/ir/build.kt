@@ -79,10 +79,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         }
         val variables: MutableList<LocalVariableDecl> = parameters.map { astParameter ->
             LocalVariableDecl(
-                LocalVariable(
-                    name = astParameter.irInfo.toString(),
-                    type = ptrType,
-                ),
+                LocalVariable(astParameter.irInfo.toString(), ptrType),
                 irType(astParameter.type),
             )
         }.toMutableList()
@@ -322,7 +319,7 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
                     blocks.last().statements.add(ptrStatement)
                     blocks.last().statements.add(StoreStatement(dest = ptr, src = I32Literal(0)))
                 } else if (node.type is ast.StringType) {
-                    val emptyString = GlobalVariable(name = "__emptyString", type = PrimitiveType(TypeProperty.PTR))
+                    val emptyString = GlobalVariable("__emptyString", PrimitiveType(TypeProperty.PTR))
                     blocks.last().statements.add(ptrStatement)
                     blocks.last().statements.add(StoreStatement(dest = ptr, src = emptyString))
                 }
