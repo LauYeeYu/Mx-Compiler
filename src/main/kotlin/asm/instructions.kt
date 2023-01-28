@@ -16,7 +16,9 @@
 
 package asm
 
-abstract class Instruction
+abstract class Instruction {
+    abstract fun replaceLabel(replaceMap: MutableMap<String, String>): Instruction
+}
 
 sealed interface JumpInstruction
 
@@ -25,6 +27,8 @@ class Lui(
     val imm: Immediate,
 ) : Instruction() {
     override fun toString(): String = "lui\t$dest, $imm"
+    override fun replaceLabel(replaceMap: MutableMap<String, String>) =
+        Lui(dest, imm.replaceLabel(replaceMap))
 }
 
 class Auipc(
@@ -32,6 +36,8 @@ class Auipc(
     val imm: Immediate,
 ) : Instruction() {
     override fun toString(): String = "auipc\t$dest, $imm"
+    override fun replaceLabel(replaceMap: MutableMap<String, String>) =
+        Auipc(dest, imm.replaceLabel(replaceMap))
 }
 
 class Jal(
@@ -39,6 +45,8 @@ class Jal(
     val imm: Immediate,
 ) : Instruction(), JumpInstruction {
     override fun toString(): String = "jal\t$dest, $imm"
+    override fun replaceLabel(replaceMap: MutableMap<String, String>) =
+        Jal(dest, imm.replaceLabel(replaceMap))
 }
 
 class Jalr(
@@ -47,6 +55,8 @@ class Jalr(
     val base: Register,
 ) : Instruction(), JumpInstruction {
     override fun toString(): String = "jalr\t$dest, $imm($base)"
+    override fun replaceLabel(replaceMap: MutableMap<String, String>) =
+        Jalr(dest, imm.replaceLabel(replaceMap), base)
 }
 
 class BranchInstruction(
@@ -57,9 +67,13 @@ class BranchInstruction(
 ) : Instruction(), JumpInstruction {
     enum class BranchOp {
         BEQ, BNE, BLT, BGE, BLTU, BGEU;
+
         override fun toString(): String = name.lowercase()
     }
+
     override fun toString(): String = "$op\t$lhs, $rhs, $dest"
+    override fun replaceLabel(replaceMap: MutableMap<String, String>) =
+        BranchInstruction(op, lhs, rhs, dest.replaceLabel(replaceMap))
 }
 
 class LoadInstruction(
@@ -73,6 +87,8 @@ class LoadInstruction(
         override fun toString(): String = name.lowercase()
     }
     override fun toString(): String = "$op\t$dest, $offset($base)"
+    override fun replaceLabel(replaceMap: MutableMap<String, String>): Instruction =
+        LoadInstruction(op, dest, offset.replaceLabel(replaceMap), base)
 }
 
 class StoreInstruction(
@@ -86,6 +102,8 @@ class StoreInstruction(
         override fun toString(): String = name.lowercase()
     }
     override fun toString(): String = "$op\t$src, $offset($base)"
+    override fun replaceLabel(replaceMap: MutableMap<String, String>): Instruction =
+        StoreInstruction(op, src, offset.replaceLabel(replaceMap), base)
 }
 
 class ImmCalcInstruction(
@@ -96,9 +114,13 @@ class ImmCalcInstruction(
 ) : Instruction() {
     enum class ImmCalcOp {
         ADDI, SLTI, SLTIU, XORI, ORI, ANDI, SLLI, SRLI, SRAI;
+
         override fun toString(): String = name.lowercase()
     }
+
     override fun toString(): String = "$op\t$dest, $src, $imm"
+    override fun replaceLabel(replaceMap: MutableMap<String, String>): Instruction =
+        ImmCalcInstruction(op, dest, src, imm.replaceLabel(replaceMap))
 }
 
 class RegCalcInstruction(
@@ -110,9 +132,12 @@ class RegCalcInstruction(
     enum class RegCalcOp {
         ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND,
         MUL, MULH, MULHU, MULHSU, DIV, DIVU, REM, REMU;
+
         override fun toString(): String = name.lowercase()
     }
+
     override fun toString(): String = "$op\t$dest, $lhs, $rhs"
+    override fun replaceLabel(replaceMap: MutableMap<String, String>): Instruction = this
 }
 
 abstract class PseudoInstruction : Instruction()
@@ -124,9 +149,12 @@ class BinaryRegInstruction(
 ) : PseudoInstruction() {
     enum class BinaryRegOp {
         MV, NEG, NOT;
+
         override fun toString(): String = name.lowercase()
     }
+
     override fun toString(): String = "$op\t$dest, $src"
+    override fun replaceLabel(replaceMap: MutableMap<String, String>): Instruction = this
 }
 
 class LoadImmediateInstruction(
@@ -134,6 +162,8 @@ class LoadImmediateInstruction(
     val imm: Immediate,
 ) : PseudoInstruction() {
     override fun toString(): String = "li\t$dest, $imm"
+    override fun replaceLabel(replaceMap: MutableMap<String, String>): Instruction =
+        LoadImmediateInstruction(dest, imm.replaceLabel(replaceMap))
 }
 
 class LoadAddressInstruction(
@@ -141,6 +171,8 @@ class LoadAddressInstruction(
     val label: String,
 ) : PseudoInstruction() {
     override fun toString(): String = "la\t$dest, $label"
+    override fun replaceLabel(replaceMap: MutableMap<String, String>): Instruction =
+        LoadAddressInstruction(dest, replaceMap[label] ?: label)
 }
 
 class LoadGlobalInstruction(
@@ -150,9 +182,13 @@ class LoadGlobalInstruction(
 ) : PseudoInstruction() {
     enum class LoadGlobalOp {
         LB, LH, LW;
+
         override fun toString(): String = name.lowercase()
     }
+
     override fun toString(): String = "$op\t$dest, $label"
+    override fun replaceLabel(replaceMap: MutableMap<String, String>): Instruction =
+        LoadGlobalInstruction(op, dest, replaceMap[label] ?: label)
 }
 
 class StoreGlobalInstruction(
@@ -163,9 +199,13 @@ class StoreGlobalInstruction(
 ) : PseudoInstruction() {
     enum class StoreGlobalOp {
         SB, SH, SW;
+
         override fun toString(): String = name.lowercase()
     }
+
     override fun toString(): String = "$op\t$base, $label, $rt"
+    override fun replaceLabel(replaceMap: MutableMap<String, String>): Instruction =
+        StoreGlobalInstruction(op, base, replaceMap[label] ?: label, rt)
 }
 
 class SetCompZeroInstruction(
@@ -175,9 +215,12 @@ class SetCompZeroInstruction(
 ) : PseudoInstruction() {
     enum class SetCompZeroOp {
         SEQZ, SNEZ, SLTZ, SGEZ;
+
         override fun toString(): String = name.lowercase()
     }
+
     override fun toString(): String = "$op\t$dest, $src"
+    override fun replaceLabel(replaceMap: MutableMap<String, String>): Instruction = this
 }
 
 class BranchCompZeroInstruction(
@@ -187,9 +230,13 @@ class BranchCompZeroInstruction(
 ) : PseudoInstruction(), JumpInstruction {
     enum class BranchCompZeroOp {
         BEQZ, BNEZ, BLTZ, BGEZ;
+
         override fun toString(): String = name.lowercase()
     }
+
     override fun toString(): String = "$op\t$src, $dest"
+    override fun replaceLabel(replaceMap: MutableMap<String, String>): Instruction =
+        BranchCompZeroInstruction(op, src, dest.replaceLabel(replaceMap))
 }
 
 class PseudoBranchInstruction(
@@ -200,9 +247,13 @@ class PseudoBranchInstruction(
 ) : PseudoInstruction(), JumpInstruction {
     enum class PseudoBranchOp {
         BGT, BLE, BGTU, BLEU;
+
         override fun toString(): String = name.lowercase()
     }
+
     override fun toString(): String = "$op\t$lhs, $rhs, $dest"
+    override fun replaceLabel(replaceMap: MutableMap<String, String>): Instruction =
+        PseudoBranchInstruction(op, lhs, rhs, dest.replaceLabel(replaceMap))
 }
 
 class PseudoJumpInstruction(
@@ -211,23 +262,32 @@ class PseudoJumpInstruction(
 ) : PseudoInstruction(), JumpInstruction {
     enum class JumpOp {
         J, JR;
+
         override fun toString(): String = name.lowercase()
     }
+
     override fun toString(): String = "$op\t$dest"
+    override fun replaceLabel(replaceMap: MutableMap<String, String>): Instruction =
+        PseudoJumpInstruction(op, dest.replaceLabel(replaceMap))
 }
 
 class ReturnInstruction : PseudoInstruction() {
     override fun toString(): String = "ret"
+    override fun replaceLabel(replaceMap: MutableMap<String, String>): Instruction = this
 }
 
 class CallInstruction(
     val dest: Immediate,
 ) : PseudoInstruction() {
     override fun toString(): String = "call\t$dest"
+    override fun replaceLabel(replaceMap: MutableMap<String, String>): Instruction =
+        CallInstruction(dest.replaceLabel(replaceMap))
 }
 
 class TailInstruction(
     val dest: Immediate,
 ) : PseudoInstruction() {
     override fun toString(): String = "tail\t$dest"
+    override fun replaceLabel(replaceMap: MutableMap<String, String>): Instruction =
+        TailInstruction(dest.replaceLabel(replaceMap))
 }

@@ -203,6 +203,30 @@ fun storeRegisterToMemory(
     }
 }
 
+fun Function.removeEmptyBlocks(): Function {
+    val replace = mutableMapOf<String, String>()
+    body.withIndex().forEach { (index, block) ->
+        if (block.instructions.isEmpty()) {
+            var i = index
+            while (i < body.lastIndex && body[i].instructions.isEmpty()) {
+                i++
+            }
+            if (i == body.lastIndex) {
+                throw AsmBuilderException("Empty block at end of function")
+            } else {
+                replace[block.label] = body[i].label
+            }
+        }
+    }
+    val newBody = body.filter { it.instructions.isNotEmpty() }.map { block ->
+        Block(
+            block.label,
+            block.instructions.map { it.replaceLabel(replace) }.toMutableList()
+        )
+    }
+    return Function(name, newBody)
+}
+
 val ir.BinaryOperator.asmOp: RegCalcInstruction.RegCalcOp
     get() = when (this) {
         ir.BinaryOperator.ADD -> RegCalcInstruction.RegCalcOp.ADD

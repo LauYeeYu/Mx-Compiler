@@ -77,10 +77,13 @@ fun toRegister(register: String) = when (register) {
     else -> throw IllegalArgumentException("Invalid register name: $register")
 }
 
-abstract class Immediate
+abstract class Immediate {
+    abstract fun replaceLabel(replaceMap: MutableMap<String, String>): Immediate
+}
 
 class ImmediateInt(val value: Int) : Immediate() {
     override fun toString() = value.toString()
+    override fun replaceLabel(replaceMap: MutableMap<String, String>) = this
 }
 
 class ImmediateFunction(val function: ImmFunction, val label: String): Immediate() {
@@ -92,8 +95,12 @@ class ImmediateFunction(val function: ImmFunction, val label: String): Immediate
     }
 
     override fun toString() = "%${function.name.lowercase()}($label)"
+    override fun replaceLabel(replaceMap: MutableMap<String, String>) =
+        ImmediateFunction(function, replaceMap[label] ?: label)
 }
 
 class ImmediateLabel(val label: String) : Immediate() {
     override fun toString() = label
+    override fun replaceLabel(replaceMap: MutableMap<String, String>) =
+        ImmediateLabel(replaceMap[label] ?: label)
 }

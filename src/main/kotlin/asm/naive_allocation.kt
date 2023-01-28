@@ -27,7 +27,7 @@ import ir.Statement as IrStatement
 
 fun naiveAllocation(irRoot: IrRoot) = TranslateUnit(
     functions = irRoot.globalFunctions.filter { it.body != null }
-        .map { FunctionBuilder(it).function },
+        .map { FunctionBuilder(it).function.removeEmptyBlocks() },
     globalVariables = irRoot.variables.map { buildGlobalVariable(it) }
 )
 
