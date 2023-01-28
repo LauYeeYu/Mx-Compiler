@@ -82,24 +82,35 @@ fun loadImmediateToRegister(
     block: Block,
     dest: Register,
     immediate: Int,
+    index: Int? = null,
 ) {
     if (withinImmediateRange(immediate)) {
-        block.instructions.add(
-            LoadImmediateInstruction(
-                dest,
-                ImmediateInt(immediate),
+        if (index != null) {
+            block.instructions.add(
+                index, LoadImmediateInstruction(dest, ImmediateInt(immediate))
             )
-        )
+        } else {
+            block.instructions.add(
+                LoadImmediateInstruction(dest, ImmediateInt(immediate))
+            )
+        }
     } else {
-        block.instructions.add(Lui(dest, highImm(immediate)))
-        block.instructions.add(
-            ImmCalcInstruction(
-                ImmCalcInstruction.ImmCalcOp.ADDI,
-                dest,
-                dest,
-                lowImm(immediate),
+        if (index != null) {
+            block.instructions.add(index, Lui(dest, highImm(immediate)))
+            block.instructions.add(
+                index + 1,
+                ImmCalcInstruction(
+                    ImmCalcInstruction.ImmCalcOp.ADDI, dest, dest, lowImm(immediate),
+                )
             )
-        )
+        } else {
+            block.instructions.add(Lui(dest, highImm(immediate)))
+            block.instructions.add(
+                ImmCalcInstruction(
+                    ImmCalcInstruction.ImmCalcOp.ADDI, dest, dest, lowImm(immediate),
+                )
+            )
+        }
     }
 }
 
@@ -107,16 +118,32 @@ fun loadGlobalLabelToRegister(
     block: Block,
     dest: Register,
     label: String,
+    index: Int? = null,
 ) {
-    block.instructions.add(Lui(dest, ImmediateFunction(ImmediateFunction.ImmFunction.HI, label)))
-    block.instructions.add(
-        ImmCalcInstruction(
-            ImmCalcInstruction.ImmCalcOp.ADDI,
-            dest,
-            dest,
-            ImmediateFunction(ImmediateFunction.ImmFunction.LO, label),
+    if (index != null) {
+        block.instructions.add(
+            index, Lui(dest, ImmediateFunction(ImmediateFunction.ImmFunction.HI, label))
         )
-    )
+        block.instructions.add(
+            index + 1,
+            ImmCalcInstruction(
+                ImmCalcInstruction.ImmCalcOp.ADDI,
+                dest,
+                dest,
+                ImmediateFunction(ImmediateFunction.ImmFunction.LO, label),
+            )
+        )
+    } else {
+        block.instructions.add(Lui(dest, ImmediateFunction(ImmediateFunction.ImmFunction.HI, label)))
+        block.instructions.add(
+            ImmCalcInstruction(
+                ImmCalcInstruction.ImmCalcOp.ADDI,
+                dest,
+                dest,
+                ImmediateFunction(ImmediateFunction.ImmFunction.LO, label),
+            )
+        )
+    }
 }
 
 fun loadMemoryToRegister(
@@ -125,17 +152,34 @@ fun loadMemoryToRegister(
     dest: Register,
     offset: Int,
     base: Register,
+    index: Int? = null,
     temp: Register = Register.T0,
 ) {
     if (withinImmediateRange(offset)) {
-        block.instructions.add(LoadInstruction(op, dest, ImmediateInt(offset), base))
+        if (index != null) {
+            block.instructions.add(index, LoadInstruction(op, dest, ImmediateInt(offset), base))
+        } else {
+            block.instructions.add(LoadInstruction(op, dest, ImmediateInt(offset), base))
+        }
     } else {
         if (temp == base) throw AsmBuilderException(
             "Temporary register cannot be the same as source register"
         )
-        block.instructions.add(Lui(temp, highImm(offset)))
-        block.instructions.add(RegCalcInstruction(RegCalcInstruction.RegCalcOp.ADD, temp, temp, base))
-        block.instructions.add(LoadInstruction(op, dest, lowImm(offset), temp))
+        if (index != null) {
+            block.instructions.add(index, Lui(temp, highImm(offset)))
+            block.instructions.add(
+                index + 1,
+                RegCalcInstruction(RegCalcInstruction.RegCalcOp.ADD, temp, temp, base),
+            )
+            block.instructions.add(
+                index + 2,
+                LoadInstruction(op, dest, lowImm(offset), temp),
+            )
+        } else {
+            block.instructions.add(Lui(temp, highImm(offset)))
+            block.instructions.add(RegCalcInstruction(RegCalcInstruction.RegCalcOp.ADD, temp, temp, base))
+            block.instructions.add(LoadInstruction(op, dest, lowImm(offset), temp))
+        }
     }
 }
 
