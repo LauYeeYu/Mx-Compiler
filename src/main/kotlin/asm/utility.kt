@@ -28,11 +28,11 @@ fun escapeStringLiteralToAsm(string: String): String {
 
 fun buildGlobalVariable(variable: ir.GlobalDecl): GlobalVariable = when(variable) {
     is ir.GlobalVariableDecl -> GlobalVariable(
-        label = ".${variable.property.name}",
+        label = variable.property.name,
         body = listOf(WordLiteral(variable.initValue)),
     )
     is ir.StringLiteralDecl -> GlobalVariable(
-        label = ".${variable.name}",
+        label = variable.name,
         body = listOf(StringLiteral(variable.content)),
     )
 }

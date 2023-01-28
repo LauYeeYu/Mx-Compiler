@@ -364,7 +364,7 @@ class FunctionBuilder(private val irFunction: IrFunction) {
                             else -> throw Exception("Invalid parameter size")
                         },
                         dest = Register.A0,
-                        label = ".${statement.src.name}",
+                        label = statement.src.name,
                     )
                 )
             is ir.LocalVariable -> {
@@ -683,7 +683,7 @@ class FunctionBuilder(private val irFunction: IrFunction) {
                 )
 
             is ir.IntLiteral -> loadImmediateToRegister(block, dest, data.value)
-            is ir.GlobalVariable -> loadGlobalLabelToRegister(block, dest, ".${data.name}")
+            is ir.GlobalVariable -> loadGlobalLabelToRegister(block, dest, data.name)
             else -> throw AsmBuilderException("Unexpected argument type")
         }
     }
