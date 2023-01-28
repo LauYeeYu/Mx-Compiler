@@ -647,7 +647,7 @@ class FunctionBuilder(private val irFunction: IrFunction) {
                 val blockName = if (irBlock == "0") irFunction.name else "${irFunction.name}.${irBlock}"
                 val block = blocks[blockName]
                     ?: throw AsmBuilderException("Block not found")
-                loadDataToRegister(block, Register.T6, data)
+                loadDataToRegister(block, Register.T6, data, block.placeToAddNormalInstruction)
             }
         }
         storeRegisterToMemory(
@@ -664,6 +664,7 @@ class FunctionBuilder(private val irFunction: IrFunction) {
         block: Block,
         dest: Register,
         data: ir.Argument,
+        index: Int? = null,
     ) {
         when (data) {
             is ir.LocalVariable ->
@@ -678,6 +679,7 @@ class FunctionBuilder(private val irFunction: IrFunction) {
                     offset = localVariableMap[data.name]
                         ?: throw AsmBuilderException("Local variable not found"),
                     base = Register.SP,
+                    index = index,
                 )
 
             is ir.IntLiteral -> loadImmediateToRegister(block, dest, data.value)

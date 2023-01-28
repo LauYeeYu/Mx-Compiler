@@ -51,6 +51,14 @@ class Block(
     val label: String,
     val instructions: MutableList<Instruction>,
 ) {
+    val placeToAddNormalInstruction: Int
+        get() {
+            var i = instructions.size - 1
+            while (i >= 0 && instructions[i] is JumpInstruction) {
+                i--
+            }
+            return i + 1
+        }
     override fun toString() = "$label:\n\t${instructions.joinToString("\n\t")}"
 }
 
