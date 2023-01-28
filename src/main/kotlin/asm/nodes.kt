@@ -16,7 +16,7 @@ class TranslateUnit(
     val globalVariables: List<GlobalVariable>,
 ) {
     override fun toString() = """
-        |${functions.joinToString()}
+        |${functions.joinToString("")}
         |
         |${globalVariables.joinToString("\n\n")}
     """.trimMargin()
