@@ -525,7 +525,7 @@ class FunctionBuilder(private val irFunction: IrFunction) {
                         rhs = Register.A0,
                     )
                 )
-                if (statement.op == IntCmpOperator.SGT) {
+                if (statement.op == IntCmpOperator.SLE) {
                     currentBlock.instructions.add(
                         ImmCalcInstruction(
                             op = ImmCalcInstruction.ImmCalcOp.XORI,
