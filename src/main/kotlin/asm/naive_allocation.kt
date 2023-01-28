@@ -301,7 +301,7 @@ class FunctionBuilder(private val irFunction: IrFunction) {
                 currentBlock.instructions.add(
                     PseudoJumpInstruction(
                         PseudoJumpInstruction.JumpOp.J,
-                        ImmediateLabel(statement.trueBlockLabel)
+                        ImmediateLabel("${irFunction.name}.${statement.trueBlockLabel}")
                     )
                 )
             }
@@ -321,7 +321,7 @@ class FunctionBuilder(private val irFunction: IrFunction) {
                     BranchCompZeroInstruction(
                         BranchCompZeroInstruction.BranchCompZeroOp.BEQZ,
                         Register.A0,
-                        ImmediateLabel(falseBlockLabel),
+                        ImmediateLabel("${irFunction.name}.$falseBlockLabel"),
                     )
                 )
             } else if (falseBlockLabel == nextLabel) {
@@ -329,7 +329,7 @@ class FunctionBuilder(private val irFunction: IrFunction) {
                     BranchCompZeroInstruction(
                         BranchCompZeroInstruction.BranchCompZeroOp.BNEZ,
                         Register.A0,
-                        ImmediateLabel(statement.trueBlockLabel),
+                        ImmediateLabel("${irFunction.name}.${statement.trueBlockLabel}"),
                     )
                 )
             } else {
@@ -337,13 +337,13 @@ class FunctionBuilder(private val irFunction: IrFunction) {
                     BranchCompZeroInstruction(
                         BranchCompZeroInstruction.BranchCompZeroOp.BNEZ,
                         Register.A0,
-                        ImmediateLabel(statement.trueBlockLabel),
+                        ImmediateLabel("${irFunction.name}.${statement.trueBlockLabel}"),
                     )
                 )
                 currentBlock.instructions.add(
                     PseudoJumpInstruction(
                         PseudoJumpInstruction.JumpOp.J,
-                        ImmediateLabel(falseBlockLabel)
+                        ImmediateLabel("${irFunction.name}.$falseBlockLabel")
                     )
                 )
             }
