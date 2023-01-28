@@ -56,18 +56,19 @@ class FunctionBuilder(private val irFunction: IrFunction) {
             }
             return max
         }
+    private val paramInReg = min(irFunction.parameters.size, 8)
     private val stackSize = ((variables.sumOf { it.newVariableCount } +
             sourceBody.sumOf { block -> block.statements.sumOf { it.newVariableCount } } +
-            min(irFunction.parameters.size, 8) + maxCallParameterSize + 1) * 4 + 15) / 16 * 16
-    private val raOffset = stackSize - min(irFunction.parameters.size, 8) * 4 - 4
+            paramInReg + maxCallParameterSize + 1) * 4 + 15) / 16 * 16
+    private val raOffset = stackSize - paramInReg * 4 - 4
 
     init { // set local variable map
-        var offset = stackSize - min(irFunction.parameters.size, 8) * 4
+        var offset = stackSize - paramInReg * 4
         irFunction.parameters.forEach { functionParameter ->
             localVariableMap["%${functionParameter.name}"] = offset
             offset += 4
         }
-        offset = stackSize - min(irFunction.parameters.size, 8) * 4 - 4
+        offset = stackSize - paramInReg * 4 - 4
         val addLocalVariable = { name: String, size: Int ->
             localVariableMap[name] = offset - size * 4
             offset -= size * 4
@@ -116,7 +117,7 @@ class FunctionBuilder(private val irFunction: IrFunction) {
 
     private fun saveFunctionParameters(block: Block) {
         for ((index, parameter) in irFunction.parameters.withIndex()) {
-            val offset = stackSize + (index - 8) * 4
+            val offset = (index - paramInReg) * 4
             if (index < 8) {
                 storeRegisterToMemory(
                     block = block,
@@ -127,7 +128,7 @@ class FunctionBuilder(private val irFunction: IrFunction) {
                     },
                     src = toRegister("a$index"),
                     offset = offset,
-                    base = Register.SP,
+                    base = Register.T0,
                 )
             }
         }
