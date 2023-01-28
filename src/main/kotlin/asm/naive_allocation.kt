@@ -397,7 +397,7 @@ class FunctionBuilder(private val irFunction: IrFunction) {
                 4 -> StoreInstruction.StoreOp.SW
                 else -> throw Exception("Invalid parameter size")
             },
-            src = Register.A1,
+            src = Register.A0,
             offset = localVariableMap[statement.dest.name]
                 ?: throw AsmBuilderException("Local variable not found"),
             base = Register.SP,
