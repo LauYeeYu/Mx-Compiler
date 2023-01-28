@@ -18,6 +18,8 @@ package asm
 
 abstract class Instruction
 
+sealed interface JumpInstruction
+
 class Lui(
     val dest: Register,
     val imm: Immediate,
@@ -35,7 +37,7 @@ class Auipc(
 class Jal(
     val dest: Register,
     val imm: Immediate,
-) : Instruction() {
+) : Instruction(), JumpInstruction {
     override fun toString(): String = "jal\t$dest, $imm"
 }
 
@@ -43,7 +45,7 @@ class Jalr(
     val dest: Register,
     val imm: Immediate,
     val base: Register,
-) : Instruction() {
+) : Instruction(), JumpInstruction {
     override fun toString(): String = "jalr\t$dest, $imm($base)"
 }
 
@@ -52,7 +54,7 @@ class BranchInstruction(
     val lhs: Register,
     val rhs: Register,
     val dest: Immediate,
-) : Instruction() {
+) : Instruction(), JumpInstruction {
     enum class BranchOp {
         BEQ, BNE, BLT, BGE, BLTU, BGEU;
         override fun toString(): String = name.lowercase()
@@ -182,7 +184,7 @@ class BranchCompZeroInstruction(
     val op: BranchCompZeroOp,
     val src: Register,
     val dest: Immediate,
-) : PseudoInstruction() {
+) : PseudoInstruction(), JumpInstruction {
     enum class BranchCompZeroOp {
         BEQZ, BNEZ, BLTZ, BGEZ;
         override fun toString(): String = name.lowercase()
@@ -195,7 +197,7 @@ class PseudoBranchInstruction(
     val lhs: Register,
     val rhs: Register,
     val dest: Immediate,
-) : PseudoInstruction() {
+) : PseudoInstruction(), JumpInstruction {
     enum class PseudoBranchOp {
         BGT, BLE, BGTU, BLEU;
         override fun toString(): String = name.lowercase()
@@ -206,7 +208,7 @@ class PseudoBranchInstruction(
 class PseudoJumpInstruction(
     val op: JumpOp,
     val dest: Immediate,
-) : PseudoInstruction() {
+) : PseudoInstruction(), JumpInstruction {
     enum class JumpOp {
         J, JR;
         override fun toString(): String = name.lowercase()
@@ -214,7 +216,7 @@ class PseudoJumpInstruction(
     override fun toString(): String = "$op\t$dest"
 }
 
-class ReturnInstruction() : PseudoInstruction() {
+class ReturnInstruction : PseudoInstruction() {
     override fun toString(): String = "ret"
 }
 
