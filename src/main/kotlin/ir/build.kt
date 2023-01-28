@@ -1454,11 +1454,11 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
         )
         blocks.add(Block(trueBlockLabel, mutableListOf()))
         val trueHasReturn = addStatement(statement.trueBranch, function)
-        blocks.last().statements.add(BranchStatement(endBlockLabel))
+        if (!trueHasReturn) blocks.last().statements.add(BranchStatement(endBlockLabel))
         if (statement.falseBranch != null) {
             blocks.add(Block(falseBlockLabel, mutableListOf()))
             val falseHasReturn = addStatement(statement.falseBranch, function)
-            blocks.last().statements.add(BranchStatement(endBlockLabel))
+            if (!falseHasReturn) blocks.last().statements.add(BranchStatement(endBlockLabel))
             if (trueHasReturn && falseHasReturn) return true
         }
         blocks.add(Block(endBlockLabel, mutableListOf()))
