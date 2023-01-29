@@ -183,6 +183,24 @@ fun loadMemoryToRegister(
     }
 }
 
+fun loadGlobalVariableToRegister(
+    block: Block,
+    op: LoadInstruction.LoadOp,
+    dest: Register,
+    label: String,
+    index: Int? = null,
+) {
+    val lui = Lui(dest, ImmediateFunction(ImmediateFunction.ImmFunction.HI, label))
+    val load = LoadInstruction(op, dest, ImmediateFunction(ImmediateFunction.ImmFunction.LO, label), dest)
+    if (index != null) {
+        block.instructions.add(index, lui)
+        block.instructions.add(index + 1, load)
+    } else {
+        block.instructions.add(lui)
+        block.instructions.add(load)
+    }
+}
+
 fun storeRegisterToMemory(
     block: Block,
     op: StoreInstruction.StoreOp,

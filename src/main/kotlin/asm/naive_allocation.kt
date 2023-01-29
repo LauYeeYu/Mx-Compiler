@@ -357,16 +357,15 @@ class FunctionBuilder(private val irFunction: IrFunction) {
     ) {
         when (statement.src) {
             is ir.GlobalVariable ->
-                currentBlock.instructions.add(
-                    LoadGlobalInstruction(
-                        op = when (statement.src.type.size) {
-                            1 -> LoadGlobalInstruction.LoadGlobalOp.LB
-                            4 -> LoadGlobalInstruction.LoadGlobalOp.LW
-                            else -> throw Exception("Invalid parameter size")
-                        },
-                        dest = Register.A0,
-                        label = statement.src.name,
-                    )
+                loadGlobalVariableToRegister(
+                    block = currentBlock,
+                    op = when (statement.dest.type.size) {
+                        1 -> LoadInstruction.LoadOp.LBU
+                        4 -> LoadInstruction.LoadOp.LW
+                        else -> throw Exception("Invalid parameter size")
+                    },
+                    dest = Register.A0,
+                    label = statement.src.name,
                 )
             is ir.LocalVariable -> {
                 loadMemoryToRegister(
