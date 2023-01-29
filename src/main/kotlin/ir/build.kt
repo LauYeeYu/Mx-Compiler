@@ -24,7 +24,7 @@ fun buildIr(astNode: AstNode): Root = IR(astNode).buildRoot()
 
 val emptyString: StringLiteralDecl = StringLiteralDecl("__empty_string", "")
 
-class IR(private val root: AstNode, private val parent: IR? = null) {
+class IR(private val root: AstNode) {
     private var unnamedVariableCount = 0
     private var unnamedStringLiteralCount = 0
     private var unnamedIterator = 0
@@ -1581,10 +1581,6 @@ class IR(private val root: AstNode, private val parent: IR? = null) {
     }
 
     private fun addStringLiteral(name: String, string: StringLiteral) {
-        if (parent != null) {
-            parent.addStringLiteral(name, string)
-        } else {
-            globalVariableDecl.add(StringLiteralDecl(name, string.value))
-        }
+        globalVariableDecl.add(StringLiteralDecl(name, string.value))
     }
 }
