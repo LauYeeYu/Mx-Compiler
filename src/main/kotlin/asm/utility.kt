@@ -211,8 +211,8 @@ fun Function.removeEmptyBlocks(): Function {
             while (i < body.lastIndex && body[i].instructions.isEmpty()) {
                 i++
             }
-            if (i == body.lastIndex) {
-                throw AsmBuilderException("Empty block at end of function")
+            if (i == body.lastIndex && body[i].instructions.isEmpty()) {
+                throw AsmBuilderException("Empty block at the end of function")
             } else {
                 replace[block.label] = body[i].label
             }
