@@ -17,7 +17,9 @@
 package asm
 
 import exceptions.AsmBuilderException
+import ir.GlobalVariable
 import ir.IntCmpOperator
+import ir.LocalVariable
 import kotlin.math.min
 import kotlin.math.max
 import ir.Root as IrRoot
@@ -409,19 +411,29 @@ class FunctionBuilder(private val irFunction: IrFunction) {
         currentBlock: Block,
     ) {
         loadDataToRegister(currentBlock, Register.A1, statement.src)
-        loadDataToRegister(currentBlock, Register.A0, statement.dest)
-        currentBlock.instructions.add(
-            StoreInstruction(
-                op = when (statement.src.type.size) {
-                    1 -> StoreInstruction.StoreOp.SB
-                    4 -> StoreInstruction.StoreOp.SW
-                    else -> throw Exception("Invalid parameter size")
-                },
+        val op = when (statement.src.type.size) {
+            1 -> StoreInstruction.StoreOp.SB
+            4 -> StoreInstruction.StoreOp.SW
+            else -> throw Exception("Invalid parameter size")
+        }
+        when (statement.dest) {
+            is GlobalVariable -> storeRegisterToGlobal(
+                block = currentBlock,
+                op = op,
                 src = Register.A1,
-                offset = ImmediateInt(0),
-                base = Register.A0,
+                label = statement.dest.asmName,
             )
-        )
+
+            is LocalVariable -> storeRegisterToMemory(
+                block = currentBlock,
+                op = op,
+                src = Register.A1,
+                offset = localVariableMap[statement.dest.name]
+                    ?: throw AsmBuilderException("Local variable not found"),
+                base = Register.SP,
+            )
+            else -> throw AsmBuilderException("Unexpected argument type")
+        }
     }
 
     private fun buildInstruction(
