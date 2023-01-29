@@ -25,7 +25,8 @@ import ir.GlobalFunction as IrFunction
 import ir.Block as IrBlock
 import ir.Statement as IrStatement
 
-fun naiveAllocation(irRoot: IrRoot) = TranslateUnit(
+fun naiveAllocation(irRoot: IrRoot, fileName: String) = TranslateUnit(
+    fileName = fileName,
     functions = irRoot.globalFunctions.filter { it.body != null }
         .map { FunctionBuilder(it).function.removeEmptyBlocks() },
     globalVariables = irRoot.variables.map { buildGlobalVariable(it) }

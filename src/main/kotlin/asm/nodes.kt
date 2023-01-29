@@ -12,11 +12,18 @@
 package asm
 
 class TranslateUnit(
+    val fileName: String,
     val functions: List<Function>,
     val globalVariables: List<GlobalVariable>,
 ) {
+    private val head get() = "\t.file \"$fileName\"\n\t.text"
+    private val separator get() = "\t.section .data"
+
     override fun toString() = """
-        |${functions.joinToString("")}
+        |$head
+        |
+        |${functions.joinToString("\n")}
+        |$separator
         |
         |${globalVariables.joinToString("\n\n")}
     """.trimMargin()
@@ -26,15 +33,17 @@ class GlobalVariable(
     val label: String,
     val body: List<Literal>,
 ) {
-    override fun toString() = "$label:\n\t${body.joinToString("\n\t")}"
+    override fun toString() = "$label:\n\t.globl $label\n\t${body.joinToString("\n\t")}"
 }
 
 class Function(
     val name: String,
     val body: List<Block>,
 ) {
+    private val signature: String
+          get() = "\t.globl $name\n\t.type $name,@function\n"
     override fun toString(): String {
-        val builder = StringBuilder()
+        val builder = StringBuilder(this.signature)
         builder.append("$name:\n")
         for (i in body.indices) {
             if (i == 0) {
