@@ -114,7 +114,7 @@ class PtrLiteral(
 
 class GlobalVariableDecl(
     val property: GlobalVariable,
-    val initValue: Int, // Every global variable must have an initial value
+    val initValue: Argument, // Every global variable must have an initial value
 ) : GlobalDecl {
     override fun toString() = when (property.type.type) {
         TypeProperty.PTR -> "${property.name} = global ${property.type} null, align $alignValue"
@@ -316,7 +316,7 @@ class StringLiteralDecl(
     val content: String,
 ) : GlobalDecl {
     override fun toString(): String {
-        return "@$name = private unnamed_addr constant " +
+        return "$name = private unnamed_addr constant " +
                 "[${content.length + 1} x i8] " +
                 "c\"${escapeStringLiteralToIr(content)}\\00\", " +
                 "align $alignValue"

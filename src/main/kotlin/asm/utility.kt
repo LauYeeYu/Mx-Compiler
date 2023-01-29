@@ -26,13 +26,22 @@ fun escapeStringLiteralToAsm(string: String): String {
     return builder.append("\\000").toString()
 }
 
-fun buildGlobalVariable(variable: ir.GlobalDecl): GlobalVariable = when(variable) {
+fun ir.Argument.toAsmWordLiteral(): Immediate = when (this) {
+    is ir.GlobalVariable -> ImmediateLabel(this.asmName)
+    is ir.IntLiteral -> ImmediateInt(this.value)
+    else -> throw AsmBuilderException("Invalid argument type")
+}
+
+val ir.GlobalVariable.asmName: String get() = ".${this.name.substring(1)}"
+val ir.StringLiteralDecl.asmName: String get() = ".${this.name}"
+
+fun buildGlobalVariable(variable: ir.GlobalDecl): GlobalVariable = when (variable) {
     is ir.GlobalVariableDecl -> GlobalVariable(
-        label = variable.property.name,
-        body = listOf(WordLiteral(variable.initValue)),
+        label = variable.property.asmName,
+        body = listOf(WordLiteral(variable.initValue.toAsmWordLiteral())),
     )
     is ir.StringLiteralDecl -> GlobalVariable(
-        label = variable.name,
+        label = variable.asmName,
         body = listOf(StringLiteral(variable.content)),
     )
 }

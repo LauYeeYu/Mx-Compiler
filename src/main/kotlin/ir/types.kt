@@ -23,7 +23,8 @@ enum class TypeProperty {
     I1,
     PTR,
     VOID,
-    SIZE_T;
+    SIZE_T,
+    ARRAY;
 
     override fun toString() = when (this) {
         I32    -> "i32"
@@ -32,6 +33,7 @@ enum class TypeProperty {
         PTR    -> "ptr"
         VOID   -> "void"
         SIZE_T -> "i${ptrSize * 8}"
+        ARRAY  -> "ptr"
     }
 
     val size: Int // the amount of memory needed to store this type
@@ -42,6 +44,7 @@ enum class TypeProperty {
             PTR    -> ptrSize
             VOID   -> 0
             SIZE_T -> ptrSize
+            ARRAY  -> ptrSize
         }
 }
 

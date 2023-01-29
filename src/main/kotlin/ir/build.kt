@@ -132,10 +132,22 @@ class IR(private val root: AstNode) {
                 is ast.StringType -> for (variable in element.variables) {
                     when (variable.body) {
                         null ->
-                            globalVariableDecl.add(StringLiteralDecl(variable.name, ""))
+                            globalVariableDecl.add(
+                                GlobalVariableDecl(
+                                    GlobalVariable(variable.name, PrimitiveType(TypeProperty.PTR)),
+                                    GlobalVariable("__empty_string", PrimitiveType(TypeProperty.PTR)),
+                                )
+                            )
 
-                        is StringLiteral ->
-                            globalVariableDecl.add(StringLiteralDecl(variable.name, variable.body.value))
+                        is StringLiteral -> {
+                            globalVariableDecl.add(StringLiteralDecl("${variable.name}.str", variable.body.value))
+                            globalVariableDecl.add(
+                                GlobalVariableDecl(
+                                    GlobalVariable(variable.name, PrimitiveType(TypeProperty.PTR)),
+                                    GlobalVariable("${variable.name}.str", PrimitiveType(TypeProperty.PTR)),
+                                )
+                            )
+                        }
 
                         else -> {
                             val result = addExpression(
@@ -168,7 +180,7 @@ class IR(private val root: AstNode) {
                                 StoreStatement(dest = variableProperty, src = result)
                             )
                         }
-                        globalVariableDecl.add(GlobalVariableDecl(variableProperty, 0))
+                        globalVariableDecl.add(GlobalVariableDecl(variableProperty, PtrLiteral(0)))
                     }
                 }
             }
@@ -347,10 +359,10 @@ class IR(private val root: AstNode) {
         val irVariable = GlobalVariable(variable.name, type)
         when (returnValue) {
             is IntLiteral ->
-                globalVariableDecl.add(GlobalVariableDecl(irVariable, returnValue.value))
+                globalVariableDecl.add(GlobalVariableDecl(irVariable, I32Literal(returnValue.value)))
 
             is Variable -> {
-                globalVariableDecl.add(GlobalVariableDecl(irVariable, 0))
+                globalVariableDecl.add(GlobalVariableDecl(irVariable, I32Literal(0)))
                 val blocks = function.body ?: throw IRBuilderException("Function has no body")
                 blocks.last().statements.add(
                     StoreStatement(dest = irVariable, src = returnValue)
@@ -387,7 +399,7 @@ class IR(private val root: AstNode) {
         expectedState: ExpectedState,
     ): ExpressionResult = when (expr) {
         is ast.Object -> addExpression(expr, function, expectedState)
-        is StringLiteral -> addExpression(expr, function)
+        is StringLiteral -> addExpression(expr)
         is IntegerLiteral -> addExpression(expr)
         is BooleanLiteral -> addExpression(expr)
         is NullLiteral -> ConstExpression(0, PrimitiveType(TypeProperty.PTR))
@@ -474,22 +486,12 @@ class IR(private val root: AstNode) {
         }
     }
 
-    private fun addExpression(
-        expr: StringLiteral,
-        function: GlobalFunction
-    ): ExpressionResult {
-        addStringLiteral("@__string_$unnamedStringLiteralCount", expr)
-        val dest = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.PTR))
-        unnamedVariableCount++
-        val blocks = function.body ?: throw IRBuilderException("Function has no body")
-        blocks.last().statements.add(
-            LoadStatement(
-                dest = dest,
-                src = GlobalVariable("__string_$unnamedStringLiteralCount", PrimitiveType(TypeProperty.PTR)),
-            )
-        )
+    private fun addExpression(expr: StringLiteral): ExpressionResult {
+        val name = "__string_$unnamedStringLiteralCount"
+        globalVariableDecl.add(StringLiteralDecl("@$name", expr.value))
+        val variable = GlobalVariable(name, PrimitiveType(TypeProperty.ARRAY))
         unnamedStringLiteralCount++
-        return IrVariable(dest)
+        return IrVariable(variable)
     }
 
     private fun addExpression(expr: IntegerLiteral): ExpressionResult =
@@ -1578,9 +1580,5 @@ class IR(private val root: AstNode) {
             }
         }
         return false
-    }
-
-    private fun addStringLiteral(name: String, string: StringLiteral) {
-        globalVariableDecl.add(StringLiteralDecl(name, string.value))
     }
 }

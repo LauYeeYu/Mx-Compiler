@@ -365,7 +365,7 @@ class FunctionBuilder(private val irFunction: IrFunction) {
                         else -> throw Exception("Invalid parameter size")
                     },
                     dest = Register.A0,
-                    label = statement.src.name,
+                    label = statement.src.asmName,
                 )
             is ir.LocalVariable -> {
                 loadMemoryToRegister(
@@ -682,8 +682,28 @@ class FunctionBuilder(private val irFunction: IrFunction) {
                     index = index,
                 )
 
-            is ir.IntLiteral -> loadImmediateToRegister(block, dest, data.value)
-            is ir.GlobalVariable -> loadGlobalLabelToRegister(block, dest, data.name)
+            is ir.IntLiteral -> loadImmediateToRegister(block, dest, data.value, index)
+            is ir.GlobalVariable -> when (data.type.type) {
+                ir.TypeProperty.ARRAY -> loadGlobalLabelToRegister(
+                    block = block,
+                    dest = dest,
+                    label = data.asmName,
+                    index = index,
+                )
+
+                else -> loadGlobalVariableToRegister(
+                    block = block,
+                    op = when (data.type.size) {
+                        1 -> LoadInstruction.LoadOp.LBU
+                        4 -> LoadInstruction.LoadOp.LW
+                        else -> throw Exception("Invalid parameter size")
+                    },
+                    dest = dest,
+                    label = data.asmName,
+                    index = index,
+                )
+            }
+
             else -> throw AsmBuilderException("Unexpected argument type")
         }
     }

@@ -74,7 +74,7 @@ class Block(
 abstract class Literal
 
 class WordLiteral(
-    val value: Int,
+    val value: Immediate,
 ) : Literal() {
     override fun toString() = ".word $value"
 }
