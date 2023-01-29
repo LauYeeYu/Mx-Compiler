@@ -210,6 +210,30 @@ fun loadGlobalVariableToRegister(
     }
 }
 
+fun storeRegisterToGlobal(
+    block: Block,
+    op: StoreInstruction.StoreOp,
+    src: Register,
+    label: String,
+    index: Int? = null,
+    temp: Register = Register.T0,
+) {
+    val lui = Lui(temp, ImmediateFunction(ImmediateFunction.ImmFunction.HI, label))
+    val store = StoreInstruction(
+        op = op,
+        src = src,
+        offset = ImmediateFunction(ImmediateFunction.ImmFunction.LO, label),
+        base = temp,
+    )
+    if (index != null) {
+        block.instructions.add(index, lui)
+        block.instructions.add(index + 1, store)
+    } else {
+        block.instructions.add(lui)
+        block.instructions.add(store)
+    }
+}
+
 fun storeRegisterToMemory(
     block: Block,
     op: StoreInstruction.StoreOp,
