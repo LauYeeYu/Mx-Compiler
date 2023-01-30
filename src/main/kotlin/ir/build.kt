@@ -130,21 +130,23 @@ class IR(private val root: AstNode) {
                 }
 
                 is ast.StringType -> for (variable in element.variables) {
+                    val binding = variable.binding ?: throw IRBuilderException("Variable has no binding")
+                    val name = binding.irInfo.toString()
                     when (variable.body) {
                         null ->
                             globalVariableDecl.add(
                                 GlobalVariableDecl(
-                                    GlobalVariable(variable.name, PrimitiveType(TypeProperty.PTR)),
+                                    GlobalVariable(name, PrimitiveType(TypeProperty.PTR)),
                                     GlobalVariable("__empty_string", PrimitiveType(TypeProperty.PTR)),
                                 )
                             )
 
                         is StringLiteral -> {
-                            globalVariableDecl.add(StringLiteralDecl("${variable.name}.str", variable.body.value))
+                            globalVariableDecl.add(StringLiteralDecl("$name.str", variable.body.value))
                             globalVariableDecl.add(
                                 GlobalVariableDecl(
-                                    GlobalVariable(variable.name, PrimitiveType(TypeProperty.PTR)),
-                                    GlobalVariable("${variable.name}.str", PrimitiveType(TypeProperty.PTR)),
+                                    GlobalVariable(name, PrimitiveType(TypeProperty.PTR)),
+                                    GlobalVariable("$name.str", PrimitiveType(TypeProperty.PTR)),
                                 )
                             )
                         }
@@ -155,10 +157,15 @@ class IR(private val root: AstNode) {
                                 globalInit,
                                 ExpectedState.VALUE,
                             ).toArgument()
-                            globalVariableDecl.add(StringLiteralDecl(variable.name, ""))
+                            globalVariableDecl.add(
+                                GlobalVariableDecl(
+                                    GlobalVariable(name, PrimitiveType(TypeProperty.PTR)),
+                                    GlobalVariable("__empty_string", PrimitiveType(TypeProperty.PTR)),
+                                )
+                            )
                             globalInitBlocks.last().statements.add(
                                 StoreStatement(
-                                    GlobalVariable(variable.name, PrimitiveType(TypeProperty.PTR)),
+                                    GlobalVariable(name, PrimitiveType(TypeProperty.PTR)),
                                     result,
                                 )
                             )
@@ -169,7 +176,9 @@ class IR(private val root: AstNode) {
                 is ast.ArrayType, is ast.ClassType -> {
                     val type = PrimitiveType(TypeProperty.PTR)
                     element.variables.forEach { variable ->
-                        val variableProperty = GlobalVariable(variable.name, type)
+                        val binding = variable.binding ?: throw IRBuilderException("Variable has no binding")
+                        val name = binding.irInfo.toString()
+                        val variableProperty = GlobalVariable(name, type)
                         if (variable.body != null) {
                             val result = addExpression(
                                 variable.body,
@@ -348,6 +357,8 @@ class IR(private val root: AstNode) {
         type: PrimitiveType,
         function: GlobalFunction, // variable initializing statement will not have a branch
     ) {
+        val binding = variable.binding ?: throw IRBuilderException("Variable has no binding")
+        val name = binding.irInfo.toString()
         val returnValue: Argument = when (variable.body) {
             null -> when (type.type) {
                 TypeProperty.I1 -> I1Literal(0)
@@ -357,7 +368,7 @@ class IR(private val root: AstNode) {
 
             else -> addExpression(variable.body, function, ExpectedState.VALUE).toArgument()
         }
-        val irVariable = GlobalVariable(variable.name, type)
+        val irVariable = GlobalVariable(name, type)
         when (returnValue) {
             is IntLiteral ->
                 globalVariableDecl.add(GlobalVariableDecl(irVariable, I32Literal(returnValue.value)))
