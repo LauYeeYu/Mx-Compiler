@@ -1229,11 +1229,11 @@ class IR(private val root: AstNode) {
 
             else -> throw InternalException("The AST node in addExpression has an unsupported type")
         }
-        val dest = LocalVariable(unnamedVariableCount.toString(), destType)
-        unnamedVariableCount++
         val lhsArg = addExpression(lhs, function, ExpectedState.VALUE).toArgument()
         val rhsArg = addExpression(rhs, function, ExpectedState.VALUE).toArgument()
-        when (operator) {
+        val dest = LocalVariable(unnamedVariableCount.toString(), destType)
+        unnamedVariableCount++
+        val statement = when (operator) {
             ast.BinaryOperator.ADD -> CallStatement(
                 dest = dest,
                 returnType = PrimitiveType(TypeProperty.PTR),
@@ -1292,6 +1292,8 @@ class IR(private val root: AstNode) {
 
             else -> throw InternalException("The AST node in addExpression has an unsupported type")
         }
+        val blocks = function.body ?: throw IRBuilderException("Function has no body")
+        blocks.last().statements.add(statement)
         return IrVariable(dest)
     }
 
