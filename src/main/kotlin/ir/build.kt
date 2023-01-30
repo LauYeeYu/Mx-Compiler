@@ -248,6 +248,7 @@ class IR(private val root: AstNode) {
         }
         val function = globalFunctions[astNode.name]
             ?: throw IRBuilderException("Function ${astNode.name} not found")
+        unnamedVariableCount = 1
         if (astNode.name == "main") {
             val blocks = function.body ?: throw IRBuilderException("Function has no body")
             blocks.last().statements.add(
