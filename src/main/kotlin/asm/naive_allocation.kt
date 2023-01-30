@@ -424,14 +424,17 @@ class FunctionBuilder(private val irFunction: IrFunction) {
                 label = statement.dest.asmName,
             )
 
-            is LocalVariable -> storeRegisterToMemory(
-                block = currentBlock,
-                op = op,
-                src = Register.A1,
-                offset = localVariableMap[statement.dest.name]
-                    ?: throw AsmBuilderException("Local variable not found"),
-                base = Register.SP,
-            )
+            is LocalVariable -> {
+                loadDataToRegister(currentBlock, Register.T1, statement.dest)
+                storeRegisterToMemory(
+                    block = currentBlock,
+                    op = op,
+                    src = Register.A1,
+                    offset = 0,
+                    base = Register.T1,
+                )
+            }
+
             else -> throw AsmBuilderException("Unexpected argument type")
         }
     }
