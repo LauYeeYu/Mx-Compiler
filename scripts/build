@@ -1,0 +1,15 @@
+#!/bin/bash
+
+cd src/main/resources
+make
+cd ../../..
+
+./gradlew build
+
+if [ ! -d bin ]; then
+    mkdir bin
+fi
+
+tar -xvf build/distributions/Mx-Compiler-1.0-SNAPSHOT.tar -C bin/
+cd bin/
+mv Mx-Compiler-1.0-SNAPSHOT/ mxc/
