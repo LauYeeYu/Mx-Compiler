@@ -267,8 +267,6 @@ class FunctionBuilder(private val irFunction: IrFunction) {
         statement: ir.ReturnStatement,
         currentBlock: Block,
     ) {
-        // Restore the stack pointer
-        addImmediateToRegister(currentBlock, Register.SP, Register.SP, stackSize, Register.T1)
         // Set back the return address
         loadMemoryToRegister(
             block = currentBlock,
@@ -291,6 +289,8 @@ class FunctionBuilder(private val irFunction: IrFunction) {
                 base = Register.SP,
             )
         }
+        // Restore the stack pointer
+        addImmediateToRegister(currentBlock, Register.SP, Register.SP, stackSize, Register.T1)
         currentBlock.instructions.add(ReturnInstruction())
     }
 
