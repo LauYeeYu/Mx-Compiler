@@ -184,7 +184,7 @@ val builtInFunction = listOf(
         const = false,
     ),
     GlobalFunction(
-        name = "__newStringArray",
+        name = "__newBoolArray",
         returnType = PrimitiveType(TypeProperty.PTR),
         parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.I32), "size")),
         const = false,
