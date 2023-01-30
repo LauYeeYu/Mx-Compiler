@@ -488,7 +488,7 @@ class IR(private val root: AstNode) {
 
     private fun addExpression(expr: StringLiteral): ExpressionResult {
         val name = "__string_$unnamedStringLiteralCount"
-        globalVariableDecl.add(StringLiteralDecl("@$name", expr.value))
+        globalVariableDecl.add(StringLiteralDecl(name, expr.value))
         val variable = GlobalVariable(name, PrimitiveType(TypeProperty.ARRAY))
         unnamedStringLiteralCount++
         return IrVariable(variable)
