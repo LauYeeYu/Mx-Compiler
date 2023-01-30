@@ -25,7 +25,7 @@ fun buildIr(astNode: AstNode): Root = IR(astNode).buildRoot()
 val emptyString: StringLiteralDecl = StringLiteralDecl("__empty_string", "")
 
 class IR(private val root: AstNode) {
-    private var unnamedVariableCount = 0
+    private var unnamedVariableCount = 1
     private var unnamedStringLiteralCount = 0
     private var unnamedIterator = 0
     private var branchCount = 0
@@ -771,13 +771,13 @@ class IR(private val root: AstNode) {
                 src = I32Literal(0),
             )
         )
-        val loopConditionLabel = blocks.size
-        val loopStartLabel = loopConditionLabel + 1
+        val loopConditionLabel = "new_loop_condition_${blocks.size}"
+        val loopStartLabel = "new_loop_start_${blocks.size + 1}"
         // Jump to the loop condition
         blocks.last().statements.add(
             BranchStatement(
                 condition = null,
-                trueBlockLabel = loopConditionLabel.toString(),
+                trueBlockLabel = loopConditionLabel,
                 falseBlockLabel = null
             )
         )
@@ -789,7 +789,7 @@ class IR(private val root: AstNode) {
         unnamedVariableCount++
         blocks.add(
             Block(
-                loopConditionLabel.toString(),
+                loopConditionLabel,
                 mutableListOf(
                     LoadStatement(dest = iteratorValue, src = iterators[index]),
                     IntCmpStatement(
@@ -808,7 +808,7 @@ class IR(private val root: AstNode) {
         unnamedVariableCount++
         blocks.add(
             Block(
-                loopStartLabel.toString(),
+                loopStartLabel,
                 mutableListOf(
                     GetElementPtrStatement(
                         dest = position,
@@ -819,12 +819,13 @@ class IR(private val root: AstNode) {
                 )
             )
         )
+        val loopStartBlock = blocks.last()
         if (index + 1 == arguments.size) {
             if (dimension == 1) {
                 when (type) {
                     is ast.ClassType -> {
                         val newClass = addNewClass(blocks, type)
-                        blocks[loopStartLabel].statements.add(
+                        loopStartBlock.statements.add(
                             StoreStatement(dest = position, src = newClass)
                         )
                     }
@@ -832,7 +833,7 @@ class IR(private val root: AstNode) {
                     is ast.StringType -> {
                         val newString = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.PTR))
                         unnamedVariableCount++
-                        blocks[loopStartLabel].statements.add(
+                        loopStartBlock.statements.add(
                             CallStatement(
                                 dest = newString,
                                 returnType = PrimitiveType(TypeProperty.VOID),
@@ -841,7 +842,7 @@ class IR(private val root: AstNode) {
                                 arguments = listOf(I32Literal(ptrSize)),
                             )
                         )
-                        blocks[loopStartLabel].statements.add(
+                        loopStartBlock.statements.add(
                             StoreStatement(dest = position, src = newString)
                         )
                     }
@@ -849,7 +850,7 @@ class IR(private val root: AstNode) {
             } else {
                 val newArray = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.PTR))
                 unnamedVariableCount++
-                blocks[loopStartLabel].statements.add(
+                loopStartBlock.statements.add(
                     CallStatement(
                         dest = newArray,
                         returnType = PrimitiveType(TypeProperty.VOID),
@@ -858,25 +859,25 @@ class IR(private val root: AstNode) {
                         arguments = listOf(arguments[index]),
                     )
                 )
-                blocks[loopStartLabel].statements.add(
+                loopStartBlock.statements.add(
                     StoreStatement(dest = position, src = newArray)
                 )
             }
         } else {
             val newArray = addNewExpressionLoop(blocks, arguments, iterators, dimension - 1, index + 1, type)
-            blocks[loopStartLabel].statements.add(
+            loopStartBlock.statements.add(
                 StoreStatement(dest = position, src = newArray)
             )
         }
 
         // Add the loop increment
-        val incrementIndex = blocks.size
-        val endBlockIndex = incrementIndex + 1
-        blocks[loopConditionLabel].statements.add(
+        val incrementLabel = "new_increment_${blocks.size}"
+        val endBlockLabel = "new_end_${blocks.size + 1}"
+        loopStartBlock.statements.add(
             BranchStatement(
                 condition = compareResult,
-                trueBlockLabel = loopStartLabel.toString(),
-                falseBlockLabel = endBlockIndex.toString(),
+                trueBlockLabel = loopStartLabel,
+                falseBlockLabel = endBlockLabel,
             )
         )
         val iteratorOld = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.I32))
@@ -885,7 +886,7 @@ class IR(private val root: AstNode) {
         unnamedVariableCount++
         blocks.add(
             Block(
-                incrementIndex.toString(),
+                incrementLabel,
                 mutableListOf(
                     LoadStatement(dest = iteratorOld, src = iterators[index]),
                     BinaryOperationStatement(
@@ -897,13 +898,13 @@ class IR(private val root: AstNode) {
                     StoreStatement(dest = iterators[index], src = iteratorNew),
                     BranchStatement(
                         condition = null,
-                        trueBlockLabel = loopConditionLabel.toString(),
+                        trueBlockLabel = loopConditionLabel,
                         falseBlockLabel = null,
                     ),
                 )
             )
         )
-        blocks.add(Block(endBlockIndex.toString(), mutableListOf()))
+        blocks.add(Block(endBlockLabel, mutableListOf()))
         return array
     }
 
@@ -1054,7 +1055,7 @@ class IR(private val root: AstNode) {
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         val lhsResult = addExpression(lhs, function, ExpectedState.VALUE).toArgument()
         val lhsResultBlockIndex = blocks.last().label
-        val lhsNext = blocks.size.toString()
+        val lhsNext = "logic_${blocks.size}"
         val lhsResultBlock = blocks.last()
         when (lhsResult) {
             is Variable -> {
@@ -1063,7 +1064,7 @@ class IR(private val root: AstNode) {
                     is Variable -> {
                         val rhsResultBlockIndex = blocks.last().label
                         val rhsResultBlock = blocks.last()
-                        val rhsNext = blocks.size.toString()
+                        val rhsNext = "logic_${blocks.size}"
                         lhsResultBlock.statements.add(
                             when (operator) {
                                 ast.BinaryOperator.LOGICAL_AND -> BranchStatement(
@@ -1447,7 +1448,7 @@ class IR(private val root: AstNode) {
         // condition is a variable
         val trueBlockLabel = "true_$branchCount"
         val falseBlockLabel = "false_$branchCount"
-        val endBlockLabel = "end_$branchCount"
+        val endBlockLabel = "condition_end_$branchCount"
         branchCount++
         blocks.last().statements.add(
             BranchStatement(
@@ -1480,9 +1481,9 @@ class IR(private val root: AstNode) {
             else -> null
         }
         currentLoopHasStep = step != null
-        val conditionBlockLabel = "condition_$loopCount"
-        val bodyBlockLabel = "body_$loopCount"
-        val endBlockLabel = "end_$loopCount"
+        val conditionBlockLabel = "loop_condition_$loopCount"
+        val bodyBlockLabel = "loop_body_$loopCount"
+        val endBlockLabel = "loop_end_$loopCount"
         val stepBlockLabel = if (currentLoopHasStep) "step_$loopCount" else conditionBlockLabel
         loopCount++
         // Generate the initialization
@@ -1541,14 +1542,14 @@ class IR(private val root: AstNode) {
 
     private fun addContinueStatement(function: GlobalFunction): Boolean {
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
-        val branchLabel = if (currentLoopHasStep) "step_$currentLoopCount" else "condition_$currentLoopCount"
+        val branchLabel = if (currentLoopHasStep) "step_$currentLoopCount" else "loop_condition_$currentLoopCount"
         blocks.last().statements.add(BranchStatement(branchLabel))
         return true
     }
 
     private fun addBreakStatement(function: GlobalFunction): Boolean {
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
-        blocks.last().statements.add(BranchStatement("end_$currentLoopCount"))
+        blocks.last().statements.add(BranchStatement("loop_end_$currentLoopCount"))
         return true
     }
 

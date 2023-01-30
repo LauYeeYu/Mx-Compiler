@@ -18,8 +18,6 @@ package ir
 
 import exceptions.InternalException
 
-const val alignValue: Int = 0
-
 class Root(
     val classes: List<GlobalClass>,
     val variables: List<GlobalDecl>,
@@ -117,14 +115,14 @@ class GlobalVariableDecl(
     val initValue: Argument, // Every global variable must have an initial value
 ) : GlobalDecl {
     override fun toString() = when (property.type.type) {
-        TypeProperty.PTR -> "${property.name} = global ${property.type} null, align $alignValue"
-        else -> "${property.name} = global ${property.type} $initValue, align $alignValue"
+        TypeProperty.PTR -> "${property.name} = global ${property.type} null"
+        else -> "${property.name} = global $initValue"
     }
 }
 
 class LocalVariableDecl(val property: LocalVariable, val type: PrimitiveType) : Statement(2) {
     override fun toString() =
-        "${property.name} = alloca $type, align $alignValue"
+        "${property.name} = alloca $type"
 }
 
 class GlobalFunction(
@@ -233,7 +231,7 @@ class BranchStatement(
 ) : Statement(0) {
     override fun toString() = when (falseBlockLabel) {
         null -> "br label %$trueBlockLabel"
-        else -> "br i1 $condition, label %$trueBlockLabel, label %$falseBlockLabel"
+        else -> "br $condition, label %$trueBlockLabel, label %$falseBlockLabel"
     }
 
     // Unconditional branch
@@ -245,7 +243,7 @@ class LoadStatement(
     val src: Variable,
 ) : Statement(1) {
     override fun toString() =
-        "${dest.name} = load ${dest.type}, $src, align $alignValue"
+        "${dest.name} = load ${dest.type}, $src"
 }
 
 class StoreStatement(
@@ -253,8 +251,8 @@ class StoreStatement(
     val src : Argument,
 ) : Statement(0) {
     override fun toString() = when (src) {
-        is Variable -> "store $src, $dest, align $alignValue"
-        else -> "store $src, $dest, align $alignValue"
+        is Variable -> "store $src, $dest"
+        else -> "store $src, $dest"
     }
 }
 
@@ -318,8 +316,7 @@ class StringLiteralDecl(
     override fun toString(): String {
         return "@$name = private unnamed_addr constant " +
                 "[${content.length + 1} x i8] " +
-                "c\"${escapeStringLiteralToIr(content)}\\00\", " +
-                "align $alignValue"
+                "c\"${escapeStringLiteralToIr(content)}\\00\""
     }
 }
 
