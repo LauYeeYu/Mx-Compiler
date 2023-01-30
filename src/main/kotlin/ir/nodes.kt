@@ -283,9 +283,9 @@ class GetElementPtrStatement(
     val indices: List<Argument>,
 ) : Statement(1) {
     override fun toString(): String {
-        val stringBuilder = StringBuilder("${dest.name} = getelementptr ${srcType}, ptr ${src.name}")
+        val stringBuilder = StringBuilder("${dest.name} = getelementptr inbounds ${srcType}, ptr ${src.name}")
         for (index in indices) {
-            stringBuilder.append(", ptr $index")
+            stringBuilder.append(", $index")
         }
         return stringBuilder.toString()
     }
