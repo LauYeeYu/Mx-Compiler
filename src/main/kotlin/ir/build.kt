@@ -723,7 +723,13 @@ class IR(private val root: AstNode) {
         // New array
         val arguments = expr.arguments.map { addExpression(it, function, ExpectedState.VALUE).toArgument() }
         val iterators = mutableListOf<LocalVariable>()
-        for (i in 0 until expr.arguments.size) {
+        val size = if (expr.dimension == expr.arguments.size &&
+            (expr.type is ast.IntType || expr.type is ast.BoolType)){
+                expr.arguments.size - 1
+            } else {
+                expr.arguments.size
+            }
+        for (i in 0 until size) {
             iterators.add(LocalVariable("__iterator_$unnamedIterator", PrimitiveType(TypeProperty.PTR)))
             unnamedIterator++
         }
@@ -746,7 +752,7 @@ class IR(private val root: AstNode) {
         blocks.last().statements.add(
             CallStatement(
                 dest = array,
-                returnType = PrimitiveType(TypeProperty.VOID),
+                returnType = PrimitiveType(TypeProperty.PTR),
                 function = if (dimension == 1) {
                     when (type) {
                         is ast.IntType -> globalFunctions["__newIntArray"]
@@ -765,6 +771,11 @@ class IR(private val root: AstNode) {
                 arguments = listOf(arguments[0]),
             )
         )
+
+        // When the variable is int or bool, we don't need to initialize the array
+        if (dimension == 1 && (type is ast.IntType || type is ast.BoolType)) {
+            return array
+        }
         // Set the initial number of the iterator, i.e. __iterator__i = 0
         blocks.last().statements.add(
             StoreStatement(
@@ -803,6 +814,7 @@ class IR(private val root: AstNode) {
                 )
             )
         )
+        val loopConditionBlock = blocks.last()
 
         // Add the loop body
         val position = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.PTR))
@@ -860,21 +872,18 @@ class IR(private val root: AstNode) {
                         arguments = listOf(arguments[index]),
                     )
                 )
-                loopStartBlock.statements.add(
-                    StoreStatement(dest = position, src = newArray)
-                )
+                loopStartBlock.statements.add(StoreStatement(dest = position, src = newArray))
             }
         } else {
             val newArray = addNewExpressionLoop(blocks, arguments, iterators, dimension - 1, index + 1, type)
-            loopStartBlock.statements.add(
-                StoreStatement(dest = position, src = newArray)
-            )
+            loopStartBlock.statements.add(StoreStatement(dest = position, src = newArray))
         }
+        loopStartBlock.statements.add(BranchStatement(loopConditionLabel))
 
         // Add the loop increment
         val incrementLabel = "new_increment_${blocks.size}"
         val endBlockLabel = "new_end_${blocks.size + 1}"
-        loopStartBlock.statements.add(
+        loopConditionBlock.statements.add(
             BranchStatement(
                 condition = compareResult,
                 trueBlockLabel = loopStartLabel,
