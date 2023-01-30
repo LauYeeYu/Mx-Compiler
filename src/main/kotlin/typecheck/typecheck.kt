@@ -106,14 +106,23 @@ fun checkType(expression: MemberFunctionAccess,
               environmentRecord: EnvironmentRecord,
               ctx: SourceContext?): TypeProperty {
     val objectProperty = checkType(expression.objectName, environmentRecord, ctx)
-    if (objectProperty.type !is MxClassType &&
-        objectProperty.type !is MxArrayType) {
+    if (objectProperty.type !is MxClassType) {
         throw TypeMismatchException("Cannot access member function of non-class type", expression.ctx)
     }
-    val memberFunction: Binding =
+    val functionBinding: Binding =
         objectProperty.type.environment?.functionAlikeBindings?.get(expression.functionName)
             ?: throw ContextException("Cannot find member function", expression.ctx)
-    expression.resultType = TypeProperty((memberFunction.type as MxFunctionType).returnType, Status.RVALUE)
+    if (expression.arguments.size !=
+        (functionBinding.type as MxFunctionType).parameterTypes.size) {
+        throw ContextException("Argument number mismatch", expression.ctx)
+    }
+    for (i in 0 until expression.arguments.size) {
+        if (checkType(expression.arguments[i], environmentRecord, ctx).type !=
+            functionBinding.type.parameterTypes[i]) {
+            throw TypeMismatchException("Argument type mismatch", expression.ctx)
+        }
+    }
+    expression.resultType = TypeProperty(functionBinding.type.returnType, Status.RVALUE)
     return expression.resultType!!
 }
 
