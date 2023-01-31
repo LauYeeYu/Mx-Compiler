@@ -189,7 +189,7 @@ class IR(private val root: AstNode) {
                                 StoreStatement(dest = variableProperty, src = result)
                             )
                         }
-                        globalVariableDecl.add(GlobalVariableDecl(variableProperty, PtrLiteral(0)))
+                        globalVariableDecl.add(GlobalVariableDecl(variableProperty, NullLiteral()))
                     }
                 }
             }
@@ -416,7 +416,7 @@ class IR(private val root: AstNode) {
         is StringLiteral -> addExpression(expr)
         is IntegerLiteral -> addExpression(expr)
         is BooleanLiteral -> addExpression(expr)
-        is NullLiteral -> ConstExpression(0, PrimitiveType(TypeProperty.PTR))
+        is ast.NullLiteral -> ConstExpression(0, PrimitiveType(TypeProperty.PTR))
         is ThisLiteral -> IrVariable(getThisPtr(function))
         is MemberVariableAccess -> addExpression(expr, function, expectedState)
         is MemberFunctionAccess -> addExpression(expr, function)

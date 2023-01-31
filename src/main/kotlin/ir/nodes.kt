@@ -66,7 +66,10 @@ class LocalVariable(
     }
 }
 
-abstract class IntLiteral(val value: Int, type: PrimitiveType) : Argument(value.toString(), type)
+abstract class IntLiteral(
+    val value: Int,
+    type: PrimitiveType
+) : Argument(if (type.type == TypeProperty.PTR) "null" else value.toString(), type)
 
 fun getLiteralNode(value: Int, type: Type): IntLiteral {
     return when (type) {
@@ -74,7 +77,7 @@ fun getLiteralNode(value: Int, type: Type): IntLiteral {
             TypeProperty.I1 -> I1Literal(value)
             TypeProperty.I8 -> I8Literal(value)
             TypeProperty.I32 -> I32Literal(value)
-            TypeProperty.PTR -> PtrLiteral(value)
+            TypeProperty.PTR -> NullLiteral()
             else -> throw InternalException("Unsupported type for literal: $type")
         }
 
@@ -101,10 +104,8 @@ class I32Literal(
 }
 
 // Actually used only for null
-class PtrLiteral(
-    value: Int
-) : IntLiteral(value, PrimitiveType(TypeProperty.PTR)) {
-    override fun toString() = "ptr $value"
+class NullLiteral : IntLiteral(0, PrimitiveType(TypeProperty.PTR)) {
+    override fun toString() = "ptr null"
 }
 
 class GlobalVariableDecl(
