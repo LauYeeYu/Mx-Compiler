@@ -317,7 +317,6 @@ class IR(private val root: AstNode) {
         val function = globalFunctions["${classNode.name}.${classNode.name}"]
             ?: throw IRBuilderException("Function ${classNode.name}.${classNode.name} not found")
         unnamedVariableCount = 1
-        if (constructor != null) addStatement(constructor.body, function)
 
         // Add variable initialization
         val classIrNode: GlobalClass = classes[classNode.name]
@@ -349,6 +348,9 @@ class IR(private val root: AstNode) {
                 }
             }
         }
+
+        // Add constructor body
+        if (constructor != null) addStatement(constructor.body, function)
         if (blocks.last().statements.lastOrNull() !is ReturnStatement) {
             blocks.last().statements.add(BranchStatement("return"))
         }
