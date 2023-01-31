@@ -36,9 +36,6 @@ class GlobalClass(
 ) {
     override fun toString() =
         "%class.${classType.name} = type { ${classType.memberList.joinToString(", ")} }"
-
-    val size: Int
-        get() = classType.size
 }
 
 sealed interface GlobalDecl

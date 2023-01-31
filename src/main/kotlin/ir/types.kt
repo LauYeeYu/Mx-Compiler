@@ -64,7 +64,4 @@ class ClassType(
     val memberList: List<PrimitiveType>,
 ) : Type() {
     override fun toString() = "%class.$name"
-
-    val size: Int
-        get() = memberList.sumOf { it.size }
 }
