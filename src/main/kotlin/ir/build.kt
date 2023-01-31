@@ -861,16 +861,9 @@ class IR(private val root: AstNode) {
                         val newString = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.PTR))
                         unnamedVariableCount++
                         loopStartBlock.statements.add(
-                            CallStatement(
-                                dest = newString,
-                                returnType = PrimitiveType(TypeProperty.VOID),
-                                function = globalFunctions["string.string"]
-                                    ?: throw InternalException("Cannot find malloc in builtin function"),
-                                arguments = listOf(I32Literal(ptrSize)),
-                            )
-                        )
-                        loopStartBlock.statements.add(
-                            StoreStatement(dest = position, src = newString)
+                            StoreStatement(
+                                newString,
+                                GlobalVariable("__empty_string", PrimitiveType(TypeProperty.PTR)))
                         )
                     }
                 }
