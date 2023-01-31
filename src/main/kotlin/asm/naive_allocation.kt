@@ -604,30 +604,34 @@ class FunctionBuilder(private val irFunction: IrFunction) {
                 }
             }
 
-            is ir.PrimitiveType -> {
+            is ir.PrimitiveType -> { // For arrays
                 if (statement.indices.size != 1) {
                     throw AsmBuilderException("GetElementPtr for primitive type now only supports 1 index")
                 }
                 val offset = statement.indices[0]
-                if (offset is ir.IntLiteral && withinImmediateRange(offset.value)) {
+                val variableSize = statement.srcType.size
+                if (offset is ir.IntLiteral &&
+                    withinImmediateRange(offset.value * variableSize)) {
                     currentBlock.instructions.add(
                         ImmCalcInstruction(
                             op = ImmCalcInstruction.ImmCalcOp.ADDI,
                             dest = Register.A0,
                             src = Register.A0,
-                            imm = ImmediateInt(offset.value * 4),
+                            imm = ImmediateInt(offset.value * variableSize),
                         )
                     )
                 } else {
                     loadDataToRegister(currentBlock, Register.A1, offset)
-                    currentBlock.instructions.add(
-                        ImmCalcInstruction(
-                            op = ImmCalcInstruction.ImmCalcOp.SLLI,
-                            dest = Register.A1,
-                            src = Register.A1,
-                            imm = ImmediateInt(2),
+                    if (variableSize == 4) {
+                        currentBlock.instructions.add(
+                            ImmCalcInstruction(
+                                op = ImmCalcInstruction.ImmCalcOp.SLLI,
+                                dest = Register.A1,
+                                src = Register.A1,
+                                imm = ImmediateInt(2),
+                            )
                         )
-                    )
+                    }
                     currentBlock.instructions.add(
                         RegCalcInstruction(
                             op = RegCalcInstruction.RegCalcOp.ADD,
