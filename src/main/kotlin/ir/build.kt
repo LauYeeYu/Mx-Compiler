@@ -1016,7 +1016,7 @@ class IR(private val root: AstNode) {
                         dest = dest,
                         op = BinaryOperator.XOR,
                         lhs = operand,
-                        rhs = I1Literal(0),
+                        rhs = I1Literal(1),
                     )
                 )
             }
