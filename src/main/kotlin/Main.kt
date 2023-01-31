@@ -14,10 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import asm.naiveAllocation
 import ast.parse
 import ast.Source
 import ast.buildAst
 import exceptions.MxException
+import ir.buildIr
 import typecheck.checkAndRecord
 import java.io.File
 import kotlin.system.exitProcess
@@ -27,7 +29,6 @@ enum class Mode {
     SYNTAX_ONLY,
     IR,
     ASM,
-    BINARY,
 }
 
 // Just for online judge
@@ -40,19 +41,41 @@ fun useSystemInAsSource() {
         if (environment.functionAlikeBindings["main"] == null) {
             throw MxException("No main function", null)
         }
+        val ir = buildIr(ast)
+        val naiveAsm = naiveAllocation(ir, "test.mx")
+        File("output.s").writeText(naiveAsm.toString())
+        // print the builtin functions
+        val builtin = ir.javaClass.classLoader.getResource("builtin.s")!!.readBytes()
+        File("builtin.s").writeBytes(builtin)
     } catch (e: MxException) {
         System.err.println(e.toString())
         exitProcess(1)
     }
 }
 
-fun processSource(source: Source, mode: Mode, outputFile: String?) {
+fun processSource(source: Source, mode: Mode, outputFile: String, emitLlvm: Boolean) {
     try {
         // Syntax check (parse, build AST, and type check)
         val program = parse(source)
         val ast = buildAst(program)
         val environment = checkAndRecord(ast)
+        if (environment.functionAlikeBindings["main"] == null) {
+            throw MxException("No main function", null)
+        }
         if (mode == Mode.SYNTAX_ONLY) return
+        val ir = buildIr(ast)
+        if (emitLlvm) {
+            File(outputFile).writeText(ir.toString())
+            // print the builtin functions
+            val builtinLlvm = ir.javaClass.classLoader.getResource("builtin.ll")!!.readText()
+            File("builtin.ll").writeText(builtinLlvm)
+            return
+        }
+        val asm = naiveAllocation(ir, source.fileName)
+        File(outputFile).writeText(asm.toString())
+        // print the builtin functions
+        val builtin = ir.javaClass.classLoader.getResource("builtin.s")!!.readBytes()
+        File("builtin.s").writeBytes(builtin)
     } catch (e: MxException) {
         System.err.println(e.toString())
         exitProcess(1)
@@ -60,11 +83,11 @@ fun processSource(source: Source, mode: Mode, outputFile: String?) {
 }
 
 fun main(args: Array<String>) {
-    var hasInput: Boolean = false
     var mode: Mode = Mode.NONE
-    val sourceList: MutableList<Source> = mutableListOf()
+    var source: Source? = null
     var outputFileName: String? = null
     var i = 1
+    var emitLlvm = false
     while (i < args.size) {
         if (args[i] == "-h" || args[i] == "--help") {
             printHelp()
@@ -79,10 +102,7 @@ fun main(args: Array<String>) {
             }
             mode = Mode.SYNTAX_ONLY
         } else if (args[i] == "-emit-llvm") {
-            if (mode != Mode.NONE) {
-                System.err.println("Multiple modes specified")
-                exitProcess(1)
-            }
+            emitLlvm = true
             mode = Mode.IR
         } else if (args[i] == "-S") {
             if (mode != Mode.NONE) {
@@ -90,12 +110,6 @@ fun main(args: Array<String>) {
                 exitProcess(1)
             }
             mode = Mode.ASM
-        } else if (args[i] == "-c") {
-            if (mode != Mode.NONE) {
-                System.err.println("Multiple modes specified")
-                exitProcess(1)
-            }
-            mode = Mode.BINARY
         } else if (args[i] == "-o") {
             if (i + 1 >= args.size) {
                 System.err.println("No output file specified")
@@ -108,19 +122,22 @@ fun main(args: Array<String>) {
             }
             outputFileName = args[i]
         } else {
-            hasInput = true
-            sourceList += Source(args[i], File(args[i]).readText())
+            if (source != null) {
+                System.err.println("Multiple input files specified")
+                exitProcess(1)
+            }
+            source = Source(args[i], File(args[i]).readText())
         }
         i++
     }
-    if (mode == Mode.NONE) mode = Mode.BINARY
-    if (!hasInput) {
-        processSource(Source("input", System.`in`.readAllBytes().decodeToString()), mode, outputFileName)
+    val outputName = outputFileName ?: if (emitLlvm) {
+        "${source?.fileName?.substringBeforeLast(".") ?: "main"}.ll"
     } else {
-        for (source in sourceList) {
-            processSource(source, mode, outputFileName)
-        }
+        "${source?.fileName?.substringBeforeLast(".") ?: "main"}.s"
     }
+    if (mode == Mode.NONE) mode = Mode.ASM
+    val mergedSource = source ?: Source("input", System.`in`.readAllBytes().decodeToString())
+    processSource(mergedSource, mode, outputName, emitLlvm)
 }
 
 fun printVersion() {
