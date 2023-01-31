@@ -784,7 +784,8 @@ class IR(private val root: AstNode) {
         )
 
         // When the variable is int or bool, we don't need to initialize the array
-        if (dimension == 1 && (type is ast.IntType || type is ast.BoolType)) {
+        if (index + 1 == arguments.size &&
+            (dimension != 1 || type is ast.IntType || type is ast.BoolType)) {
             return array
         }
         // Set the initial number of the iterator, i.e. __iterator__i = 0
@@ -871,19 +872,6 @@ class IR(private val root: AstNode) {
                         )
                     }
                 }
-            } else {
-                val newArray = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.PTR))
-                unnamedVariableCount++
-                loopStartBlock.statements.add(
-                    CallStatement(
-                        dest = newArray,
-                        returnType = PrimitiveType(TypeProperty.VOID),
-                        function = globalFunctions["__newPtrArray"]
-                            ?: throw InternalException("Function __newPtrArray not found"),
-                        arguments = listOf(arguments[index]),
-                    )
-                )
-                loopStartBlock.statements.add(StoreStatement(dest = position, src = newArray))
             }
         } else {
             val newArray = addNewExpressionLoop(blocks, arguments, iterators, dimension - 1, index + 1, type)
