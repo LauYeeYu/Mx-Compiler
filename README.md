@@ -29,10 +29,11 @@ RISC-V 32I 平臺。
 - type check (Finished)
 
 ### Code Generating
-- Convert the AST to IR (Developing)
-- Generate RISC-V assembly code (Not started)
+- Convert the AST to IR (Finished)
+- Generate RISC-V assembly code (Finished)
 
 ### Register Allocation
+*Developing*
 
 ## Implementation-Defined Behaviour 實現定義行爲
 
