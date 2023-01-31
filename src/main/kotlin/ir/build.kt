@@ -926,13 +926,15 @@ class IR(private val root: AstNode) {
         val dest = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.PTR))
         unnamedVariableCount++
         val className = type.name
+        val classInfo = classes[className]
+            ?: throw EnvironmentException("Cannot find class $className")
         blocks.last().statements.add(
             CallStatement(
                 dest = dest,
                 returnType = PrimitiveType(TypeProperty.PTR),
                 function = globalFunctions["malloc"]
                     ?: throw InternalException("Cannot find malloc in builtin function"),
-                arguments = listOf(I32Literal(ptrSize)),
+                arguments = listOf(I32Literal(classInfo.classType.memberList.size * 4)),
             )
         )
         blocks.last().statements.add(
