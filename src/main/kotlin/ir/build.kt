@@ -614,7 +614,7 @@ class IR(private val root: AstNode) {
             blocks.last().statements.add(
                 LoadStatement(
                     dest = thisPtr,
-                    src = GlobalVariable("__this", PrimitiveType(TypeProperty.PTR)),
+                    src = LocalVariable("__this", PrimitiveType(TypeProperty.PTR)),
                 )
             )
             thisPtr
