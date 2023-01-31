@@ -858,11 +858,9 @@ class IR(private val root: AstNode) {
                     }
 
                     is ast.StringType -> {
-                        val newString = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.PTR))
-                        unnamedVariableCount++
                         loopStartBlock.statements.add(
                             StoreStatement(
-                                newString,
+                                position,
                                 GlobalVariable("__empty_string", PrimitiveType(TypeProperty.PTR)))
                         )
                     }
@@ -872,11 +870,11 @@ class IR(private val root: AstNode) {
             val newArray = addNewExpressionLoop(blocks, arguments, iterators, dimension - 1, index + 1, type)
             loopStartBlock.statements.add(StoreStatement(dest = position, src = newArray))
         }
-        loopStartBlock.statements.add(BranchStatement(loopConditionLabel))
 
         // Add the loop increment
         val incrementLabel = "new_increment_${blocks.size}"
         val endBlockLabel = "new_end_${blocks.size + 1}"
+        loopStartBlock.statements.add(BranchStatement(incrementLabel))
         loopConditionBlock.statements.add(
             BranchStatement(
                 condition = compareResult,
