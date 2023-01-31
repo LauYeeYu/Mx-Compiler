@@ -318,6 +318,17 @@ val ir.BinaryOperator.asmImmOp: ImmCalcInstruction.ImmCalcOp
         else -> throw AsmBuilderException("Invalid operator for immediate operation")
     }
 
+fun ir.IntLiteral.toAsmImm(op: ir.BinaryOperator): ImmediateInt = when (op) {
+        ir.BinaryOperator.ADD -> ImmediateInt(value)
+        ir.BinaryOperator.SUB -> ImmediateInt(-value)
+        ir.BinaryOperator.SHL -> ImmediateInt(value)
+        ir.BinaryOperator.ASHR -> ImmediateInt(value)
+        ir.BinaryOperator.AND -> ImmediateInt(value)
+        ir.BinaryOperator.OR -> ImmediateInt(value)
+        ir.BinaryOperator.XOR -> ImmediateInt(value)
+        else -> throw AsmBuilderException("Invalid operator for immediate operation")
+    }
+
 enum class RegStatus {
     FREE, // Nothing is stored in this register, or the data is stored in memory
     OCCUPIED, // Something is stored in this register, but not in the memory

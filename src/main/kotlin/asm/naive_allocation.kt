@@ -452,7 +452,7 @@ class FunctionBuilder(private val irFunction: IrFunction) {
                     op = statement.op.asmImmOp,
                     dest = Register.A0,
                     src = Register.A0,
-                    imm = ImmediateInt(statement.rhs.value),
+                    imm = statement.rhs.toAsmImm(statement.op),
                 )
             )
         } else {
