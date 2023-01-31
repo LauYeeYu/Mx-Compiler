@@ -297,6 +297,7 @@ class IR(private val root: AstNode) {
             if (node is ast.Function) {
                 val function = globalFunctions["${astNode.name}.${node.name}"]
                     ?: throw IRBuilderException("Function ${astNode.name}.${node.name} not found")
+                unnamedVariableCount = 1
                 addStatement(node.body, function)
                 val blocks = function.body ?: throw IRBuilderException("Function has no body")
                 if (function.returnType.type == TypeProperty.VOID) {
@@ -315,6 +316,7 @@ class IR(private val root: AstNode) {
     private fun buildClassConstructor(classNode: ast.Class, constructor: ast.Constructor?) {
         val function = globalFunctions["${classNode.name}.${classNode.name}"]
             ?: throw IRBuilderException("Function ${classNode.name}.${classNode.name} not found")
+        unnamedVariableCount = 1
         if (constructor != null) addStatement(constructor.body, function)
 
         // Add variable initialization
@@ -341,7 +343,7 @@ class IR(private val root: AstNode) {
                     blocks.last().statements.add(ptrStatement)
                     blocks.last().statements.add(StoreStatement(dest = ptr, src = I32Literal(0)))
                 } else if (node.type is ast.StringType) {
-                    val emptyString = GlobalVariable("__emptyString", PrimitiveType(TypeProperty.PTR))
+                    val emptyString = GlobalVariable("__empty_string", PrimitiveType(TypeProperty.PTR))
                     blocks.last().statements.add(ptrStatement)
                     blocks.last().statements.add(StoreStatement(dest = ptr, src = emptyString))
                 }
