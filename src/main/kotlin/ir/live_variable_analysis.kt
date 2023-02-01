@@ -16,28 +16,31 @@
 
 package ir
 
-class LiveVariableAnalysis(val function: GlobalFunction) {
-    private val blockMap = function.blockMap
-    init {
-        blockMap.forEach { it.value.setSuccessor(blockMap) }
+fun liveVariableAnalysis(function: GlobalFunction) {
+    val blockMap = function.blockMap
+    // Set successor
+    blockMap.values.forEach { block ->
+        block.statements.forEach { statement ->
+            statement.successor.clear()
+        }
     }
+    blockMap.forEach { it.value.setSuccessor(blockMap) }
 
-    fun analyze() {
-        var changed = true
-        while (changed) {
-            changed = false
-            blockMap.values.reversed().forEach { block ->
-                block.statements.reversed().forEach { statement ->
-                    val oldInSize = statement.liveIn.size
-                    val oldOutSize = statement.liveOut.size
-                    statement.liveIn.addAll(statement.use)
-                    statement.liveIn.addAll(statement.liveOut - statement.def)
-                    statement.successor.forEach { successor ->
-                        statement.liveOut.addAll(successor.liveIn)
-                    }
-                    if (oldInSize != statement.liveIn.size || oldOutSize != statement.liveOut.size) {
-                        changed = true
-                    }
+    // Set active in and active out
+    var changed = true
+    while (changed) {
+        changed = false
+        blockMap.values.reversed().forEach { block ->
+            block.statements.reversed().forEach { statement ->
+                val oldInSize = statement.liveIn.size
+                val oldOutSize = statement.liveOut.size
+                statement.liveIn.addAll(statement.use)
+                statement.liveIn.addAll(statement.liveOut - statement.def)
+                statement.successor.forEach { successor ->
+                    statement.liveOut.addAll(successor.liveIn)
+                }
+                if (oldInSize != statement.liveIn.size || oldOutSize != statement.liveOut.size) {
+                    changed = true
                 }
             }
         }
