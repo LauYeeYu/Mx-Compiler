@@ -1,0 +1,49 @@
+int loop() {
+    int [] a = new int [10000];
+    int i, j, k, l;
+    for (i = 0; i < 10; i++) {
+        for (j = 0; j < 10; j++) {
+            for (k = 0; k < 10; k++) {
+                for (l = 0; l < 10; l++) {
+                    a[i * 1000 + j * 100 + k * 10 + l] = i + l;
+                    a[i * 10 + j * 5] = a[i * 10 + j * 5];
+                }
+            }
+        }
+    }
+    int sum = 0;
+    for (i = 0; i < 10; i++) {
+        for (j = 0; j < 10; j++) {
+            for (k = 0; k < 10; k++) {
+                for (l = 0; l < 10; l++) {
+                    if ((l & 1) == 1) {
+                        sum = sum + a[i * 1000 + j * 100 + k * 10 + l];
+                    } else {
+                        sum = sum - a[i * 1000 + j * 100 + k * 10 + l];
+                    }
+                }
+            }
+        }
+    }
+    return sum;
+}
+
+
+
+int compute(int num){
+    int index = 0;
+    int sum = 0;
+    while(index<=num){
+        int a = loop();
+        if(a > 5000) a = a - 5000;
+        sum = sum + a;
+        if(sum > 5000) sum = sum - 5000;
+        index = index + 1;
+
+    }
+    return sum;
+}
+
+int main(){
+    printInt(compute(20));
+}

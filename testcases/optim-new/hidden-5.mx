@@ -1,0 +1,37 @@
+int foo_compute(int width, int length){
+    int a = 0;
+    int b = 0;
+    int c = 0;
+    int d = 0;
+    int e = 0;
+    int sum = 0;
+    int mul = 0;
+    int i = 0;
+    int j = 0;
+    for(i = 0; i < width; ++i){
+        for(j = 0; j < length; ++j){
+            a = i;
+            b = j;
+            c = a + b;
+            d = b - a;
+            e = c * d;
+            sum = sum + e - d + c - b + a - i + j;
+            for(int k = 0; k < sum; ++k){
+                mul = mul * k ;
+                if(mul > 10000){
+                    mul = mul - 10000;
+                }
+            }
+        }
+    }
+    return -(mul + sum);
+}
+
+int main(){
+    int max_turn = 90;
+    int turn = 0;
+    for( turn = 0; turn < max_turn; ++turn){
+        printInt(foo_compute(turn + 50, turn - 50));
+    }
+}
+
