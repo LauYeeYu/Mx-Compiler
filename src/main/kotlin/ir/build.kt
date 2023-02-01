@@ -23,6 +23,10 @@ import typecheck.*
 fun buildIr(astNode: AstNode): Root = IR(astNode).buildRoot()
 
 val emptyString: StringLiteralDecl = StringLiteralDecl("__empty_string", "")
+val voidType = PrimitiveType(TypeProperty.VOID)
+val ptrType = PrimitiveType(TypeProperty.PTR)
+val i32Type = PrimitiveType(TypeProperty.I32)
+val i1Type = PrimitiveType(TypeProperty.I1)
 
 class IR(private val root: AstNode) {
     private var unnamedVariableCount = 1
@@ -46,7 +50,7 @@ class IR(private val root: AstNode) {
         val classList = root.content.filterIsInstance<ast.Class>().map { registerClass(it) }
         val globalInit = GlobalFunction(
             name = "__global_init",
-            returnType = PrimitiveType(TypeProperty.VOID),
+            returnType = voidType,
             parameters = listOf(),
             variables = mutableListOf(),
             body = mutableListOf(Block("0", mutableListOf())),
@@ -73,7 +77,6 @@ class IR(private val root: AstNode) {
         parameters: List<Binding>,
         isMember: Boolean = false,
     ) {
-        val ptrType = PrimitiveType(TypeProperty.PTR)
         val functionParameter = parameters.map { astParameter ->
             FunctionParameter(irType(astParameter.type), "${astParameter.irInfo}.param")
         }
@@ -136,8 +139,8 @@ class IR(private val root: AstNode) {
                         null ->
                             globalVariableDecl.add(
                                 GlobalVariableDecl(
-                                    GlobalVariable(name, PrimitiveType(TypeProperty.PTR)),
-                                    GlobalVariable("__empty_string", PrimitiveType(TypeProperty.PTR)),
+                                    GlobalVariable(name, ptrType),
+                                    GlobalVariable("__empty_string", ptrType),
                                 )
                             )
 
@@ -145,8 +148,8 @@ class IR(private val root: AstNode) {
                             globalVariableDecl.add(StringLiteralDecl("$name.str", variable.body.value))
                             globalVariableDecl.add(
                                 GlobalVariableDecl(
-                                    GlobalVariable(name, PrimitiveType(TypeProperty.PTR)),
-                                    GlobalVariable("$name.str", PrimitiveType(TypeProperty.PTR)),
+                                    GlobalVariable(name, ptrType),
+                                    GlobalVariable("$name.str", ptrType),
                                 )
                             )
                         }
@@ -159,13 +162,13 @@ class IR(private val root: AstNode) {
                             ).toArgument()
                             globalVariableDecl.add(
                                 GlobalVariableDecl(
-                                    GlobalVariable(name, PrimitiveType(TypeProperty.PTR)),
-                                    GlobalVariable("__empty_string", PrimitiveType(TypeProperty.PTR)),
+                                    GlobalVariable(name, ptrType),
+                                    GlobalVariable("__empty_string", ptrType),
                                 )
                             )
                             globalInitBlocks.last().statements.add(
                                 StoreStatement(
-                                    GlobalVariable(name, PrimitiveType(TypeProperty.PTR)),
+                                    GlobalVariable(name, ptrType),
                                     result,
                                 )
                             )
@@ -174,7 +177,7 @@ class IR(private val root: AstNode) {
                 }
 
                 is ast.ArrayType, is ast.ClassType -> {
-                    val type = PrimitiveType(TypeProperty.PTR)
+                    val type = ptrType
                     element.variables.forEach { variable ->
                         val binding = variable.binding ?: throw IRBuilderException("Variable has no binding")
                         val name = binding.irInfo.toString()
@@ -223,7 +226,7 @@ class IR(private val root: AstNode) {
         }
         registerFunction(
             name = "${astNode.name}.${astNode.name}",
-            returnIrType = PrimitiveType(TypeProperty.VOID),
+            returnIrType = voidType,
             parameters = listOf(),
             isMember = true,
         )
@@ -231,23 +234,23 @@ class IR(private val root: AstNode) {
     }
 
     private fun irType(astType: ast.Type): PrimitiveType = when (astType) {
-        is ast.VoidType -> PrimitiveType(TypeProperty.VOID)
-        is ast.BoolType -> PrimitiveType(TypeProperty.I1)
-        is ast.IntType -> PrimitiveType(TypeProperty.I32)
-        is ast.StringType -> PrimitiveType(TypeProperty.PTR)
-        is ast.ArrayType -> PrimitiveType(TypeProperty.PTR)
-        is ast.ClassType -> PrimitiveType(TypeProperty.PTR)
+        is ast.VoidType -> voidType
+        is ast.BoolType -> i1Type
+        is ast.IntType -> i32Type
+        is ast.StringType -> ptrType
+        is ast.ArrayType -> ptrType
+        is ast.ClassType -> ptrType
         else -> throw IRBuilderException("Unknown type in irType")
     }
 
     private fun irType(internalType: MxType): PrimitiveType = when (internalType) {
-        is MxVoidType -> PrimitiveType(TypeProperty.VOID)
-        is MxBoolType -> PrimitiveType(TypeProperty.I1)
-        is MxIntType -> PrimitiveType(TypeProperty.I32)
-        is MxStringType -> PrimitiveType(TypeProperty.PTR)
-        is MxNullType -> PrimitiveType(TypeProperty.PTR)
-        is MxArrayType -> PrimitiveType(TypeProperty.PTR)
-        is MxClassType -> PrimitiveType(TypeProperty.PTR)
+        is MxVoidType -> voidType
+        is MxBoolType -> i1Type
+        is MxIntType -> i32Type
+        is MxStringType -> ptrType
+        is MxNullType -> ptrType
+        is MxArrayType -> ptrType
+        is MxClassType -> ptrType
         else -> throw IRBuilderException("Unknown type in irType")
     }
 
@@ -263,7 +266,7 @@ class IR(private val root: AstNode) {
             blocks.last().statements.add(
                 CallStatement(
                     dest = null,
-                    returnType = PrimitiveType(TypeProperty.VOID),
+                    returnType = voidType,
                     function = globalFunctions["__global_init"]
                         ?: throw IRBuilderException("Function __global_init not found"),
                     arguments = listOf(),
@@ -325,7 +328,7 @@ class IR(private val root: AstNode) {
         val thisPtr = getThisPtr(function)
         classNode.body.filterIsInstance<ast.VariablesDeclaration>().forEach { node ->
             node.variables.forEach { variable ->
-                val ptr = LocalVariable("__${variable.name}.ptr", PrimitiveType(TypeProperty.PTR))
+                val ptr = LocalVariable("__${variable.name}.ptr", ptrType)
                 val index = classIrNode.nameMap[variable.name]
                     ?: throw IRBuilderException("Member ${variable.name} not found")
                 val ptrStatement = GetElementPtrStatement(
@@ -342,7 +345,7 @@ class IR(private val root: AstNode) {
                     blocks.last().statements.add(ptrStatement)
                     blocks.last().statements.add(StoreStatement(dest = ptr, src = I32Literal(0)))
                 } else if (node.type is ast.StringType) {
-                    val emptyString = GlobalVariable("__empty_string", PrimitiveType(TypeProperty.PTR))
+                    val emptyString = GlobalVariable("__empty_string", ptrType)
                     blocks.last().statements.add(ptrStatement)
                     blocks.last().statements.add(StoreStatement(dest = ptr, src = emptyString))
                 }
@@ -418,7 +421,7 @@ class IR(private val root: AstNode) {
         is StringLiteral -> addExpression(expr)
         is IntegerLiteral -> addExpression(expr)
         is BooleanLiteral -> addExpression(expr)
-        is ast.NullLiteral -> ConstExpression(0, PrimitiveType(TypeProperty.PTR))
+        is ast.NullLiteral -> ConstExpression(0, ptrType)
         is ThisLiteral -> IrVariable(getThisPtr(function))
         is MemberVariableAccess -> addExpression(expr, function, expectedState)
         is MemberFunctionAccess -> addExpression(expr, function)
@@ -441,10 +444,9 @@ class IR(private val root: AstNode) {
 
     private fun getThisPtr(function: GlobalFunction): LocalVariable {
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
-        val thisPtr = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.PTR))
-        unnamedVariableCount++
+        val thisPtr = LocalVariable("__this.val.${unnamedVariableCount++}", ptrType)
         blocks.last().statements.add(
-            LoadStatement(dest = thisPtr, src = LocalVariable("__this", PrimitiveType(TypeProperty.PTR)))
+            LoadStatement(dest = thisPtr, src = LocalVariable("__this", ptrType))
         )
         return thisPtr
     }
@@ -458,15 +460,13 @@ class IR(private val root: AstNode) {
         val type = irType(binding.type)
         if (binding.fromClass == null) {
             val srcVariable: Variable = when (binding.irInfo.isLocal) {
-                true -> LocalVariable(binding.irInfo.toString(), PrimitiveType(TypeProperty.PTR))
-                false -> GlobalVariable(binding.irInfo.toString(), PrimitiveType(TypeProperty.PTR))
+                true -> LocalVariable(binding.irInfo.toString(), ptrType)
+                false -> GlobalVariable(binding.irInfo.toString(), ptrType)
             }
             return when (expectedState) {
                 ExpectedState.PTR -> IrVariable(srcVariable)
                 ExpectedState.VALUE -> {
-                    val destName = unnamedVariableCount
-                    unnamedVariableCount++
-                    val dest = LocalVariable(destName.toString(), type)
+                    val dest = LocalVariable("${binding.irInfo}.val.${unnamedVariableCount++}", type)
                     val blocks = function.body ?: throw IRBuilderException("Function has no body")
                     blocks.last().statements.add(LoadStatement(dest = dest, src = srcVariable))
                     IrVariable(dest)
@@ -478,8 +478,10 @@ class IR(private val root: AstNode) {
             val index = srcClass.nameMap[expr.name]
                 ?: throw IRBuilderException("Cannot find the index of the member")
             val thisPtr = getThisPtr(function)
-            val ptr = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.PTR))
-            unnamedVariableCount++
+            val ptr = LocalVariable(
+                "${srcClass.classType.name}.${expr.name}.ptr.${unnamedVariableCount++}",
+                ptrType,
+            )
             val blocks = function.body ?: throw IRBuilderException("Function has no body")
             blocks.last().statements.add(
                 GetElementPtrStatement(
@@ -492,9 +494,10 @@ class IR(private val root: AstNode) {
             return when (expectedState) {
                 ExpectedState.PTR -> IrVariable(ptr)
                 ExpectedState.VALUE -> {
-                    val destName = unnamedVariableCount
-                    unnamedVariableCount++
-                    val dest = LocalVariable(destName.toString(), type)
+                    val dest = LocalVariable(
+                        "${srcClass.classType.name}.${expr.name}.val.${unnamedVariableCount++}",
+                        type,
+                    )
                     blocks.last().statements.add(LoadStatement(dest = dest, src = ptr))
                     IrVariable(dest)
                 }
@@ -511,12 +514,12 @@ class IR(private val root: AstNode) {
     }
 
     private fun addExpression(expr: IntegerLiteral): ExpressionResult =
-        ConstExpression(expr.value, PrimitiveType(TypeProperty.I32))
+        ConstExpression(expr.value, i32Type)
 
     private fun addExpression(expr: BooleanLiteral): ExpressionResult =
         when (expr.value) {
-            true -> ConstExpression(1, PrimitiveType(TypeProperty.I1))
-            false -> ConstExpression(0, PrimitiveType(TypeProperty.I1))
+            true -> ConstExpression(1, i1Type)
+            false -> ConstExpression(0, i1Type)
         }
 
     private fun addExpression(
@@ -537,9 +540,10 @@ class IR(private val root: AstNode) {
             ?: throw InternalException("The class has no such member")
         val source = addExpression(expr.objectName, function, ExpectedState.VALUE).toArgument() as? Variable
             ?: throw InternalException("The source is not a variable")
-        val ptrDestName = unnamedVariableCount
-        val ptrDest = LocalVariable(ptrDestName.toString(), PrimitiveType(TypeProperty.PTR))
-        unnamedVariableCount++
+        val ptrDest = LocalVariable(
+            "${classType.name}.${expr.variableName}.ptr.${unnamedVariableCount++}",
+            ptrType,
+        )
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         blocks.last().statements.add(
             GetElementPtrStatement(
@@ -552,9 +556,10 @@ class IR(private val root: AstNode) {
         return when (expectedState) {
             ExpectedState.PTR -> IrVariable(ptrDest)
             ExpectedState.VALUE -> {
-                val valDestName = unnamedVariableCount
-                unnamedVariableCount++
-                val valDest = LocalVariable(valDestName.toString(), type)
+                val valDest = LocalVariable(
+                    "${classType.name}.${expr.variableName}.val.${unnamedVariableCount++}",
+                    type,
+                )
                 blocks.last().statements.add(LoadStatement(dest = valDest, src = ptrDest))
                 IrVariable(valDest)
             }
@@ -585,9 +590,10 @@ class IR(private val root: AstNode) {
             blocks.last().statements.add(CallStatement(null, type, calledFunction, arguments))
             VoidResult()
         } else {
-            val destName = unnamedVariableCount
-            unnamedVariableCount++
-            val dest = LocalVariable(destName.toString(), type)
+            val dest = LocalVariable(
+                "${classType.name}.${expr.functionName}.ret.${unnamedVariableCount++}",
+                type,
+            )
             blocks.last().statements.add(CallStatement(dest, type, calledFunction, arguments))
             IrVariable(dest)
         }
@@ -611,12 +617,11 @@ class IR(private val root: AstNode) {
         }
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         val thisPointer = if (fromClass != null) {
-            val thisPtr = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.PTR))
-            unnamedVariableCount++
+            val thisPtr = LocalVariable("__this.val.${unnamedVariableCount++}", ptrType)
             blocks.last().statements.add(
                 LoadStatement(
                     dest = thisPtr,
-                    src = LocalVariable("__this", PrimitiveType(TypeProperty.PTR)),
+                    src = LocalVariable("__this", ptrType),
                 )
             )
             thisPtr
@@ -636,9 +641,7 @@ class IR(private val root: AstNode) {
             blocks.last().statements.add(CallStatement(null, type, calledFunction, arguments))
             VoidResult()
         } else {
-            val destName = unnamedVariableCount
-            unnamedVariableCount++
-            val dest = LocalVariable(destName.toString(), type)
+            val dest = LocalVariable("${calledFunction.name}.ret.${unnamedVariableCount++}", type)
             blocks.last().statements.add(CallStatement(dest, type, calledFunction, arguments))
             IrVariable(dest)
         }
@@ -656,9 +659,7 @@ class IR(private val root: AstNode) {
         val array = addExpression(expr.array, function, ExpectedState.VALUE).toArgument() as? Variable
             ?: throw InternalException("The array is not a variable")
         val index = addExpression(expr.index, function, ExpectedState.VALUE).toArgument()
-        val ptrDestName = unnamedVariableCount
-        val ptrDest = LocalVariable(ptrDestName.toString(), PrimitiveType(TypeProperty.PTR))
-        unnamedVariableCount++
+        val ptrDest = LocalVariable("__ptr.${unnamedVariableCount++}", ptrType)
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         // add the ptr to the target
         blocks.last().statements.add(
@@ -672,9 +673,7 @@ class IR(private val root: AstNode) {
         return when (expectedState) {
             ExpectedState.PTR -> IrVariable(ptrDest)
             ExpectedState.VALUE -> {
-                val valueDestName = unnamedVariableCount
-                unnamedVariableCount++
-                val valueDest = LocalVariable(valueDestName.toString(), type)
+                val valueDest = LocalVariable("__val.${unnamedVariableCount++}", type)
                 blocks.last().statements.add(
                     LoadStatement(dest = valueDest, src = ptrDest)
                 )
@@ -700,12 +699,10 @@ class IR(private val root: AstNode) {
             UpdateOperator.DECREMENT -> I32Literal(-1)
         }
         // load the value
-        val value = LocalVariable(unnamedVariableCount.toString(), type)
-        unnamedVariableCount++
+        val value = LocalVariable("__update.old.${unnamedVariableCount++}", type)
         blocks.last().statements.add(LoadStatement(dest = value, src = operand))
         // update the value
-        val addDest = LocalVariable(unnamedVariableCount.toString(), type)
-        unnamedVariableCount++
+        val addDest = LocalVariable("__update.new.${unnamedVariableCount++}", type)
         blocks.last().statements.add(
             BinaryOperationStatement(dest = addDest, op = BinaryOperator.ADD, lhs = value, rhs = rhs)
         )
@@ -745,10 +742,10 @@ class IR(private val root: AstNode) {
                 expr.arguments.size
             }
         for (i in 0 until size) {
-            iterators.add(LocalVariable("__iterator_$unnamedIterator", PrimitiveType(TypeProperty.PTR)))
+            iterators.add(LocalVariable("__iterator_$unnamedIterator", ptrType))
             unnamedIterator++
         }
-        function.variables?.addAll(iterators.map { LocalVariableDecl(it, PrimitiveType(TypeProperty.I32)) })
+        function.variables?.addAll(iterators.map { LocalVariableDecl(it, i32Type) })
             ?: throw InternalException("Function has no variable list")
         val array = addNewExpressionLoop(blocks, arguments, iterators, expr.dimension, 0, expr.type)
         return IrVariable(array)
@@ -762,12 +759,11 @@ class IR(private val root: AstNode) {
         index: Int,
         type: ast.Type,
     ): LocalVariable {
-        val array = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.PTR))
-        unnamedVariableCount++
+        val array = LocalVariable("__array.${unnamedVariableCount++}", ptrType)
         blocks.last().statements.add(
             CallStatement(
                 dest = array,
-                returnType = PrimitiveType(TypeProperty.PTR),
+                returnType = ptrType,
                 function = if (dimension == 1) {
                     when (type) {
                         is ast.IntType -> globalFunctions["__newIntArray"]
@@ -811,10 +807,14 @@ class IR(private val root: AstNode) {
         )
 
         // Add the loop condition
-        val iteratorValue = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.I32))
-        unnamedVariableCount++
-        val compareResult = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.I1))
-        unnamedVariableCount++
+        val iteratorValue = LocalVariable(
+            "__iter.val.${unnamedVariableCount++}",
+            i32Type,
+        )
+        val compareResult = LocalVariable(
+            "__iter.comp.${unnamedVariableCount++}",
+            i1Type,
+        )
         blocks.add(
             Block(
                 loopConditionLabel,
@@ -833,8 +833,7 @@ class IR(private val root: AstNode) {
         val loopConditionBlock = blocks.last()
 
         // Add the loop body
-        val position = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.PTR))
-        unnamedVariableCount++
+        val position = LocalVariable("__new.ptr.${unnamedVariableCount++}", ptrType)
         blocks.add(
             Block(
                 loopStartLabel,
@@ -842,7 +841,7 @@ class IR(private val root: AstNode) {
                     GetElementPtrStatement(
                         dest = position,
                         src = array,
-                        srcType = PrimitiveType(TypeProperty.PTR),
+                        srcType = ptrType,
                         indices = listOf(iteratorValue),
                     )
                 )
@@ -863,7 +862,7 @@ class IR(private val root: AstNode) {
                         loopStartBlock.statements.add(
                             StoreStatement(
                                 position,
-                                GlobalVariable("__empty_string", PrimitiveType(TypeProperty.PTR)))
+                                GlobalVariable("__empty_string", ptrType))
                         )
                     }
                 }
@@ -884,10 +883,8 @@ class IR(private val root: AstNode) {
                 falseBlockLabel = endBlockLabel,
             )
         )
-        val iteratorOld = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.I32))
-        unnamedVariableCount++
-        val iteratorNew = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.I32))
-        unnamedVariableCount++
+        val iteratorOld = LocalVariable("__iter.old.${unnamedVariableCount++}", i32Type)
+        val iteratorNew = LocalVariable("__iter.new.${unnamedVariableCount++}", i32Type)
         blocks.add(
             Block(
                 incrementLabel,
@@ -916,15 +913,14 @@ class IR(private val root: AstNode) {
         blocks: MutableList<Block>,
         type: ast.ClassType,
     ): LocalVariable {
-        val dest = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.PTR))
-        unnamedVariableCount++
+        val dest = LocalVariable("class.ptr.${unnamedVariableCount++}", ptrType)
         val className = type.name
         val classInfo = classes[className]
             ?: throw EnvironmentException("Cannot find class $className")
         blocks.last().statements.add(
             CallStatement(
                 dest = dest,
-                returnType = PrimitiveType(TypeProperty.PTR),
+                returnType = ptrType,
                 function = globalFunctions["malloc"]
                     ?: throw InternalException("Cannot find malloc in builtin function"),
                 arguments = listOf(I32Literal(classInfo.classType.memberList.size * 4)),
@@ -933,7 +929,7 @@ class IR(private val root: AstNode) {
         blocks.last().statements.add(
             CallStatement(
                 dest = null,
-                returnType = PrimitiveType(TypeProperty.VOID),
+                returnType = voidType,
                 function = globalFunctions["$className.$className"]
                     ?: throw InternalException("Cannot find constructor"),
                 arguments = listOf(dest),
@@ -954,23 +950,21 @@ class IR(private val root: AstNode) {
         if (operand is IntLiteral) {
             return when (expr.operator) {
                 UnaryOperator.NEGATIVE ->
-                    ConstExpression(-operand.value, PrimitiveType(TypeProperty.I32))
+                    ConstExpression(-operand.value, i32Type)
 
                 UnaryOperator.POSITIVE ->
-                    ConstExpression(operand.value, PrimitiveType(TypeProperty.I32))
+                    ConstExpression(operand.value, i32Type)
 
                 UnaryOperator.BITWISE_NOT ->
-                    ConstExpression(operand.value.inv(), PrimitiveType(TypeProperty.I32))
+                    ConstExpression(operand.value.inv(), i32Type)
 
                 UnaryOperator.LOGICAL_NOT ->
-                    ConstExpression(if (operand.value == 0) 1 else 0, PrimitiveType(TypeProperty.I1))
+                    ConstExpression(if (operand.value == 0) 1 else 0, i1Type)
             }
         }
         if (expr.operator == UnaryOperator.POSITIVE) return IrVariable(operand as Variable)
 
-        val destName = unnamedVariableCount
-        val dest = LocalVariable(destName.toString(), type)
-        unnamedVariableCount++
+        val dest = LocalVariable("__unary.${unnamedVariableCount++}", type)
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         when (expr.operator) {
             UnaryOperator.NEGATIVE -> {
@@ -1097,10 +1091,9 @@ class IR(private val root: AstNode) {
                         )
 
                         val dest = LocalVariable(
-                            unnamedVariableCount.toString(),
-                            PrimitiveType(TypeProperty.I1)
+                            "__logical.${unnamedVariableCount++}",
+                            i1Type,
                         )
-                        unnamedVariableCount++
                         blocks.add(
                             Block(
                                 label = rhsNext,
@@ -1130,10 +1123,10 @@ class IR(private val root: AstNode) {
                     is IntLiteral -> {
                         return if (operator == ast.BinaryOperator.LOGICAL_AND && rhsResult.value == 0) {
                             blocks.removeAt(blocks.lastIndex)
-                            ConstExpression(0, PrimitiveType(TypeProperty.I1))
+                            ConstExpression(0, i1Type)
                         } else if (operator == ast.BinaryOperator.LOGICAL_OR && rhsResult.value == 1) {
                             blocks.removeAt(blocks.lastIndex)
-                            ConstExpression(1, PrimitiveType(TypeProperty.I1))
+                            ConstExpression(1, i1Type)
                         } else {
                             blocks.removeAt(blocks.lastIndex)
                             IrVariable(lhsResult)
@@ -1147,9 +1140,9 @@ class IR(private val root: AstNode) {
 
             is IntLiteral -> {
                 return if (operator == ast.BinaryOperator.LOGICAL_AND && lhsResult.value == 0) {
-                    ConstExpression(0, PrimitiveType(TypeProperty.I1))
+                    ConstExpression(0, i1Type)
                 } else if (operator == ast.BinaryOperator.LOGICAL_OR && lhsResult.value == 1) {
-                    ConstExpression(1, PrimitiveType(TypeProperty.I1))
+                    ConstExpression(1, i1Type)
                 } else {
                     addExpression(rhs, function, ExpectedState.VALUE)
                 }
@@ -1177,13 +1170,13 @@ class IR(private val root: AstNode) {
                         ast.BinaryOperator.EQUAL ->
                             ConstExpression(
                                 if (lhsResult.value == rhsResult.value) 1 else 0,
-                                PrimitiveType(TypeProperty.I1)
+                                i1Type
                             )
 
                         ast.BinaryOperator.NOT_EQUAL ->
                             ConstExpression(
                                 if (lhsResult.value != rhsResult.value) 1 else 0,
-                                PrimitiveType(TypeProperty.I1)
+                                i1Type
                             )
 
                         else -> throw InternalException("Unexpected binary operator")
@@ -1203,8 +1196,7 @@ class IR(private val root: AstNode) {
         operator: ast.BinaryOperator,
         function: GlobalFunction,
     ): ExpressionResult {
-        val dest = LocalVariable(unnamedVariableCount.toString(), PrimitiveType(TypeProperty.I1))
-        unnamedVariableCount++
+        val dest = LocalVariable("__comp.${unnamedVariableCount++}", i1Type)
         val irOperator = when (operator) {
             ast.BinaryOperator.LESS_THAN -> IntCmpOperator.SLT
             ast.BinaryOperator.LESS_THAN_OR_EQUAL -> IntCmpOperator.SLE
@@ -1229,21 +1221,20 @@ class IR(private val root: AstNode) {
             throw EnvironmentException("The AST node in addExpression has no result type")
         }
         val destType = when (operator) {
-            ast.BinaryOperator.ADD -> PrimitiveType(TypeProperty.PTR)
+            ast.BinaryOperator.ADD -> ptrType
             ast.BinaryOperator.LESS_THAN, ast.BinaryOperator.LESS_THAN_OR_EQUAL,
             ast.BinaryOperator.GREATER_THAN, ast.BinaryOperator.GREATER_THAN_OR_EQUAL,
-            ast.BinaryOperator.EQUAL, ast.BinaryOperator.NOT_EQUAL -> PrimitiveType(TypeProperty.I1)
+            ast.BinaryOperator.EQUAL, ast.BinaryOperator.NOT_EQUAL -> i1Type
 
             else -> throw InternalException("The AST node in addExpression has an unsupported type")
         }
         val lhsArg = addExpression(lhs, function, ExpectedState.VALUE).toArgument()
         val rhsArg = addExpression(rhs, function, ExpectedState.VALUE).toArgument()
-        val dest = LocalVariable(unnamedVariableCount.toString(), destType)
-        unnamedVariableCount++
+        val dest = LocalVariable("__binary.${unnamedVariableCount++}", destType)
         val statement = when (operator) {
             ast.BinaryOperator.ADD -> CallStatement(
                 dest = dest,
-                returnType = PrimitiveType(TypeProperty.PTR),
+                returnType = ptrType,
                 function = builtInFunctionMap["string.add"]
                     ?: throw InternalException("The built-in function string.add is not found"),
                 arguments = listOf(lhsArg, rhsArg),
@@ -1251,7 +1242,7 @@ class IR(private val root: AstNode) {
 
             ast.BinaryOperator.LESS_THAN -> CallStatement(
                 dest = dest,
-                returnType = PrimitiveType(TypeProperty.I1),
+                returnType = i1Type,
                 function = builtInFunctionMap["string.less"]
                     ?: throw InternalException("The built-in function string.lessThan is not found"),
                 arguments = listOf(lhsArg, rhsArg),
@@ -1259,7 +1250,7 @@ class IR(private val root: AstNode) {
 
             ast.BinaryOperator.LESS_THAN_OR_EQUAL -> CallStatement(
                 dest = dest,
-                returnType = PrimitiveType(TypeProperty.I1),
+                returnType = i1Type,
                 function = builtInFunctionMap["string.lessOrEqual"]
                     ?: throw InternalException("The built-in function string.lessThanOrEqual is not found"),
                 arguments = listOf(lhsArg, rhsArg),
@@ -1267,7 +1258,7 @@ class IR(private val root: AstNode) {
 
             ast.BinaryOperator.GREATER_THAN -> CallStatement(
                 dest = dest,
-                returnType = PrimitiveType(TypeProperty.I1),
+                returnType = i1Type,
                 function = builtInFunctionMap["string.greater"]
                     ?: throw InternalException("The built-in function string.greaterThan is not found"),
                 arguments = listOf(lhsArg, rhsArg),
@@ -1275,7 +1266,7 @@ class IR(private val root: AstNode) {
 
             ast.BinaryOperator.GREATER_THAN_OR_EQUAL -> CallStatement(
                 dest = dest,
-                returnType = PrimitiveType(TypeProperty.I1),
+                returnType = i1Type,
                 function = builtInFunctionMap["string.greaterOrEqual"]
                     ?: throw InternalException("The built-in function string.greaterThanOrEqual is not found"),
                 arguments = listOf(lhsArg, rhsArg),
@@ -1283,7 +1274,7 @@ class IR(private val root: AstNode) {
 
             ast.BinaryOperator.EQUAL -> CallStatement(
                 dest = dest,
-                returnType = PrimitiveType(TypeProperty.I1),
+                returnType = i1Type,
                 function = builtInFunctionMap["string.equal"]
                     ?: throw InternalException("The built-in function string.equal is not found"),
                 arguments = listOf(lhsArg, rhsArg),
@@ -1291,7 +1282,7 @@ class IR(private val root: AstNode) {
 
             ast.BinaryOperator.NOT_EQUAL -> CallStatement(
                 dest = dest,
-                returnType = PrimitiveType(TypeProperty.I1),
+                returnType = i1Type,
                 function = builtInFunctionMap["string.notEqual"]
                     ?: throw InternalException("The built-in function string.notEqual is not found"),
                 arguments = listOf(lhsArg, rhsArg),
@@ -1346,37 +1337,37 @@ class IR(private val root: AstNode) {
                 ast.BinaryOperator.LESS_THAN ->
                     ConstExpression(
                         if (lhsResult.value < rhsResult.value) 1 else 0,
-                        PrimitiveType(TypeProperty.I1)
+                        i1Type
                     )
 
                 ast.BinaryOperator.LESS_THAN_OR_EQUAL ->
                     ConstExpression(
                         if (lhsResult.value <= rhsResult.value) 1 else 0,
-                        PrimitiveType(TypeProperty.I1)
+                        i1Type
                     )
 
                 ast.BinaryOperator.GREATER_THAN ->
                     ConstExpression(
                         if (lhsResult.value > rhsResult.value) 1 else 0,
-                        PrimitiveType(TypeProperty.I1)
+                        i1Type
                     )
 
                 ast.BinaryOperator.GREATER_THAN_OR_EQUAL ->
                     ConstExpression(
                         if (lhsResult.value >= rhsResult.value) 1 else 0,
-                        PrimitiveType(TypeProperty.I1)
+                        i1Type
                     )
 
                 ast.BinaryOperator.EQUAL ->
                     ConstExpression(
                         if (lhsResult.value == rhsResult.value) 1 else 0,
-                        PrimitiveType(TypeProperty.I1)
+                        i1Type
                     )
 
                 ast.BinaryOperator.NOT_EQUAL ->
                     ConstExpression(
                         if (lhsResult.value != rhsResult.value) 1 else 0,
-                        PrimitiveType(TypeProperty.I1)
+                        i1Type
                     )
 
                 else -> throw InternalException("Unexpected binary operator")
@@ -1385,8 +1376,7 @@ class IR(private val root: AstNode) {
             if (isCompareOperator(operator)) {
                 return addCompareExpression(lhsResult, rhsResult, operator, function)
             }
-            val dest = LocalVariable(unnamedVariableCount.toString(), type)
-            unnamedVariableCount++
+            val dest = LocalVariable("__binary.${unnamedVariableCount++}", type)
             val blocks = function.body ?: throw IRBuilderException("Function has no body")
             blocks.last().statements.add(
                 BinaryOperationStatement(
@@ -1576,7 +1566,6 @@ class IR(private val root: AstNode) {
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         val variableList = function.variables ?: throw IRBuilderException("Function has no variable list")
         val type = irType(statement.type)
-        val ptrType = PrimitiveType(TypeProperty.PTR)
         for (variable in statement.variables) {
             val binding = variable.binding ?: throw IRBuilderException("Variable has no binding")
             val dest = LocalVariable(binding.irInfo.toString(), ptrType)
