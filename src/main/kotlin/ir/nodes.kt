@@ -44,7 +44,16 @@ abstract class Argument (
     val type: PrimitiveType,
 )
 
-abstract class Variable(name: String, type: PrimitiveType) : Argument(name, type)
+abstract class Variable(name: String, type: PrimitiveType) : Argument(name, type) {
+    override fun equals(other: Any?): Boolean {
+        if (other is Variable) return name == other.name
+        return false
+    }
+
+    override fun hashCode(): Int {
+        return name.hashCode()
+    }
+}
 
 class GlobalVariable(
     variableName: String,
@@ -118,7 +127,14 @@ class GlobalVariableDecl(
     }
 }
 
-class LocalVariableDecl(val property: LocalVariable, val type: PrimitiveType) : Statement(2) {
+class LocalVariableDecl(
+    val property: LocalVariable,
+    val type: PrimitiveType
+) : Statement(
+    newVariableCount = 2,
+    def = setOf(property),
+    use = setOf(),
+) {
     override fun toString() =
         "${property.name} = alloca $type"
 }
@@ -134,7 +150,7 @@ class GlobalFunction(
     // `const` indicates that this function won't change any variable,
     // and always return the same value when given the same arguments.
 ) {
-    val returnVariable: LocalVariable
+    private val returnVariable: LocalVariable
         get() = LocalVariable("__return", returnType)
     val returnBlock: Block?
         get() = if (body == null) null
@@ -143,6 +159,21 @@ class GlobalFunction(
         } else {
                 val returnPhiStatement = returnPhi ?: throw InternalException("Return phi statement not found")
                 Block("return", mutableListOf(returnPhiStatement, ReturnStatement(returnVariable)))
+        }
+
+    val blockMap: Map<String, Block>
+        get() {
+            val blockMap = mutableMapOf<String, Block>()
+            if (body != null) {
+                for (block in body) {
+                    blockMap[block.label] = block
+                }
+            }
+            val returnBlock = returnBlock
+            if (returnBlock != null) {
+                blockMap[returnBlock.label] = returnBlock
+            }
+            return blockMap
         }
 
     private val returnBlockString: String
@@ -199,14 +230,29 @@ class Block(
     override fun toString() = "$label:\n$statementsString"
 }
 
-abstract class Statement(val newVariableCount: Int)
+abstract class Statement(
+    val newVariableCount: Int,
+    val def: Set<Variable>,
+    val use: Set<Variable>,
+) {
+    val prev: MutableSet<Statement> = mutableSetOf()
+
+    open fun addPrev(blockMap: Map<String, Block>, last: Statement?) {
+        // set prev for each statement
+        if (last != null) prev.add(last)
+    }
+}
 
 class CallStatement(
     val dest: Variable?,
     val returnType: PrimitiveType,
     val function: GlobalFunction,
     val arguments: List<Argument>,
-) : Statement(if (returnType.type != TypeProperty.VOID) 1 else 0) {
+) : Statement(
+    newVariableCount = if (returnType.type != TypeProperty.VOID) 1 else 0,
+    def = if (returnType.type != TypeProperty.VOID) setOf(dest!!) else setOf(),
+    use = arguments.filterIsInstance<Variable>().toSet(),
+) {
     override fun toString() = when (returnType.type) {
         TypeProperty.VOID -> "call void @${function.name}(${arguments.joinToString(", ")})"
         else -> "${dest?.name} = call ${returnType.type} @${function.name}(${arguments.joinToString(", ")})"
@@ -215,7 +261,11 @@ class CallStatement(
 
 class ReturnStatement(
     val value: Variable? = null,
-) : Statement(0) {
+) : Statement(
+    newVariableCount = 0,
+    def = setOf(),
+    use = if (value == null) setOf() else setOf(value),
+) {
     override fun toString() = when (value) {
         null -> "ret void"
         else -> "ret $value"
@@ -226,7 +276,11 @@ class BranchStatement(
     val condition: Argument?, // null if unconditional
     val trueBlockLabel: String,
     val falseBlockLabel: String?, // null if unconditional
-) : Statement(0) {
+) : Statement(
+    newVariableCount = 0,
+    def = setOf(),
+    use = if (condition == null || condition !is Variable) setOf() else setOf(condition),
+) {
     override fun toString() = when (falseBlockLabel) {
         null -> "br label %$trueBlockLabel"
         else -> "br $condition, label %$trueBlockLabel, label %$falseBlockLabel"
@@ -239,7 +293,11 @@ class BranchStatement(
 class LoadStatement(
     val dest: LocalVariable,
     val src: Variable,
-) : Statement(1) {
+) : Statement(
+    newVariableCount = 1,
+    def = setOf(dest),
+    use = setOf(src),
+) {
     override fun toString() =
         "${dest.name} = load ${dest.type}, $src"
 }
@@ -247,7 +305,11 @@ class LoadStatement(
 class StoreStatement(
     val dest: Variable,
     val src : Argument,
-) : Statement(0) {
+) : Statement(
+    newVariableCount = 0,
+    def = setOf(),
+    use = if (src is Variable) setOf(dest, src) else setOf(dest),
+) {
     override fun toString() = when (src) {
         is Variable -> "store $src, $dest"
         else -> "store $src, $dest"
@@ -259,7 +321,11 @@ class BinaryOperationStatement(
     val op  : BinaryOperator,
     val lhs : Argument,
     val rhs : Argument,
-) : Statement(1) {
+) : Statement(
+    newVariableCount = 1,
+    def = setOf(dest),
+    use = listOf(lhs, rhs).filterIsInstance<Variable>().toSet(),
+) {
     override fun toString() =
         "${dest.name} = $op ${lhs.type} ${lhs.name}, ${rhs.name}"
 }
@@ -269,7 +335,11 @@ class IntCmpStatement(
     val op  : IntCmpOperator,
     val lhs : Argument,
     val rhs : Argument,
-) : Statement(1) {
+) : Statement(
+    newVariableCount = 1,
+    def = setOf(dest),
+    use = listOf(lhs, rhs).filterIsInstance<Variable>().toSet(),
+) {
     override fun toString() =
         "${dest.name} = icmp $op ${lhs.type} ${lhs.name}, ${rhs.name}"
 }
@@ -279,7 +349,11 @@ class GetElementPtrStatement(
     val src    : Variable,
     val srcType: Type,
     val indices: List<Argument>,
-) : Statement(1) {
+) : Statement(
+    newVariableCount = 1,
+    def = setOf(dest),
+    use = listOf(src, *indices.toTypedArray()).filterIsInstance<Variable>().toSet(),
+) {
     override fun toString(): String {
         val stringBuilder = StringBuilder("${dest.name} = getelementptr inbounds ${srcType}, ptr ${src.name}")
         for (index in indices) {
@@ -292,7 +366,11 @@ class GetElementPtrStatement(
 class PhiStatement(
     val dest: LocalVariable,
     val incoming: MutableList<Pair<Argument, String>>,
-) : Statement(1) {
+) : Statement(
+    newVariableCount = 1,
+    def = setOf(dest),
+    use = incoming.map { it.first }.filterIsInstance<Variable>().toSet(),
+) {
     override fun toString(): String {
         var returnString = "${dest.name} = phi ${dest.type} "
         var count = 0
