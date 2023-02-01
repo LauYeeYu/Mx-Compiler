@@ -161,9 +161,9 @@ class GlobalFunction(
                 Block("return", mutableListOf(returnPhiStatement, ReturnStatement(returnVariable)))
         }
 
-    val blockMap: Map<String, Block>
+    val blockMap: LinkedHashMap<String, Block>
         get() {
-            val blockMap = mutableMapOf<String, Block>()
+            val blockMap = linkedMapOf<String, Block>()
             if (body != null) {
                 for (block in body) {
                     blockMap[block.label] = block
@@ -228,6 +228,22 @@ class Block(
 ) {
     val statementsString get() = statements.joinToString("\n")
     override fun toString() = "$label:\n$statementsString"
+    fun setSuccessor(blockMap: Map<String, Block>) {
+        for ((current, next) in statements.zipWithNext()) {
+            current.successor.add(next)
+        }
+        val last = statements.lastOrNull() ?: return
+        if (last is BranchStatement) {
+            val trueStatement = blockMap[last.trueBlockLabel]?.statements?.first()
+                ?: throw InternalException("Block not found: ${last.trueBlockLabel}")
+            last.successor.add(trueStatement)
+            if (last.falseBlockLabel != null) {
+                val falseStatement = blockMap[last.falseBlockLabel]?.statements?.first()
+                    ?: throw InternalException("Block not found: ${last.falseBlockLabel}")
+                last.successor.add(falseStatement)
+            }
+        }
+    }
 }
 
 abstract class Statement(
@@ -235,12 +251,9 @@ abstract class Statement(
     val def: Set<Variable>,
     val use: Set<Variable>,
 ) {
-    val prev: MutableSet<Statement> = mutableSetOf()
-
-    open fun addPrev(blockMap: Map<String, Block>, last: Statement?) {
-        // set prev for each statement
-        if (last != null) prev.add(last)
-    }
+    val successor: MutableSet<Statement> = mutableSetOf()
+    val liveIn: MutableSet<Variable> = mutableSetOf()
+    val liveOut: MutableSet<Variable> = mutableSetOf()
 }
 
 class CallStatement(
