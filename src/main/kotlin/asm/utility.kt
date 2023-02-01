@@ -162,7 +162,6 @@ fun loadMemoryToRegister(
     offset: Int,
     base: Register,
     index: Int? = null,
-    temp: Register = Register.T0,
 ) {
     if (withinImmediateRange(offset)) {
         if (index != null) {
@@ -171,23 +170,20 @@ fun loadMemoryToRegister(
             block.instructions.add(LoadInstruction(op, dest, ImmediateInt(offset), base))
         }
     } else {
-        if (temp == base) throw AsmBuilderException(
-            "Temporary register cannot be the same as source register"
-        )
         if (index != null) {
-            block.instructions.add(index, Lui(temp, highImm(offset)))
+            block.instructions.add(index, Lui(dest, highImm(offset)))
             block.instructions.add(
                 index + 1,
-                RegCalcInstruction(RegCalcInstruction.RegCalcOp.ADD, temp, temp, base),
+                RegCalcInstruction(RegCalcInstruction.RegCalcOp.ADD, dest, dest, base),
             )
             block.instructions.add(
                 index + 2,
-                LoadInstruction(op, dest, lowImm(offset), temp),
+                LoadInstruction(op, dest, lowImm(offset), dest),
             )
         } else {
-            block.instructions.add(Lui(temp, highImm(offset)))
-            block.instructions.add(RegCalcInstruction(RegCalcInstruction.RegCalcOp.ADD, temp, temp, base))
-            block.instructions.add(LoadInstruction(op, dest, lowImm(offset), temp))
+            block.instructions.add(Lui(dest, highImm(offset)))
+            block.instructions.add(RegCalcInstruction(RegCalcInstruction.RegCalcOp.ADD, dest, dest, base))
+            block.instructions.add(LoadInstruction(op, dest, lowImm(offset), dest))
         }
     }
 }
