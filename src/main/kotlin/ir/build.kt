@@ -1012,8 +1012,16 @@ class IR(private val root: AstNode) {
         is MxStringType ->
             addStringBinaryExpression(expr.left, expr.right, expr.operator, function)
 
-        is MxBoolType ->
-            addBinaryLogicExpression(expr.left, expr.right, expr.operator, function)
+        is MxBoolType -> when (expr.operator) {
+            ast.BinaryOperator.LOGICAL_OR, ast.BinaryOperator.LOGICAL_AND ->
+                addBinaryLogicExpression(expr.left, expr.right, expr.operator, function)
+            else -> {
+                val srcType = expr.resultType?.type
+                    ?: throw EnvironmentException("The AST node in addExpression has no result type")
+                val type = irType(srcType)
+                addBinaryArithmeticExpression(expr.left, expr.right, expr.operator, type, function)
+            }
+        }
 
         is MxIntType -> {
             val srcType = expr.resultType?.type
