@@ -16,6 +16,7 @@
 
 package ir
 
+import exceptions.IRBuilderException
 import exceptions.InternalException
 
 class Root(
@@ -42,7 +43,13 @@ sealed interface GlobalDecl
 abstract class Argument (
     val name: String,
     val type: PrimitiveType,
-)
+) {
+    fun replace(replaceMap: MutableMap<Variable, Argument>): Argument = if (this is Variable) {
+        replaceMap[this] ?: this
+    } else {
+        this
+    }
+}
 
 abstract class Variable(name: String, type: PrimitiveType) : Argument(name, type) {
     override fun equals(other: Any?): Boolean {
@@ -137,13 +144,15 @@ class LocalVariableDecl(
 ) {
     override fun toString() =
         "${property.name} = alloca $type"
+
+    override fun replace(map: MutableMap<Variable, Argument>): Statement = this
 }
 
 class GlobalFunction(
     val name: String, // without @
     val returnType: PrimitiveType,
     val parameters: List<FunctionParameter>,
-    val body: MutableList<Block>? = null,
+    val body: List<Block>? = null,
     val const: Boolean = false,
 ) {
     val blockMap: LinkedHashMap<String, Block>
@@ -177,7 +186,7 @@ class GlobalFunctionBuilder(
     fun toGlobalFunction() = GlobalFunction(name, returnType, parameters, mergedBody, const)
     fun toGlobalFunctionDecl() = GlobalFunction(name, returnType, parameters, null, const)
 
-    private val mergedBody: MutableList<Block>?
+    private val mergedBody: List<Block>?
         get() {
             val body = body ?: return null
             val newBody = mutableListOf<Block>()
@@ -249,6 +258,8 @@ abstract class Statement(
     val successor: MutableSet<Statement> = mutableSetOf()
     val liveIn: MutableSet<Variable> = mutableSetOf()
     val liveOut: MutableSet<Variable> = mutableSetOf()
+
+    abstract fun replace(map: MutableMap<Variable, Argument>): Statement
 }
 
 class CallStatement(
@@ -265,19 +276,27 @@ class CallStatement(
         TypeProperty.VOID -> "call void @${function.name}(${arguments.joinToString(", ")})"
         else -> "${dest?.name} = call ${returnType.type} @${function.name}(${arguments.joinToString(", ")})"
     }
+
+    override fun replace(map: MutableMap<Variable, Argument>): Statement {
+        val newArguments = arguments.map { argument -> argument.replace(map) }
+        return CallStatement(dest, returnType, function, newArguments)
+    }
 }
 
 class ReturnStatement(
-    val value: Variable? = null,
+    val value: Argument? = null,
 ) : Statement(
     newVariableCount = 0,
     def = setOf(),
-    use = if (value == null) setOf() else setOf(value),
+    use = if (value == null || value !is Variable) setOf() else setOf(value),
 ) {
     override fun toString() = when (value) {
         null -> "ret void"
         else -> "ret $value"
     }
+
+    override fun replace(map: MutableMap<Variable, Argument>) =
+        ReturnStatement(value?.replace(map))
 }
 
 class BranchStatement(
@@ -296,6 +315,9 @@ class BranchStatement(
 
     // Unconditional branch
     constructor(branchLabel: String) : this(null, branchLabel, null)
+
+    override fun replace(map: MutableMap<Variable, Argument>) =
+        BranchStatement(condition?.replace(map), trueBlockLabel, falseBlockLabel)
 }
 
 class LoadStatement(
@@ -308,6 +330,13 @@ class LoadStatement(
 ) {
     override fun toString() =
         "${dest.name} = load ${dest.type}, $src"
+
+    override fun replace(map: MutableMap<Variable, Argument>): Statement =
+        LoadStatement(
+            dest,
+            src.replace(map) as? Variable
+                ?: throw InternalException("Load statement source is not a variable")
+        )
 }
 
 class StoreStatement(
@@ -322,6 +351,9 @@ class StoreStatement(
         is Variable -> "store $src, $dest"
         else -> "store $src, $dest"
     }
+
+    override fun replace(map: MutableMap<Variable, Argument>): Statement =
+        StoreStatement(dest, src.replace(map))
 }
 
 class BinaryOperationStatement(
@@ -336,6 +368,9 @@ class BinaryOperationStatement(
 ) {
     override fun toString() =
         "${dest.name} = $op ${lhs.type} ${lhs.name}, ${rhs.name}"
+
+    override fun replace(map: MutableMap<Variable, Argument>): Statement =
+        BinaryOperationStatement(dest, op, lhs.replace(map), rhs.replace(map))
 }
 
 class IntCmpStatement(
@@ -350,6 +385,9 @@ class IntCmpStatement(
 ) {
     override fun toString() =
         "${dest.name} = icmp $op ${lhs.type} ${lhs.name}, ${rhs.name}"
+
+    override fun replace(map: MutableMap<Variable, Argument>): Statement =
+        IntCmpStatement(dest, op, lhs.replace(map), rhs.replace(map))
 }
 
 class GetElementPtrStatement(
@@ -368,6 +406,13 @@ class GetElementPtrStatement(
             stringBuilder.append(", $index")
         }
         return stringBuilder.toString()
+    }
+
+    override fun replace(map: MutableMap<Variable, Argument>): Statement {
+        val newSrc = src.replace(map) as? Variable
+            ?: throw IRBuilderException("Src of GEP cannot be replaced with non-variable")
+        val newIndices = indices.map { index -> index.replace(map) }
+        return GetElementPtrStatement(dest, newSrc, srcType, newIndices)
     }
 }
 
@@ -390,6 +435,11 @@ class PhiStatement(
             count++
         }
         return returnString
+    }
+
+    override fun replace(map: MutableMap<Variable, Argument>): Statement {
+        val newIncoming = incoming.map { (value, label) -> value.replace(map) to label }
+        return PhiStatement(dest, newIncoming.toMutableList())
     }
 }
 
