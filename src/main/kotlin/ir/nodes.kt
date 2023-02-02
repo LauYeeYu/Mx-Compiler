@@ -143,6 +143,30 @@ class GlobalFunction(
     val name: String, // without @
     val returnType: PrimitiveType,
     val parameters: List<FunctionParameter>,
+    val body: MutableList<Block>? = null,
+    val const: Boolean = false,
+) {
+    val blockMap: LinkedHashMap<String, Block>
+        get() {
+            val body = body ?: return linkedMapOf()
+            val blockMap = LinkedHashMap<String, Block>()
+            for (block in body) {
+                blockMap[block.label] = block
+            }
+            return blockMap
+        }
+
+    override fun toString(): String= when (body) {
+        null -> "declare $returnType @$name(${parameters.joinToString(", ")})\n"
+        else -> "define $returnType @$name(${parameters.joinToString(", ")}) {\n" +
+                body.joinToString("\n") + "\n}\n"
+    }
+}
+
+class GlobalFunctionBuilder(
+    val name: String, // without @
+    val returnType: PrimitiveType,
+    val parameters: List<FunctionParameter>,
     val variables: MutableList<LocalVariableDecl>? = null,
     val body: MutableList<Block>? = null,
     val returnPhi: PhiStatement? = null,
@@ -150,6 +174,29 @@ class GlobalFunction(
     // `const` indicates that this function won't change any variable,
     // and always return the same value when given the same arguments.
 ) {
+    fun toGlobalFunction() = GlobalFunction(name, returnType, parameters, mergedBody, const)
+    fun toGlobalFunctionDecl() = GlobalFunction(name, returnType, parameters, null, const)
+
+    private val mergedBody: MutableList<Block>?
+        get() {
+            val body = body ?: return null
+            val newBody = mutableListOf<Block>()
+            val variables = variables
+                ?: throw InternalException("A function definition has no variable list")
+            val returnBlock = returnBlock
+                ?: throw InternalException("A function definition has no return block")
+            for ((index, block) in body.withIndex()) {
+                if (index == 0) {
+                    newBody.add(Block("entry", mutableListOf()))
+                    newBody[0].statements.addAll(variables)
+                    newBody[0].statements.addAll(block.statements)
+                } else {
+                    newBody.add(block)
+                }
+            }
+            newBody.add(returnBlock)
+            return newBody
+        }
     private val returnVariable: LocalVariable
         get() = LocalVariable("__return", returnType)
     val returnBlock: Block?
@@ -159,21 +206,6 @@ class GlobalFunction(
         } else {
                 val returnPhiStatement = returnPhi ?: throw InternalException("Return phi statement not found")
                 Block("return", mutableListOf(returnPhiStatement, ReturnStatement(returnVariable)))
-        }
-
-    val blockMap: LinkedHashMap<String, Block>
-        get() {
-            val blockMap = linkedMapOf<String, Block>()
-            if (body != null) {
-                for (block in body) {
-                    blockMap[block.label] = block
-                }
-            }
-            val returnBlock = returnBlock
-            if (returnBlock != null) {
-                blockMap[returnBlock.label] = returnBlock
-            }
-            return blockMap
         }
 
     private val returnBlockString: String

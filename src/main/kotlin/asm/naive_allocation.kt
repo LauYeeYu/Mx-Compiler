@@ -39,15 +39,8 @@ class FunctionBuilder(private val irFunction: IrFunction) {
         get() = this.toAsm()
 
     private val localVariableMap = mutableMapOf<String, Int>()
-    private val sourceBody = (
-            irFunction.body
-                ?: throw AsmBuilderException("Function ${irFunction.name} has no body")
-            ) + (
-            irFunction.returnBlock
-                ?: throw AsmBuilderException("Function ${irFunction.name} has no return block")
-            )
-    private val variables = irFunction.variables
-        ?: throw AsmBuilderException("Function ${irFunction.name} has no variable list")
+    private val sourceBody = irFunction.body
+        ?: throw AsmBuilderException("Function ${irFunction.name} has no body")
     private val maxCallParameterSize: Int
         get() {
             var max = 0
@@ -60,9 +53,9 @@ class FunctionBuilder(private val irFunction: IrFunction) {
             return max
         }
     private val paramInReg = min(irFunction.parameters.size, 8)
-    private val stackSize = ((variables.sumOf { it.newVariableCount } +
-            sourceBody.sumOf { block -> block.statements.sumOf { it.newVariableCount } } +
-            paramInReg + maxCallParameterSize + 1) * 4 + 15) / 16 * 16
+    private val stackSize = ((sourceBody.sumOf { block ->
+        block.statements.sumOf { it.newVariableCount }
+    } + paramInReg + maxCallParameterSize + 1) * 4 + 15) / 16 * 16
     private val raOffset = stackSize - paramInReg * 4 - 4
 
     init { // set local variable map
@@ -76,7 +69,6 @@ class FunctionBuilder(private val irFunction: IrFunction) {
             localVariableMap[name] = offset - size * 4
             offset -= size * 4
         }
-        variables.forEach { variable -> addLocalVariable(variable.property.name, 2) }
         sourceBody.forEach { block ->
             block.statements.forEach { statement ->
                 when (statement) {
@@ -113,7 +105,6 @@ class FunctionBuilder(private val irFunction: IrFunction) {
         // set stack
         addImmediateToRegister(block, Register.SP, Register.SP, -stackSize, Register.T1)
         saveFunctionParameters(block)
-        variables.forEach { buildInstruction(it, block) }
         buildBody(blocks)
         return Function(irFunction.name, blocks.values.toList())
     }
@@ -663,7 +654,7 @@ class FunctionBuilder(private val irFunction: IrFunction) {
             loadDataToRegister(currentBlock, Register.T6, statement.incoming[0].first)
         } else {
             statement.incoming.forEach { (data, irBlock) ->
-                val blockName = if (irBlock == "0") irFunction.name else "${irFunction.name}.${irBlock}"
+                val blockName = if (irBlock == "entry") irFunction.name else "${irFunction.name}.${irBlock}"
                 val block = blocks[blockName]
                     ?: throw AsmBuilderException("Block not found")
                 loadDataToRegister(block, Register.T6, data, block.placeToAddNormalInstruction)

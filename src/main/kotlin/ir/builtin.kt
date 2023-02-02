@@ -17,61 +17,61 @@
 package ir
 
 val builtInFunction = listOf(
-    GlobalFunction(
+    GlobalFunctionBuilder(
         name = "print",
         returnType = PrimitiveType(TypeProperty.VOID),
         parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.PTR), "str")),
         const = true,
     ),
-    GlobalFunction(
+    GlobalFunctionBuilder(
         name = "println",
         returnType = PrimitiveType(TypeProperty.VOID),
         parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.PTR), "str")),
         const = true,
     ),
-    GlobalFunction(
+    GlobalFunctionBuilder(
         name = "printInt",
         returnType = PrimitiveType(TypeProperty.VOID),
         parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.I32), "n")),
         const = true,
     ),
-    GlobalFunction(
+    GlobalFunctionBuilder(
         name = "printlnInt",
         returnType = PrimitiveType(TypeProperty.VOID),
         parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.I32), "__n")),
         const = true,
     ),
-    GlobalFunction(
+    GlobalFunctionBuilder(
         name = "getString",
         returnType = PrimitiveType(TypeProperty.PTR),
         parameters = listOf(),
         const = false,
     ),
-    GlobalFunction(
+    GlobalFunctionBuilder(
         name = "getInt",
         returnType = PrimitiveType(TypeProperty.I32),
         parameters = listOf(),
         const = false,
     ),
-    GlobalFunction(
+    GlobalFunctionBuilder(
         name = "toString",
         returnType = PrimitiveType(TypeProperty.PTR),
         parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.I32), "n")),
         const = true,
     ),
-    GlobalFunction(
+    GlobalFunctionBuilder(
         name = "string.string",
         returnType = PrimitiveType(TypeProperty.PTR),
         parameters = listOf(),
         const = false,
     ),
-    GlobalFunction(
+    GlobalFunctionBuilder(
         name = "string.length",
         returnType = PrimitiveType(TypeProperty.I32),
         parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.PTR), "__this")),
         const = true,
     ),
-    GlobalFunction(
+    GlobalFunctionBuilder(
         name = "string.substring",
         returnType = PrimitiveType(TypeProperty.PTR),
         parameters = listOf(
@@ -81,13 +81,13 @@ val builtInFunction = listOf(
         ),
         const = true,
     ),
-    GlobalFunction(
+    GlobalFunctionBuilder(
         name = "string.parseInt",
         returnType = PrimitiveType(TypeProperty.I32),
         parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.PTR), "__this")),
         const = true,
     ),
-    GlobalFunction(
+    GlobalFunctionBuilder(
         name = "string.ord",
         returnType = PrimitiveType(TypeProperty.I32),
         parameters = listOf(
@@ -96,7 +96,7 @@ val builtInFunction = listOf(
         ),
         const = true,
     ),
-    GlobalFunction(
+    GlobalFunctionBuilder(
         name = "string.add",
         returnType = PrimitiveType(TypeProperty.PTR),
         parameters = listOf(
@@ -105,7 +105,7 @@ val builtInFunction = listOf(
         ),
         const = false,
     ),
-    GlobalFunction(
+    GlobalFunctionBuilder(
         name = "string.equal",
         returnType = PrimitiveType(TypeProperty.I1),
         parameters = listOf(
@@ -114,7 +114,7 @@ val builtInFunction = listOf(
         ),
         const = true,
     ),
-    GlobalFunction(
+    GlobalFunctionBuilder(
         name = "string.notEqual",
         returnType = PrimitiveType(TypeProperty.I1),
         parameters = listOf(
@@ -123,7 +123,7 @@ val builtInFunction = listOf(
         ),
         const = true,
     ),
-    GlobalFunction(
+    GlobalFunctionBuilder(
         name = "string.less",
         returnType = PrimitiveType(TypeProperty.I1),
         parameters = listOf(
@@ -132,7 +132,7 @@ val builtInFunction = listOf(
         ),
         const = true,
     ),
-    GlobalFunction(
+    GlobalFunctionBuilder(
         name = "string.lessOrEqual",
         returnType = PrimitiveType(TypeProperty.I1),
         parameters = listOf(
@@ -141,7 +141,7 @@ val builtInFunction = listOf(
         ),
         const = true,
     ),
-    GlobalFunction(
+    GlobalFunctionBuilder(
         name = "string.greater",
         returnType = PrimitiveType(TypeProperty.I1),
         parameters = listOf(
@@ -150,7 +150,7 @@ val builtInFunction = listOf(
         ),
         const = true,
     ),
-    GlobalFunction(
+    GlobalFunctionBuilder(
         name = "string.greaterOrEqual",
         returnType = PrimitiveType(TypeProperty.I1),
         parameters = listOf(
@@ -159,31 +159,31 @@ val builtInFunction = listOf(
         ),
         const = true,
     ),
-    GlobalFunction(
+    GlobalFunctionBuilder(
         name = "__array.size",
         returnType = PrimitiveType(TypeProperty.I32),
         parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.PTR), "__this")),
         const = true,
     ),
-    GlobalFunction(
+    GlobalFunctionBuilder(
         name = "malloc",
         returnType = PrimitiveType(TypeProperty.PTR),
         parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.SIZE_T), "n")),
         const = false,
     ),
-    GlobalFunction(
+    GlobalFunctionBuilder(
         name = "__newPtrArray",
         returnType = PrimitiveType(TypeProperty.PTR),
         parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.I32), "size")),
         const = false,
     ),
-    GlobalFunction(
+    GlobalFunctionBuilder(
         name = "__newIntArray",
         returnType = PrimitiveType(TypeProperty.PTR),
         parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.I32), "size")),
         const = false,
     ),
-    GlobalFunction(
+    GlobalFunctionBuilder(
         name = "__newBoolArray",
         returnType = PrimitiveType(TypeProperty.PTR),
         parameters = listOf(FunctionParameter(PrimitiveType(TypeProperty.I32), "size")),
@@ -191,4 +191,4 @@ val builtInFunction = listOf(
     ),
 )
 
-val builtInFunctionMap: Map<String, GlobalFunction> = builtInFunction.associateBy { it.name }
+val builtInFunctionMap: Map<String, GlobalFunctionBuilder> = builtInFunction.associateBy { it.name }

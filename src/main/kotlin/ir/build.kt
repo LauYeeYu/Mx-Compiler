@@ -38,7 +38,7 @@ class IR(private val root: AstNode) {
     private var currentLoopHasStep = false
     private val globalVariableDecl = mutableListOf<GlobalDecl>()
     private val classes = mutableMapOf<String, GlobalClass>()
-    private val globalFunctions = linkedMapOf<String, GlobalFunction>()
+    private val globalFunctions = linkedMapOf<String, GlobalFunctionBuilder>()
 
     fun buildRoot(): Root {
         if (root !is ast.TranslateUnit) {
@@ -48,7 +48,7 @@ class IR(private val root: AstNode) {
             throw EnvironmentException("The AST node in buildRoot has no environment")
         }
         val classList = root.content.filterIsInstance<ast.Class>().map { registerClass(it) }
-        val globalInit = GlobalFunction(
+        val globalInit = GlobalFunctionBuilder(
             name = "__global_init",
             returnType = voidType,
             parameters = listOf(),
@@ -67,7 +67,7 @@ class IR(private val root: AstNode) {
         return Root(
             classes = classList,
             variables = globalVariableDecl,
-            globalFunctions = globalFunctions.values.toList(),
+            globalFunctions = globalFunctions.values.toList().map { it.toGlobalFunction() },
         )
     }
 
@@ -93,7 +93,7 @@ class IR(private val root: AstNode) {
                 src = LocalVariable("${astParameter.irInfo}.param", type),
             )
         }.toMutableList()
-        globalFunctions[name] = GlobalFunction(
+        globalFunctions[name] = GlobalFunctionBuilder(
             name = name,
             returnType = returnIrType,
             parameters = if (isMember) {
@@ -267,7 +267,7 @@ class IR(private val root: AstNode) {
                 CallStatement(
                     dest = null,
                     returnType = voidType,
-                    function = globalFunctions["__global_init"]
+                    function = globalFunctions["__global_init"]?.toGlobalFunctionDecl()
                         ?: throw IRBuilderException("Function __global_init not found"),
                     arguments = listOf(),
                 )
@@ -362,7 +362,7 @@ class IR(private val root: AstNode) {
     private fun primitiveVariableDeclInit(
         variable: ast.VariableDeclaration,
         type: PrimitiveType,
-        function: GlobalFunction, // variable initializing statement will not have a branch
+        function: GlobalFunctionBuilder, // variable initializing statement will not have a branch
     ) {
         val binding = variable.binding ?: throw IRBuilderException("Variable has no binding")
         val name = binding.irInfo.toString()
@@ -414,7 +414,7 @@ class IR(private val root: AstNode) {
     // not be used.
     private fun addExpression(
         expr: ast.Expression,
-        function: GlobalFunction,
+        function: GlobalFunctionBuilder,
         expectedState: ExpectedState,
     ): ExpressionResult = when (expr) {
         is ast.Object -> addExpression(expr, function, expectedState)
@@ -442,7 +442,7 @@ class IR(private val root: AstNode) {
         else -> throw IRBuilderException("Unknown expression in addExpression")
     }
 
-    private fun getThisPtr(function: GlobalFunction): LocalVariable {
+    private fun getThisPtr(function: GlobalFunctionBuilder): LocalVariable {
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         val thisPtr = LocalVariable("__this.val.${unnamedVariableCount++}", ptrType)
         blocks.last().statements.add(
@@ -453,7 +453,7 @@ class IR(private val root: AstNode) {
 
     private fun addExpression(
         expr: ast.Object,
-        function: GlobalFunction,
+        function: GlobalFunctionBuilder,
         expectedState: ExpectedState
     ): ExpressionResult {
         val binding = expr.binding ?: throw IRBuilderException("Object has no binding")
@@ -524,7 +524,7 @@ class IR(private val root: AstNode) {
 
     private fun addExpression(
         expr: MemberVariableAccess,
-        function: GlobalFunction,
+        function: GlobalFunctionBuilder,
         expectedState: ExpectedState,
     ): ExpressionResult {
         if (expr.resultType == null || expr.objectName.resultType == null) {
@@ -568,7 +568,7 @@ class IR(private val root: AstNode) {
 
     private fun addExpression(
         expr: MemberFunctionAccess,
-        function: GlobalFunction,
+        function: GlobalFunctionBuilder,
     ): ExpressionResult {
         if (expr.resultType == null || expr.objectName.resultType == null) {
             throw EnvironmentException("The AST node in addExpression has no result type")
@@ -580,7 +580,8 @@ class IR(private val root: AstNode) {
         }
         val classPtr = addExpression(expr.objectName, function, ExpectedState.VALUE).toArgument() as? Variable
             ?: throw InternalException("The source is not a variable")
-        val calledFunction: GlobalFunction = globalFunctions["${classType.name}.${expr.functionName}"]
+        val calledFunction: GlobalFunction =
+            globalFunctions["${classType.name}.${expr.functionName}"]?.toGlobalFunctionDecl()
             ?: throw InternalException("Cannot find find the function ${classType.name}.${expr.functionName}")
         val arguments = mutableListOf<Argument>(classPtr) + expr.arguments.map {
             addExpression(it, function, ExpectedState.VALUE).toArgument()
@@ -601,7 +602,7 @@ class IR(private val root: AstNode) {
 
     private fun addExpression(
         expr: FunctionCall,
-        function: GlobalFunction,
+        function: GlobalFunctionBuilder,
     ): ExpressionResult {
         if (expr.resultType == null) {
             throw EnvironmentException("The AST node in addExpression has no result type")
@@ -609,10 +610,10 @@ class IR(private val root: AstNode) {
         val type = irType(expr.resultType!!.type)
         val fromClass = expr.fromClass
         val calledFunction: GlobalFunction = if (fromClass != null) {
-            globalFunctions["${fromClass.name}.${expr.functionName}"]
+            globalFunctions["${fromClass.name}.${expr.functionName}"]?.toGlobalFunctionDecl()
                 ?: throw InternalException("Cannot find find the function ${fromClass.name}.${expr.functionName}")
         } else {
-            globalFunctions[expr.functionName]
+            globalFunctions[expr.functionName]?.toGlobalFunctionDecl()
                 ?: throw InternalException("Cannot find find the function ${expr.functionName}")
         }
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
@@ -649,7 +650,7 @@ class IR(private val root: AstNode) {
 
     private fun addExpression(
         expr: ArrayExpression,
-        function: GlobalFunction,
+        function: GlobalFunctionBuilder,
         expectedState: ExpectedState,
     ): ExpressionResult {
         if (expr.resultType == null || expr.array.resultType == null || expr.index.resultType == null) {
@@ -684,7 +685,7 @@ class IR(private val root: AstNode) {
 
     private fun addUpdateExpression(
         expr: UpdateExpression,
-        function: GlobalFunction,
+        function: GlobalFunctionBuilder,
         expectedState: ExpectedState,
     ): ExpressionResult {
         if (expr.resultType == null || expr.operand.resultType == null) {
@@ -725,7 +726,7 @@ class IR(private val root: AstNode) {
 
     private fun addExpression(
         expr: NewExpression,
-        function: GlobalFunction,
+        function: GlobalFunctionBuilder,
     ): ExpressionResult {
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         if (expr.dimension == 0) { // New class
@@ -766,17 +767,17 @@ class IR(private val root: AstNode) {
                 returnType = ptrType,
                 function = if (dimension == 1) {
                     when (type) {
-                        is ast.IntType -> globalFunctions["__newIntArray"]
+                        is ast.IntType -> globalFunctions["__newIntArray"]?.toGlobalFunctionDecl()
                             ?: throw InternalException("Function __newIntArray not found")
 
-                        is ast.BoolType -> globalFunctions["__newBoolArray"]
+                        is ast.BoolType -> globalFunctions["__newBoolArray"]?.toGlobalFunctionDecl()
                             ?: throw InternalException("Function __newBoolArray not found")
 
-                        else -> globalFunctions["__newPtrArray"]
+                        else -> globalFunctions["__newPtrArray"]?.toGlobalFunctionDecl()
                             ?: throw InternalException("Function __newPtrArray not found")
                     }
                 } else {
-                    globalFunctions["__newPtrArray"]
+                    globalFunctions["__newPtrArray"]?.toGlobalFunctionDecl()
                         ?: throw InternalException("Function __newPtrArray not found")
                 },
                 arguments = listOf(arguments[0]),
@@ -921,7 +922,7 @@ class IR(private val root: AstNode) {
             CallStatement(
                 dest = dest,
                 returnType = ptrType,
-                function = globalFunctions["malloc"]
+                function = globalFunctions["malloc"]?.toGlobalFunctionDecl()
                     ?: throw InternalException("Cannot find malloc in builtin function"),
                 arguments = listOf(I32Literal(classInfo.classType.memberList.size * 4)),
             )
@@ -930,7 +931,7 @@ class IR(private val root: AstNode) {
             CallStatement(
                 dest = null,
                 returnType = voidType,
-                function = globalFunctions["$className.$className"]
+                function = globalFunctions["$className.$className"]?.toGlobalFunctionDecl()
                     ?: throw InternalException("Cannot find constructor"),
                 arguments = listOf(dest),
             )
@@ -940,7 +941,7 @@ class IR(private val root: AstNode) {
 
     private fun addExpression(
         expr: UnaryExpression,
-        function: GlobalFunction,
+        function: GlobalFunctionBuilder,
     ): ExpressionResult {
         if (expr.resultType == null || expr.operand.resultType == null) {
             throw EnvironmentException("The AST node in addExpression has no result type")
@@ -1007,7 +1008,7 @@ class IR(private val root: AstNode) {
 
     private fun addExpression(
         expr: BinaryExpression,
-        function: GlobalFunction,
+        function: GlobalFunctionBuilder,
     ): ExpressionResult = when (expr.left.resultType?.type) {
         is MxStringType ->
             addStringBinaryExpression(expr.left, expr.right, expr.operator, function)
@@ -1041,7 +1042,7 @@ class IR(private val root: AstNode) {
 
     private fun addExpression(
         expr: AssignExpression,
-        function: GlobalFunction,
+        function: GlobalFunctionBuilder,
     ): ExpressionResult {
         if (expr.resultType == null || expr.left.resultType == null || expr.right.resultType == null) {
             throw EnvironmentException("The AST node in addExpression has no result type")
@@ -1058,7 +1059,7 @@ class IR(private val root: AstNode) {
         lhs: Expression,
         rhs: Expression,
         operator: ast.BinaryOperator,
-        function: GlobalFunction,
+        function: GlobalFunctionBuilder,
     ): ExpressionResult {
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         val lhsResult = addExpression(lhs, function, ExpectedState.VALUE).toArgument()
@@ -1165,7 +1166,7 @@ class IR(private val root: AstNode) {
         rhs: Expression,
         operator: ast.BinaryOperator,
         type: PrimitiveType,
-        function: GlobalFunction,
+        function: GlobalFunctionBuilder,
     ): ExpressionResult {
         val lhsResult = addExpression(lhs, function, ExpectedState.VALUE).toArgument()
         val rhsResult = addExpression(rhs, function, ExpectedState.VALUE).toArgument()
@@ -1202,7 +1203,7 @@ class IR(private val root: AstNode) {
         lhs: Argument,
         rhs: Argument,
         operator: ast.BinaryOperator,
-        function: GlobalFunction,
+        function: GlobalFunctionBuilder,
     ): ExpressionResult {
         val dest = LocalVariable("__comp.${unnamedVariableCount++}", i1Type)
         val irOperator = when (operator) {
@@ -1223,7 +1224,7 @@ class IR(private val root: AstNode) {
         lhs: Expression,
         rhs: Expression,
         operator: ast.BinaryOperator,
-        function: GlobalFunction,
+        function: GlobalFunctionBuilder,
     ): ExpressionResult {
         if (lhs.resultType == null || rhs.resultType == null) {
             throw EnvironmentException("The AST node in addExpression has no result type")
@@ -1243,7 +1244,7 @@ class IR(private val root: AstNode) {
             ast.BinaryOperator.ADD -> CallStatement(
                 dest = dest,
                 returnType = ptrType,
-                function = builtInFunctionMap["string.add"]
+                function = builtInFunctionMap["string.add"]?.toGlobalFunctionDecl()
                     ?: throw InternalException("The built-in function string.add is not found"),
                 arguments = listOf(lhsArg, rhsArg),
             )
@@ -1251,7 +1252,7 @@ class IR(private val root: AstNode) {
             ast.BinaryOperator.LESS_THAN -> CallStatement(
                 dest = dest,
                 returnType = i1Type,
-                function = builtInFunctionMap["string.less"]
+                function = builtInFunctionMap["string.less"]?.toGlobalFunctionDecl()
                     ?: throw InternalException("The built-in function string.lessThan is not found"),
                 arguments = listOf(lhsArg, rhsArg),
             )
@@ -1259,7 +1260,7 @@ class IR(private val root: AstNode) {
             ast.BinaryOperator.LESS_THAN_OR_EQUAL -> CallStatement(
                 dest = dest,
                 returnType = i1Type,
-                function = builtInFunctionMap["string.lessOrEqual"]
+                function = builtInFunctionMap["string.lessOrEqual"]?.toGlobalFunctionDecl()
                     ?: throw InternalException("The built-in function string.lessThanOrEqual is not found"),
                 arguments = listOf(lhsArg, rhsArg),
             )
@@ -1267,7 +1268,7 @@ class IR(private val root: AstNode) {
             ast.BinaryOperator.GREATER_THAN -> CallStatement(
                 dest = dest,
                 returnType = i1Type,
-                function = builtInFunctionMap["string.greater"]
+                function = builtInFunctionMap["string.greater"]?.toGlobalFunctionDecl()
                     ?: throw InternalException("The built-in function string.greaterThan is not found"),
                 arguments = listOf(lhsArg, rhsArg),
             )
@@ -1275,7 +1276,7 @@ class IR(private val root: AstNode) {
             ast.BinaryOperator.GREATER_THAN_OR_EQUAL -> CallStatement(
                 dest = dest,
                 returnType = i1Type,
-                function = builtInFunctionMap["string.greaterOrEqual"]
+                function = builtInFunctionMap["string.greaterOrEqual"]?.toGlobalFunctionDecl()
                     ?: throw InternalException("The built-in function string.greaterThanOrEqual is not found"),
                 arguments = listOf(lhsArg, rhsArg),
             )
@@ -1283,7 +1284,7 @@ class IR(private val root: AstNode) {
             ast.BinaryOperator.EQUAL -> CallStatement(
                 dest = dest,
                 returnType = i1Type,
-                function = builtInFunctionMap["string.equal"]
+                function = builtInFunctionMap["string.equal"]?.toGlobalFunctionDecl()
                     ?: throw InternalException("The built-in function string.equal is not found"),
                 arguments = listOf(lhsArg, rhsArg),
             )
@@ -1291,7 +1292,7 @@ class IR(private val root: AstNode) {
             ast.BinaryOperator.NOT_EQUAL -> CallStatement(
                 dest = dest,
                 returnType = i1Type,
-                function = builtInFunctionMap["string.notEqual"]
+                function = builtInFunctionMap["string.notEqual"]?.toGlobalFunctionDecl()
                     ?: throw InternalException("The built-in function string.notEqual is not found"),
                 arguments = listOf(lhsArg, rhsArg),
             )
@@ -1308,7 +1309,7 @@ class IR(private val root: AstNode) {
         rhsResult: Argument,
         type: PrimitiveType,
         operator: ast.BinaryOperator,
-        function: GlobalFunction,
+        function: GlobalFunctionBuilder,
     ): ExpressionResult {
         if (lhsResult is IntLiteral && rhsResult is IntLiteral) {
             return when (operator) {
@@ -1410,7 +1411,7 @@ class IR(private val root: AstNode) {
         }
     }
 
-    private fun addStatement(statement: ast.Statement, function: GlobalFunction): Boolean =
+    private fun addStatement(statement: ast.Statement, function: GlobalFunctionBuilder): Boolean =
         when (statement) {
             is ast.BlockStatement -> addStatement(statement, function)
             is ast.ExpressionStatement -> addStatement(statement, function)
@@ -1426,7 +1427,7 @@ class IR(private val root: AstNode) {
             else -> throw IRBuilderException("Unknown statement in addStatement")
         }
 
-    private fun addStatement(statement: ast.BlockStatement, function: GlobalFunction): Boolean {
+    private fun addStatement(statement: ast.BlockStatement, function: GlobalFunctionBuilder): Boolean {
         for (stmt in statement.statements) {
             val hasReturn = addStatement(stmt, function)
             if (hasReturn) return true // skip the part after return
@@ -1434,12 +1435,12 @@ class IR(private val root: AstNode) {
         return false
     }
 
-    private fun addStatement(statement: ast.ExpressionStatement, function: GlobalFunction): Boolean {
+    private fun addStatement(statement: ast.ExpressionStatement, function: GlobalFunctionBuilder): Boolean {
         addExpression(statement.expression, function, ExpectedState.VALUE)
         return false
     }
 
-    private fun addStatement(statement: ast.BranchStatement, function: GlobalFunction): Boolean {
+    private fun addStatement(statement: ast.BranchStatement, function: GlobalFunctionBuilder): Boolean {
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         val condition = addExpression(statement.condition, function, ExpectedState.VALUE).toArgument()
         if (condition is IntLiteral) {
@@ -1474,7 +1475,7 @@ class IR(private val root: AstNode) {
         return false
     }
 
-    private fun addLoopStatement(statement: ast.LoopStatement, function: GlobalFunction): Boolean {
+    private fun addLoopStatement(statement: ast.LoopStatement, function: GlobalFunctionBuilder): Boolean {
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         val oldLoopCount = currentLoopCount
         val oldLoopHasStep = currentLoopHasStep
@@ -1544,20 +1545,20 @@ class IR(private val root: AstNode) {
         return false
     }
 
-    private fun addContinueStatement(function: GlobalFunction): Boolean {
+    private fun addContinueStatement(function: GlobalFunctionBuilder): Boolean {
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         val branchLabel = if (currentLoopHasStep) "step_$currentLoopCount" else "loop_condition_$currentLoopCount"
         blocks.last().statements.add(BranchStatement(branchLabel))
         return true
     }
 
-    private fun addBreakStatement(function: GlobalFunction): Boolean {
+    private fun addBreakStatement(function: GlobalFunctionBuilder): Boolean {
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         blocks.last().statements.add(BranchStatement("loop_end_$currentLoopCount"))
         return true
     }
 
-    private fun addStatement(statement: ast.ReturnStatement, function: GlobalFunction): Boolean {
+    private fun addStatement(statement: ast.ReturnStatement, function: GlobalFunctionBuilder): Boolean {
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         if (statement.expression != null) {
             val returnValue = addExpression(statement.expression, function, ExpectedState.VALUE).toArgument()
@@ -1570,7 +1571,7 @@ class IR(private val root: AstNode) {
         return true
     }
 
-    private fun addStatement(statement: ast.VariablesDeclaration, function: GlobalFunction): Boolean {
+    private fun addStatement(statement: ast.VariablesDeclaration, function: GlobalFunctionBuilder): Boolean {
         val blocks = function.body ?: throw IRBuilderException("Function has no body")
         val variableList = function.variables ?: throw IRBuilderException("Function has no variable list")
         val type = irType(statement.type)
