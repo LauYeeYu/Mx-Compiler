@@ -199,7 +199,7 @@ class GlobalFunctionBuilder(
         }
     private val returnVariable: LocalVariable
         get() = LocalVariable("__return", returnType)
-    val returnBlock: Block?
+    private val returnBlock: Block?
         get() = if (body == null) null
         else if (returnType.type == TypeProperty.VOID) {
                 Block("return", mutableListOf(ReturnStatement()))
@@ -207,39 +207,6 @@ class GlobalFunctionBuilder(
                 val returnPhiStatement = returnPhi ?: throw InternalException("Return phi statement not found")
                 Block("return", mutableListOf(returnPhiStatement, ReturnStatement(returnVariable)))
         }
-
-    private val returnBlockString: String
-        get() {
-            val returnBlock = returnBlock ?: return ""
-            return "$returnBlock\n"
-        }
-
-    private val variablesString: String
-        get() {
-            val variables = variables
-                ?: throw InternalException("A function definition has no variable list")
-            if (variables.isEmpty()) return ""
-            return variables.joinToString("\n  ", "  ") + "\n"
-        }
-
-    private val bodyString: String
-        get() {
-            val body = body ?: return ""
-            val stringBuilder = StringBuilder()
-            if (body.isNotEmpty()) {
-                for (i in body.indices) {
-                    if (i == 0) stringBuilder.append("${body[0].statementsString}\n\n")
-                    else stringBuilder.append("${body[i]}\n\n")
-                }
-            }
-            return stringBuilder.toString()
-        }
-
-    override fun toString() = when (body) {
-        null -> "declare $returnType @$name(${parameters.joinToString(", ")})\n"
-        else -> "define $returnType @$name(${parameters.joinToString(", ")}) {\nentry:\n" +
-                variablesString + bodyString + returnBlockString + "}\n"
-    }
 }
 
 class FunctionParameter(
@@ -253,7 +220,8 @@ class Block(
     val label: String,
     val statements: MutableList<Statement>,
 ) {
-    val statementsString get() = statements.joinToString("\n  ", "  ")
+    private val statementsString get() =
+        statements.joinToString("\n  ", "  ")
     override fun toString() = "$label:\n$statementsString"
     fun setSuccessor(blockMap: Map<String, Block>) {
         for ((current, next) in statements.zipWithNext()) {
