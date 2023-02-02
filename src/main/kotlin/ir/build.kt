@@ -53,7 +53,7 @@ class IR(private val root: AstNode) {
             returnType = voidType,
             parameters = listOf(),
             variables = mutableListOf(),
-            body = mutableListOf(Block("0", mutableListOf())),
+            body = mutableListOf(Block("entry", mutableListOf())),
         )
         // register global functions
         globalFunctions["__global_init"] = globalInit
@@ -104,12 +104,12 @@ class IR(private val root: AstNode) {
             variables = if (isMember) (listOf(
                 LocalVariableDecl(LocalVariable("__this", ptrType), ptrType)
             ) + variables).toMutableList() else variables,
-            body = if (isMember) mutableListOf(Block("0", (listOf<Statement>(
+            body = if (isMember) mutableListOf(Block("entry", (listOf<Statement>(
                 StoreStatement(
                     dest = LocalVariable("__this", ptrType),
                     src = LocalVariable("__this.param", ptrType),
                 )
-            ) + body).toMutableList())) else mutableListOf(Block("0", body)),
+            ) + body).toMutableList())) else mutableListOf(Block("entry", body)),
             returnPhi = if (returnIrType.type == TypeProperty.VOID) null
             else PhiStatement(
                 LocalVariable("__return", returnIrType), mutableListOf()

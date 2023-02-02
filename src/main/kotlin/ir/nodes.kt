@@ -186,13 +186,8 @@ class GlobalFunction(
         get() {
             val variables = variables
                 ?: throw InternalException("A function definition has no variable list")
-            val stringBuilder = StringBuilder()
-            if (variables.isNotEmpty()) {
-                for (variable in variables) {
-                    stringBuilder.append("${variable}\n")
-                }
-            }
-            return stringBuilder.toString()
+            if (variables.isEmpty()) return ""
+            return variables.joinToString("\n  ", "  ") + "\n"
         }
 
     private val bodyString: String
@@ -210,7 +205,7 @@ class GlobalFunction(
 
     override fun toString() = when (body) {
         null -> "declare $returnType @$name(${parameters.joinToString(", ")})\n"
-        else -> "define $returnType @$name(${parameters.joinToString(", ")}) {\n" +
+        else -> "define $returnType @$name(${parameters.joinToString(", ")}) {\nentry:\n" +
                 variablesString + bodyString + returnBlockString + "}\n"
     }
 }
@@ -226,7 +221,7 @@ class Block(
     val label: String,
     val statements: MutableList<Statement>,
 ) {
-    val statementsString get() = statements.joinToString("\n")
+    val statementsString get() = statements.joinToString("\n  ", "  ")
     override fun toString() = "$label:\n$statementsString"
     fun setSuccessor(blockMap: Map<String, Block>) {
         for ((current, next) in statements.zipWithNext()) {
