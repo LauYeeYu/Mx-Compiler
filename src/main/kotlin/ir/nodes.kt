@@ -232,6 +232,21 @@ class Block(
     private val statementsString get() =
         statements.joinToString("\n  ", "  ")
     override fun toString() = "$label:\n$statementsString"
+
+    val successors: Set<String>
+        get() {
+            val last = statements.lastOrNull()
+            return if (last is BranchStatement) {
+                if (last.falseBlockLabel != null) {
+                    setOf(last.trueBlockLabel, last.falseBlockLabel)
+                } else {
+                    setOf(last.trueBlockLabel)
+                }
+            } else {
+                setOf()
+            }
+        }
+
     fun setSuccessor(blockMap: Map<String, Block>) {
         for ((current, next) in statements.zipWithNext()) {
             current.successor.add(next)
