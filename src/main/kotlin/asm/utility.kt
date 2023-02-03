@@ -236,17 +236,32 @@ fun storeRegisterToMemory(
     src: Register,
     offset: Int,
     base: Register,
+    index: Int? = null,
     temp: Register = Register.T0,
 ) {
     if (withinImmediateRange(offset)) {
-        block.instructions.add(StoreInstruction(op, src, ImmediateInt(offset), base))
+        val store = StoreInstruction(op, src, ImmediateInt(offset), base)
+        if (index != null) {
+            block.instructions.add(index, store)
+        } else {
+            block.instructions.add(store)
+        }
     } else {
         if (temp == base || temp == src) throw AsmBuilderException(
             "Temporary register cannot be the same as source register"
         )
-        block.instructions.add(Lui(temp, highImm(offset)))
-        block.instructions.add(RegCalcInstruction(RegCalcInstruction.RegCalcOp.ADD, temp, temp, base))
-        block.instructions.add(StoreInstruction(op, src, lowImm(offset), temp))
+        val lui = Lui(temp, highImm(offset))
+        val add = RegCalcInstruction(RegCalcInstruction.RegCalcOp.ADD, temp, temp, base)
+        val store = StoreInstruction(op, src, lowImm(offset), temp)
+        if (index != null) {
+            block.instructions.add(index, lui)
+            block.instructions.add(index + 1, add)
+            block.instructions.add(index + 2, store)
+        } else {
+            block.instructions.add(lui)
+            block.instructions.add(add)
+            block.instructions.add(store)
+        }
     }
 }
 
