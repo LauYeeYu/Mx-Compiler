@@ -30,11 +30,11 @@ import ir.Statement as IrStatement
 fun naiveAllocation(irRoot: IrRoot, fileName: String) = TranslateUnit(
     fileName = fileName,
     functions = irRoot.globalFunctions.filter { it.body != null }
-        .map { FunctionBuilder(it).function.removeEmptyBlocks() },
+        .map { NaiveFunctionBuilder(it).function.removeEmptyBlocks() },
     globalVariables = irRoot.variables.map { buildGlobalVariable(it) }
 )
 
-class FunctionBuilder(private val irFunction: IrFunction) {
+class NaiveFunctionBuilder(private val irFunction: IrFunction) {
     val function: Function
         get() = this.toAsm()
 
@@ -189,7 +189,7 @@ class FunctionBuilder(private val irFunction: IrFunction) {
             is ir.BinaryOperationStatement -> buildInstruction(statement, currentBlock)
             is ir.IntCmpStatement -> buildInstruction(statement, currentBlock)
             is ir.GetElementPtrStatement -> buildInstruction(statement, currentBlock)
-            is ir.PhiStatement -> buildInstruction(statement, currentBlock, blocks)
+            is ir.PhiStatement -> buildInstruction(statement, blocks)
             else -> throw AsmBuilderException("Unexpected statement class")
         }
     }
@@ -646,28 +646,24 @@ class FunctionBuilder(private val irFunction: IrFunction) {
 
     private fun buildInstruction(
         statement: ir.PhiStatement,
-        currentBlock: Block,
         blocks: LinkedHashMap<String, Block>,
     ) {
-        // Put the data in T6
-        if (statement.incoming.size == 1) {
-            loadDataToRegister(currentBlock, Register.T6, statement.incoming[0].first)
-        } else {
-            statement.incoming.forEach { (data, irBlock) ->
-                val blockName = if (irBlock == "entry") irFunction.name else "${irFunction.name}.${irBlock}"
-                val block = blocks[blockName]
-                    ?: throw AsmBuilderException("Block not found")
-                loadDataToRegister(block, Register.T6, data, block.placeToAddNormalInstruction)
-            }
+        val offset = localVariableMap[statement.dest.name]
+            ?: throw AsmBuilderException("Local variable not found")
+        statement.incoming.forEach { (data, irBlock) ->
+            val blockName = if (irBlock == "entry") irFunction.name else "${irFunction.name}.${irBlock}"
+            val block = blocks[blockName]
+                ?: throw AsmBuilderException("Block not found")
+            loadDataToRegister(block, Register.T6, data, block.placeToAddNormalInstruction)
+            storeRegisterToMemory(
+                block = block,
+                op = StoreInstruction.StoreOp.SW,
+                src = Register.T6,
+                offset = offset,
+                base = Register.SP,
+                index = block.placeToAddNormalInstruction,
+            )
         }
-        storeRegisterToMemory(
-            block = currentBlock,
-            op = StoreInstruction.StoreOp.SW,
-            src = Register.T6,
-            offset = localVariableMap[statement.dest.name]
-                ?: throw AsmBuilderException("Local variable not found"),
-            base = Register.SP,
-        )
     }
 
     private fun loadDataToRegister(
