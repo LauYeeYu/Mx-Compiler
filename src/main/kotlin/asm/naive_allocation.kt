@@ -300,14 +300,7 @@ class NaiveFunctionBuilder(private val irFunction: IrFunction) {
                 )
             }
         } else { // conditional jump
-            loadMemoryToRegister(
-                block = currentBlock,
-                op = LoadInstruction.LoadOp.LBU,
-                dest = Register.A0,
-                offset = localVariableMap[statement.condition.name]
-                    ?: throw AsmBuilderException("Local variable not found"),
-                base = Register.SP,
-            )
+            loadDataToRegister(currentBlock, Register.A0, statement.condition)
             val falseBlockLabel = statement.falseBlockLabel
                 ?: throw AsmBuilderException("False block label is null")
             if (statement.trueBlockLabel == nextLabel) {
