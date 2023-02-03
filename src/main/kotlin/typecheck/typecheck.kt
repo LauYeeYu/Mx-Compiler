@@ -451,7 +451,7 @@ fun isValidVariableType(type: MxType): Boolean =
         is MxIntType -> true
         is MxBoolType -> true
         is MxStringType -> true
-        is MxClassType -> true
         is MxArrayType -> isValidVariableType(type.elementType)
+        is MxClassType -> true
         else -> false
     }
