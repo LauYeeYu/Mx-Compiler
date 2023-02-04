@@ -75,7 +75,7 @@ class NaiveFunctionBuilder(private val irFunction: IrFunction) {
                     is ir.CallStatement -> if (statement.dest != null) {
                         addLocalVariable(statement.dest.name, 1)
                     }
-                    is ir.LocalVariableDecl -> addLocalVariable(statement.property.name, 2)
+                    is ir.AllocaStatement -> addLocalVariable(statement.property.name, 2)
                     is ir.LoadStatement -> addLocalVariable(statement.dest.name, 1)
                     is ir.BinaryOperationStatement -> addLocalVariable(statement.dest.name, 1)
                     is ir.IntCmpStatement -> addLocalVariable(statement.dest.name, 1)
@@ -180,7 +180,7 @@ class NaiveFunctionBuilder(private val irFunction: IrFunction) {
         nextLabel: String,
     ) {
         when (statement) {
-            is ir.LocalVariableDecl -> buildInstruction(statement, currentBlock)
+            is ir.AllocaStatement -> buildInstruction(statement, currentBlock)
             is ir.CallStatement -> buildInstruction(statement, currentBlock)
             is ir.ReturnStatement -> buildInstruction(statement, currentBlock)
             is ir.BranchStatement -> buildInstruction(statement, currentBlock, nextLabel)
@@ -195,7 +195,7 @@ class NaiveFunctionBuilder(private val irFunction: IrFunction) {
     }
 
     private fun buildInstruction(
-        statement: ir.LocalVariableDecl,
+        statement: ir.AllocaStatement,
         currentBlock: Block,
     ) {
         val offset = localVariableMap[statement.property.name]

@@ -80,8 +80,8 @@ class IR(private val root: AstNode) {
         val functionParameter = parameters.map { astParameter ->
             FunctionParameter(irType(astParameter.type), "${astParameter.irInfo}.param")
         }
-        val variables: MutableList<LocalVariableDecl> = parameters.map { astParameter ->
-            LocalVariableDecl(
+        val variables: MutableList<AllocaStatement> = parameters.map { astParameter ->
+            AllocaStatement(
                 LocalVariable(astParameter.irInfo.toString(), ptrType),
                 irType(astParameter.type),
             )
@@ -102,7 +102,7 @@ class IR(private val root: AstNode) {
                 functionParameter
             },
             variables = if (isMember) (listOf(
-                LocalVariableDecl(LocalVariable("__this", ptrType), ptrType)
+                AllocaStatement(LocalVariable("__this", ptrType), ptrType)
             ) + variables).toMutableList() else variables,
             body = if (isMember) mutableListOf(Block("entry", (listOf<Statement>(
                 StoreStatement(
@@ -746,7 +746,7 @@ class IR(private val root: AstNode) {
             iterators.add(LocalVariable("__iterator_$unnamedIterator", ptrType))
             unnamedIterator++
         }
-        function.variables?.addAll(iterators.map { LocalVariableDecl(it, i32Type) })
+        function.variables?.addAll(iterators.map { AllocaStatement(it, i32Type) })
             ?: throw InternalException("Function has no variable list")
         val array = addNewExpressionLoop(blocks, arguments, iterators, expr.dimension, 0, expr.type)
         return IrVariable(array)
@@ -1578,7 +1578,7 @@ class IR(private val root: AstNode) {
         for (variable in statement.variables) {
             val binding = variable.binding ?: throw IRBuilderException("Variable has no binding")
             val dest = LocalVariable(binding.irInfo.toString(), ptrType)
-            variableList.add(LocalVariableDecl(dest, type))
+            variableList.add(AllocaStatement(dest, type))
             if (variable.body != null) {
                 val initializer = addExpression(variable.body, function, ExpectedState.VALUE).toArgument()
                 blocks.last().statements.add(StoreStatement(dest, initializer))

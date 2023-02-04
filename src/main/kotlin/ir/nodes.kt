@@ -134,9 +134,9 @@ class GlobalVariableDecl(
     }
 }
 
-class LocalVariableDecl(
+class AllocaStatement(
     val property: LocalVariable,
-    val type: PrimitiveType
+    val type: PrimitiveType,
 ) : Statement(
     newVariableCount = 2,
     def = setOf(property),
@@ -176,7 +176,7 @@ class GlobalFunctionBuilder(
     val name: String, // without @
     val returnType: PrimitiveType,
     val parameters: List<FunctionParameter>,
-    val variables: MutableList<LocalVariableDecl>? = null,
+    val variables: MutableList<AllocaStatement>? = null,
     val body: MutableList<Block>? = null,
     val returnPhi: PhiStatement? = null,
     val const: Boolean = false,

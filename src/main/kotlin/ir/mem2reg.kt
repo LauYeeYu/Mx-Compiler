@@ -41,7 +41,7 @@ class MemToReg(val function: GlobalFunction) {
         val statusMap = mutableMapOf<Variable, Status>()
         functionBody.forEach { block ->
             block.statements.forEach { statement ->
-                if (statement is LocalVariableDecl) {
+                if (statement is AllocaStatement) {
                     statusMap[statement.property] = Status()
                 }
             }
@@ -51,7 +51,7 @@ class MemToReg(val function: GlobalFunction) {
         functionBody.forEach { block ->
             block.statements.forEach { statement ->
                 when (statement) {
-                    is LocalVariableDecl -> {}
+                    is AllocaStatement -> {}
                     is LoadStatement -> {
                         val srcStatus = statusMap[statement.src]
                         if (srcStatus != null) {
@@ -96,7 +96,7 @@ class MemToReg(val function: GlobalFunction) {
                 block.label,
                 block.statements.filter { statement ->
                     when (statement) {
-                        is LocalVariableDecl -> !toRemove.contains(statement.property) &&
+                        is AllocaStatement -> !toRemove.contains(statement.property) &&
                                 !toReplace.containsKey(statement.property) &&
                                 !toReplaceInBlock.contains(statement.property)
 
@@ -109,7 +109,7 @@ class MemToReg(val function: GlobalFunction) {
                     }
                 }.map { statement ->
                     when (statement) {
-                        is LocalVariableDecl -> statement
+                        is AllocaStatement -> statement
                         is LoadStatement -> {
                             val replace1 = toReplace[statement.src]
                             if (replace1 != null) replaceMap[statement.dest] = replace1
