@@ -786,7 +786,7 @@ class IR(private val root: AstNode) {
 
         // When the variable is int or bool, we don't need to initialize the array
         if (index + 1 == arguments.size &&
-            (dimension != 1 || type is ast.IntType || type is ast.BoolType)) {
+            (dimension != 1 || type !is ast.StringType)) {
             return array
         }
         // Set the initial number of the iterator, i.e. __iterator__i = 0
@@ -852,13 +852,6 @@ class IR(private val root: AstNode) {
         if (index + 1 == arguments.size) {
             if (dimension == 1) {
                 when (type) {
-                    is ast.ClassType -> {
-                        val newClass = addNewClass(blocks, type)
-                        loopStartBlock.statements.add(
-                            StoreStatement(dest = position, src = newClass)
-                        )
-                    }
-
                     is ast.StringType -> {
                         loopStartBlock.statements.add(
                             StoreStatement(
@@ -866,6 +859,7 @@ class IR(private val root: AstNode) {
                                 GlobalVariable("__empty_string", ptrType))
                         )
                     }
+                    else -> throw InternalException("Unknown type")
                 }
             }
         } else {
