@@ -16,11 +16,12 @@
 
 package ir
 
-class ControlFlow(function: GlobalFunction) {
-    val blocks: LinkedHashMap<String, Block> = function.blockMap
+class ControlFlow(body: List<Block>) {
+    constructor(function: GlobalFunction) : this(function.body
+        ?: throw InternalError("Attempting to get the control flow graph of a function without a body"))
+    val blocks: Map<String, Block> = body.associateBy { it.label }
     val successors: Map<Block, List<Block>> =
-        function.body?.associateWith { block -> block.successors.map { blocks[it]!! } }
-            ?: throw IllegalStateException("Function ${function.name} has no body")
+        body.associateWith { block -> block.successors.map { blocks[it]!! } }
     val predecessors: Map<Block, List<Block>> = successors
         .flatMap { (block, successors) -> successors.map { it to block } }
         .groupBy({ it.first }, { it.second })
