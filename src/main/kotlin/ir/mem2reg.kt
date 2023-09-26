@@ -27,7 +27,7 @@ class MemToReg(val function: GlobalFunction) {
     // 1. Remove the unused alloca statements.
     // 2. remove the variable that is stored only once.
     // 3. remove the variable that is loaded and stored in the same block.
-    fun simplePromotion(): List<Block> {
+    fun simplePromotion(blocks: List<Block>): List<Block> {
         class Status {
             val stored: MutableList<Argument> = mutableListOf()
             val loaded: MutableList<Variable> = mutableListOf()
@@ -39,7 +39,7 @@ class MemToReg(val function: GlobalFunction) {
         }
         // Build the status map
         val statusMap = mutableMapOf<Variable, Status>()
-        functionBody.forEach { block ->
+        blocks.forEach { block ->
             block.statements.forEach { statement ->
                 if (statement is AllocaStatement) {
                     statusMap[statement.property] = Status()
@@ -48,7 +48,7 @@ class MemToReg(val function: GlobalFunction) {
         }
 
         // Collect the status
-        functionBody.forEach { block ->
+        blocks.forEach { block ->
             block.statements.forEach { statement ->
                 when (statement) {
                     is AllocaStatement -> {}
@@ -89,7 +89,7 @@ class MemToReg(val function: GlobalFunction) {
         val toReplaceInBlock: Set<Variable> = statusMap.toList()
             .filter { (_, status) -> status.inOneBlock() || !status.storedOnce() }
             .map { it.first }.toSet()
-        return functionBody.map { block ->
+        return blocks.map { block ->
             val replaceMap = mutableMapOf<Variable, Argument>() // value -> value (for statements)
             val replaceInBlockMap = mutableMapOf<Variable, Argument>() // ptr -> value
             Block(
