@@ -16,10 +16,13 @@
 
 package ir
 
-class Dominance(val function: GlobalFunction, val controlFlow: ControlFlow) {
-    constructor(function: GlobalFunction) : this(function, ControlFlow(function))
-    private val body = function.body
-        ?: throw InternalError("Attempting to get the domination relation of a function without a body")
+class Dominance(val body: List<Block>, private val controlFlow: ControlFlow) {
+    constructor(body: List<Block>) : this(body, ControlFlow(body))
+    constructor(function: GlobalFunction) : this(
+        function.body
+            ?: throw InternalError("Attempting to get the dominance information of a function without a body"),
+        ControlFlow(function)
+    )
     val dominateSets = getDominateSet()
     val immediateDominator: Map<Block, Block?> = dominateSets.map { (block, dominateSet) ->
         block to dominateSet.reduceOrNull { immediateDom, dominatorBlock ->
