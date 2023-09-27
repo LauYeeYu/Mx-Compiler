@@ -76,4 +76,11 @@ class Dominance(val body: List<Block>, private val controlFlow: ControlFlow) {
     }
 }
 
-class DominatorTree(val immediateDominator: Map<Block, Block?>)
+class DominatorTree(immediateDominator: Map<Block, Block?>) {
+    val successors: Map<Block, List<Block>> = immediateDominator
+        .mapNotNull { (block, immediateDom) ->
+            if (immediateDom == null) null else immediateDom to block
+        }
+        .groupBy({ it.first }, { it.second })
+        .mapValues { (_, successors) -> successors }
+}
