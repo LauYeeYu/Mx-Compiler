@@ -1,6 +1,11 @@
 #!/bin/bash
 
-cd src/main/resources
+# Note: This script should be used under the root directory of the project.
+
+if ! cd src/main/resources; then
+  echo "Error: Please run this script under the root directory of the project." >&2
+  exit 1
+fi
 make
 cd ../../..
 

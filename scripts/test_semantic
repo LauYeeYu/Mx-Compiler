@@ -1,0 +1,60 @@
+#!/bin/bash
+
+# Usage: scripts/test_semantic <testcase>
+# Example:
+#   scripts/test_semantic testcases/sema/array-package/array-1.mx
+# Note: This script should be used under the root directory of the project.
+
+# Usage
+if [ $# -ne 1 ]; then
+  echo "Usage: scripts/test_semantic <testcase>" >&2
+  exit 1
+fi
+
+TESTCASE=$1
+
+if [ ! -f "$TESTCASE" ]; then
+  echo "Error: testcase file $TESTCASE does not exist!" >&2
+  exit 1
+fi
+
+# Get verdict
+# VERDICT = 1 if PASS, 0 if FAIL
+if [ "$(grep -c "Verdict:" "$TESTCASE")" -ne 1 ]; then
+  cat << EOF >&2
+Error: Verdict line not found in '$TESTCASE'.
+       Please make sure this is a valid testcase file.
+EOF
+  exit 1
+fi
+VERDICT_STRING=$(grep "Verdict:" "$TESTCASE" | awk '{print $2}')
+if [ "$VERDICT_STRING" == "Fail" ]; then
+  VERDICT=0
+else
+  VERDICT=1
+fi
+
+# Run the compiler
+pass() {
+  echo "Passed" >&2
+  exit 0
+}
+fail() {
+  echo "Failed" >&2
+  exit 1
+}
+bin/mxc/bin/Mx-Compiler -fsyntax-only - < "$TESTCASE" > /dev/null
+RETURN_CODE=$?
+if [ $RETURN_CODE -ne 0 ]; then
+  if [ $VERDICT -eq 0 ]; then
+    pass
+  else
+    fail
+  fi
+else
+  if [ $VERDICT -eq 0 ]; then
+    fail
+  else
+    pass
+  fi
+fi

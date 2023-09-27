@@ -1,0 +1,53 @@
+#!/bin/bash
+
+# Usage: scripts/test_asm_all.bash
+# Note: This script should be used under the root directory of the project.
+
+source scripts/utils.bash
+
+TEMPDIR="$(mktemp -d -p /tmp mxc.XXXXXXXXXX)"
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to create temp directory." >&2
+    exit 1
+fi
+
+CODEGEN_PREFIX="testcases/codegen"
+
+FAILED_TESTCASE=""
+# judge_one_testcase <testcase>
+judge_one_testcase() {
+    local TEST_DIR="$TEMPDIR/$1"
+    mkdir -p "$TEST_DIR"
+    scripts/test_asm "$CODEGEN_PREFIX/$1" "$TEST_DIR" > /dev/null 2>&1
+    if [ $? -ne 0 ]; then
+        FAILED_TESTCASE="$2"
+        print_red_msg "Fail to pass testcase: $1."
+        return 1
+    else
+        rm -rf "$TEST_DIR"
+        print_green_msg "Pass testcases: '$1'."
+        return 0
+    fi
+}
+wrong_count=0
+total_count=0
+while read -r line; do
+    (( total_count += 1 ))
+    judge_one_testcase "$line"
+    if [ $? -ne 0 ]; then
+        (( wrong_count += 1 ))
+    fi
+done < "$SEMA_PREFIX/judgelist.txt"
+if [ "$wrong_count" -eq 0 ]; then
+    rm -rf "$TEMPDIR"
+    print_green_msg "Passed all testcases."
+else
+    print_red_msg "$(( total_count - wrong_count ))/$total_count passed, $wrong_count/$total_count failed."
+    cat <<EOF >&2
+All generated files are at '$TEMPDIR'. You may check some files there.
+For example, you may check the output of your compiler at
+'$TEMPDIR/$FAILED_TESTCASE/output.s'.
+Use the following command to clean up the temp directory:
+    rm -rf "$TEMPDIR"
+EOF
+fi

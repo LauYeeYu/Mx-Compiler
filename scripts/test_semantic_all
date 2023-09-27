@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# Note: This script should be used under the root directory of the project.
+
+SEMA_PREFIX="testcases/sema"
+print_red_msg() {
+  echo -e "\033[31m$1\033[0m" >&2
+}
+print_green_msg() {
+  echo -e "\033[32m$1\033[0m" >&2
+}
+
+# judge_one_testcase <testcase>
+judge_one_testcase() {
+  if ! scripts/test_semantic "$SEMA_PREFIX/$1" > /dev/null 2>&1; then
+    print_red_msg "Fail to pass testcase: '$1'."
+    return 1
+  else
+    print_green_msg "Pass testcases: '$1'"
+    return 0
+  fi
+}
+
+wrong_count=0
+total_count=0
+while read -r line; do
+  (( total_count += 1 ))
+  if ! judge_one_testcase "$line"; then
+    (( wrong_count += 1 ))
+  fi
+done < "$SEMA_PREFIX/judgelist.txt"
+if [ "$wrong_count" -eq 0 ]; then
+  print_green_msg "Passed all testcases."
+else
+  print_red_msg "$(( total_count - wrong_count ))/$total_count passed, $wrong_count/$total_count failed."
+fi
