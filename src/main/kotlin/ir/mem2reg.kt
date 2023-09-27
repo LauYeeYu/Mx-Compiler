@@ -24,6 +24,20 @@ import java.util.*
 class MemToReg(val function: GlobalFunction) {
     private val functionBody = function.body
         ?: throw InternalError("Function definition not found")
+
+    fun promote(): GlobalFunction {
+        return GlobalFunction(
+            function.name,
+            function.returnType,
+            function.parameters,
+            memToReg(functionBody)
+        )
+    }
+
+    private fun memToReg(body: List<Block>): List<Block> {
+        return PhiPromotion(simplePromotion(body)).phiPromotion()
+    }
+
     // Simple remove:
     // 1. Remove the unused alloca statements.
     // 2. remove the variable that is stored only once.
@@ -166,7 +180,7 @@ class PhiPromotion(val body: List<Block>) {
     private val newBlock = mutableMapOf<Block, List<Statement>>()
     private val replaceMap = mutableMapOf<Variable, Argument>()
 
-    fun phiPromotion(blocks: List<Block>): List<Block> {
+    fun phiPromotion(): List<Block> {
         // Pre-allocate the phi statements
         // phi body is left empty in this step
         defsOfVariables.forEach { (variable, defs) ->
@@ -182,7 +196,7 @@ class PhiPromotion(val body: List<Block>) {
         renameRecursive(body.first(), mutableSetOf())
 
         // Merge the phis
-        return blocks.map { block ->
+        return body.map { block ->
             val newStatements = newBlock[block] ?: throw InternalError("Block $block not found")
             val newPhis = phis[block]?.map { (_, phi) -> phi } ?: throw InternalError("Block $block not found")
             Block(
