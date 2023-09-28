@@ -31,7 +31,7 @@ class Dominance(val body: List<Block>, private val controlFlow: ControlFlow) {
         }
     }.toMap()
     val dominatorTree = DominatorTree(immediateDominator)
-    val dominanceFrontier = getDominanceFrontier()
+    val dominanceFrontier = findDominanceFrontier()
 
     private fun getDominateSet(): Map<Block, Set<Block>> {
         val bodySet = body.toSet()
@@ -60,7 +60,7 @@ class Dominance(val body: List<Block>, private val controlFlow: ControlFlow) {
         return dominateSetMap
     }
 
-    private fun getDominanceFrontier(): Map<Block, Set<Block>> {
+    private fun findDominanceFrontier(): Map<Block, Set<Block>> {
         val dominanceFrontier: MutableMap<Block, MutableSet<Block>> =
             body.associateWith { mutableSetOf<Block>() }.toMutableMap()
         body.forEach { block ->
