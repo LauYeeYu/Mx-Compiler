@@ -1,7 +1,8 @@
-bin
-.vscode
-.idea
-.fleet
+bin/
+cache/
+.vscode/
+.idea/
+.fleet/
 META-INF
 
 *.test.mx

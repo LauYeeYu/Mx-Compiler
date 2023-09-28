@@ -43,7 +43,7 @@ fail() {
   echo "Failed" >&2
   exit 1
 }
-bin/mxc/bin/Mx-Compiler -fsyntax-only - < "$TESTCASE" > /dev/null
+bin/bin/Mx-Compiler -fsyntax-only - < "$TESTCASE" > /dev/null
 RETURN_CODE=$?
 if [ $RETURN_CODE -ne 0 ]; then
   if [ $VERDICT -eq 0 ]; then

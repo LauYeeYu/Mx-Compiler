@@ -71,7 +71,7 @@ EOF
 
 # 2. Compile the testcase with your compiler
 echo "Compiling '$TESTCASE' with your compiler..." >&2
-bin/mxc/bin/Mx-Compiler -S - < "$TESTCASE" > "$TEMPDIR/output.s"
+bin/bin/Mx-Compiler -S - < "$TESTCASE" > "$TEMPDIR/output.s"
 if [ $? -ne 0 ]; then
     echo "Error: Failed to compile $TESTCASE." >&2
     clean

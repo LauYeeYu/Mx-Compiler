@@ -74,7 +74,7 @@ EOF
 
 # 2. Compile the testcase with compiler
 echo "Compiling '$TESTCASE' with compiler..." >&2
-bin/mxc/bin/Mx-Compiler -emit-llvm - < "$TESTCASE" > "$TEMPDIR/output.ll"
+bin/bin/Mx-Compiler -emit-llvm - < "$TESTCASE" > "$TEMPDIR/output.ll"
 if [ $? -ne 0 ]; then
   echo "Error: Failed to compile $TESTCASE." >&2
   clean
