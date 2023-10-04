@@ -125,44 +125,44 @@ class PhiPromotion(val body: List<Block>) {
             variableRewriteCount[variable] = variableRewriteCount[variable]!! + 1
         }
         newBlock[block] = block.statements.mapNotNull { statement ->
-            when (statement) {
+            when (val replacedStatement = statement.replace(replaceMap)) {
                 is AllocaStatement -> null
                 is LoadStatement -> {
-                    when (statement.src) {
+                    when (replacedStatement.src) {
                         is LocalVariable -> {
-                            if (statement.src in variables) {
-                                val newName = versions[statement.src]!!.peek()
-                                replaceMap[statement.dest] = newName
+                            if (replacedStatement.src in variables) {
+                                val newName = versions[replacedStatement.src]!!.peek()
+                                replaceMap[replacedStatement.dest] = newName
                                 null
                             } else {
-                                statement.replace(replaceMap)
+                                replacedStatement
                             }
                         }
 
-                        is GlobalVariable -> statement
+                        is GlobalVariable -> replacedStatement
                         else -> throw InternalError("Unknown variable type")
                     }
                 }
 
                 is StoreStatement -> {
-                    when (statement.dest) {
+                    when (replacedStatement.dest) {
                         is LocalVariable -> {
-                            if (statement.dest in variables) {
-                                versions[statement.dest]!!.push(statement.src)
-                                variableRewriteCount[statement.dest] =
-                                    variableRewriteCount[statement.dest]!! + 1
+                            if (replacedStatement.dest in variables) {
+                                versions[replacedStatement.dest]!!.push(replacedStatement.src)
+                                variableRewriteCount[replacedStatement.dest] =
+                                    variableRewriteCount[replacedStatement.dest]!! + 1
                                 null
                             } else {
-                                statement.replace(replaceMap)
+                                replacedStatement
                             }
                         }
 
-                        is GlobalVariable -> statement.replace(replaceMap)
+                        is GlobalVariable -> replacedStatement
                         else -> throw InternalError("Unknown variable type")
                     }
                 }
 
-                else -> statement.replace(replaceMap)
+                else -> replacedStatement
             }
         }
 
