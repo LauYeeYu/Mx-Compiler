@@ -62,6 +62,10 @@ abstract class Variable(name: String, type: PrimitiveType) : Argument(name, type
     override fun hashCode(): Int {
         return name.hashCode()
     }
+
+    fun variableName(): String {
+        return name.substring(1)
+    }
 }
 
 class GlobalVariable(

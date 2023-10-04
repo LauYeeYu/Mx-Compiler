@@ -97,7 +97,7 @@ class PhiPromotion(val body: List<Block>) {
         visited.add(block)
         phis[block]!![variable] = PhiStatement(
             LocalVariable(
-                "phi.${variable.name}.${variableCount[variable]!!}",
+                "__phi.${variable.variableName()}.${variableCount[variable]!!}",
                 type
             ), mutableListOf()
         )
