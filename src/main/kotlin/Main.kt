@@ -19,6 +19,7 @@ import ast.parse
 import ast.Source
 import ast.buildAst
 import exceptions.MxException
+import ir.MemToRegTransformer
 import ir.buildIr
 import typecheck.checkAndRecord
 import java.io.File
@@ -64,7 +65,7 @@ fun processSource(config: Config) {
             throw MxException("No main function", null)
         }
         if (config.compileTask == Config.CompileTask.SYNTAX) return
-        val ir = buildIr(ast)
+        val ir = buildIr(ast).transform(MemToRegTransformer())
         if (config.compileTask == Config.CompileTask.IR) {
             config.output.write(ir.toString().encodeToByteArray())
             return
