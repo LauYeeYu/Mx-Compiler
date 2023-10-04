@@ -22,7 +22,12 @@ class ControlFlow(body: List<Block>) {
     val blocks: Map<String, Block> = body.associateBy { it.label }
     val successors: Map<Block, List<Block>> =
         body.associateWith { block -> block.successors.map { blocks[it]!! } }
-    val predecessors: Map<Block, List<Block>> = successors
-        .flatMap { (block, successors) -> successors.map { it to block } }
-        .groupBy({ it.first }, { it.second })
+    val predecessors: Map<Block, List<Block>> = body.associateWith { mutableListOf<Block>() }
+        .also { map ->
+            successors.forEach {(block, successors) ->
+                successors.forEach { successor ->
+                    map[successor]!!.add(block)
+                }
+            }
+        }.mapValues { (_, predecessors) -> predecessors.toList() }
 }
