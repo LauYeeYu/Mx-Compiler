@@ -22,37 +22,7 @@ import exceptions.MxException
 import ir.MemToRegTransformer
 import ir.buildIr
 import typecheck.checkAndRecord
-import java.io.File
 import kotlin.system.exitProcess
-
-enum class Mode {
-    NONE,
-    SYNTAX_ONLY,
-    IR,
-    ASM,
-}
-
-// Just for online judge
-fun useSystemInAsSource() {
-    try {
-        val source = Source("input", System.`in`.readAllBytes().decodeToString())
-        val program = parse(source)
-        val ast = buildAst(program)
-        val environment = checkAndRecord(ast)
-        if (environment.functionAlikeBindings["main"] == null) {
-            throw MxException("No main function", null)
-        }
-        val ir = buildIr(ast)
-        val naiveAsm = naiveAllocation(ir, "test.mx")
-        File("output.s").writeText(naiveAsm.toString())
-        // print the builtin functions
-        val builtin = ir.javaClass.classLoader.getResource("builtin.s")!!.readBytes()
-        File("builtin.s").writeBytes(builtin)
-    } catch (e: MxException) {
-        System.err.println(e.toString())
-        exitProcess(1)
-    }
-}
 
 fun processSource(config: Config) {
     try {
@@ -79,6 +49,7 @@ fun processSource(config: Config) {
 }
 
 fun main(args: Array<String>) {
+    println(args.joinToString(" "))
     val config = Config(args)
     when (config.compileTask) {
         Config.CompileTask.HELP -> printHelp()
@@ -92,7 +63,7 @@ fun printVersion() {
 }
 
 fun printHelp() {
-    println("Usage: mxc [options] [filename] ...")
+    println("Usage: Mx-Compiler [options] [filename] ...")
     println("Options:")
     println("  -h, --help     Show help message")
     println("  -v, --version  Show version information")
