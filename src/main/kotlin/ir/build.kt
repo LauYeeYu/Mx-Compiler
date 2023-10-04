@@ -140,6 +140,7 @@ class IR(private val root: AstNode) {
                             globalVariableDecl.add(
                                 GlobalVariableDecl(
                                     GlobalVariable(name, ptrType),
+                                    ptrType,
                                     GlobalVariable("__empty_string", ptrType),
                                 )
                             )
@@ -149,6 +150,7 @@ class IR(private val root: AstNode) {
                             globalVariableDecl.add(
                                 GlobalVariableDecl(
                                     GlobalVariable(name, ptrType),
+                                    ptrType,
                                     GlobalVariable("$name.str", ptrType),
                                 )
                             )
@@ -163,6 +165,7 @@ class IR(private val root: AstNode) {
                             globalVariableDecl.add(
                                 GlobalVariableDecl(
                                     GlobalVariable(name, ptrType),
+                                    ptrType,
                                     GlobalVariable("__empty_string", ptrType),
                                 )
                             )
@@ -192,7 +195,7 @@ class IR(private val root: AstNode) {
                                 StoreStatement(dest = variableProperty, src = result)
                             )
                         }
-                        globalVariableDecl.add(GlobalVariableDecl(variableProperty, NullLiteral()))
+                        globalVariableDecl.add(GlobalVariableDecl(variableProperty, ptrType, NullLiteral()))
                     }
                 }
             }
@@ -375,13 +378,14 @@ class IR(private val root: AstNode) {
 
             else -> addExpression(variable.body, function, ExpectedState.VALUE).toArgument()
         }
-        val irVariable = GlobalVariable(name, type)
+
+        val irVariable = GlobalVariable(name, ptrType)
         when (returnValue) {
             is IntLiteral ->
-                globalVariableDecl.add(GlobalVariableDecl(irVariable, I32Literal(returnValue.value)))
+                globalVariableDecl.add(GlobalVariableDecl(irVariable, type, I32Literal(returnValue.value)))
 
             is Variable -> {
-                globalVariableDecl.add(GlobalVariableDecl(irVariable, I32Literal(0)))
+                globalVariableDecl.add(GlobalVariableDecl(irVariable, type, I32Literal(0)))
                 val blocks = function.body ?: throw IRBuilderException("Function has no body")
                 blocks.last().statements.add(
                     StoreStatement(dest = irVariable, src = returnValue)
@@ -454,7 +458,7 @@ class IR(private val root: AstNode) {
     private fun addExpression(
         expr: ast.Object,
         function: GlobalFunctionBuilder,
-        expectedState: ExpectedState
+        expectedState: ExpectedState,
     ): ExpressionResult {
         val binding = expr.binding ?: throw IRBuilderException("Object has no binding")
         val type = irType(binding.type)

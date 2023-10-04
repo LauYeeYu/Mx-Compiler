@@ -126,10 +126,11 @@ class NullLiteral : IntLiteral(0, PrimitiveType(TypeProperty.PTR)) {
 
 class GlobalVariableDecl(
     val property: GlobalVariable,
+    val type: PrimitiveType,
     val initValue: Argument, // Every global variable must have an initial value
 ) : GlobalDecl {
-    override fun toString() = when (property.type.type) {
-        TypeProperty.PTR -> "${property.name} = global ${property.type} ${initValue.name}"
+    override fun toString() = when (type.type) {
+        TypeProperty.PTR -> "${property.name} = global $type ${initValue.name}"
         else -> "${property.name} = global $initValue"
     }
 }
