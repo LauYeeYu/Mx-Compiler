@@ -27,7 +27,7 @@ if [ ! -f "$TESTCASE" ]; then
   echo "Error: testcase file $TESTCASE does not exist." >&2
   exit 1
 fi
-source script/utils.bash
+source scripts/utils.bash
 
 # Test whether ravel is installed
 # If not installed, please follow the document at

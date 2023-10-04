@@ -37,7 +37,7 @@ while read -r line; do
     if [ $? -ne 0 ]; then
         (( wrong_count += 1 ))
     fi
-done < "$SEMA_PREFIX/judgelist.txt"
+done < "$CODEGEN_PREFIX/judgelist.txt"
 if [ "$wrong_count" -eq 0 ]; then
     rm -rf "$TEMPDIR"
     print_green_msg "Passed all testcases."
