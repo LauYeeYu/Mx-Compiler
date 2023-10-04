@@ -29,6 +29,8 @@ class Root(
                 variables.joinToString("\n") + "\n\n" +
                 globalFunctions.joinToString("\n")
     }
+
+    fun transform(transformer: Transformer) = transformer.transform(this)
 }
 
 class GlobalClass(
