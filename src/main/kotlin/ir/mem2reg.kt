@@ -16,10 +16,10 @@
 
 package ir
 
-import exceptions.IRBuilderException
 import java.util.*
 
 // To remove the alloca/load/store statements, and generate the real SSA form.
+// See the docs/mem2reg.md for more details.
 
 class MemToReg(val function: GlobalFunction) {
     private val functionBody = function.body
@@ -37,7 +37,6 @@ class MemToReg(val function: GlobalFunction) {
     private fun memToReg(body: List<Block>): List<Block> {
         return PhiPromotion(body).phiPromotion()
     }
-
 }
 
 class PhiPromotion(val body: List<Block>) {
