@@ -40,6 +40,12 @@ the help of the symbol table.
 
 For more details about IR, see [the document for IR](ir.md).
 
+### Promotion
+
+#### Memory to Register Promotion Pass
+
+See [the document for memory to register promotion](mem2reg.md).
+
 ### Generate RISC-V Assembly Code
 The IR is converted to RISC-V assembly code.
 

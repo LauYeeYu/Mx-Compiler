@@ -2,8 +2,8 @@
 Intermediate representation (IR) is a representation of a program that is
 closer to the source language than the target language.
 
-A minimal is used as the intermediate representation in this project. See
-the [document](http://llvm.org/docs/LangRef.html) for LLVM IR for more
+A minimal LLVM IR is used as the intermediate representation in this project.
+See the [document](http://llvm.org/docs/LangRef.html) for LLVM IR for more
 information.
 
 ## IR Generation Steps
