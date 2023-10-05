@@ -168,7 +168,9 @@ class PhiPromotion(val body: List<Block>) {
         // 3: Add the variable to the phi statement in the successor blocks in CFG
         cfg.successors[block]?.forEach { successor ->
             phis[successor]!!.forEach {(variable, phi) ->
-                phi.incoming.add(versions[variable]!!.peek() to block.label)
+                if (!versions[variable]!!.empty()) {
+                    phi.incoming.add(versions[variable]!!.peek() to block.label)
+                }
             }
         }
 
