@@ -1409,6 +1409,7 @@ class IR(private val root: AstNode) {
         }
     }
 
+    // The return value indicates whether the control flow terminates after this statement
     private fun addStatement(statement: ast.Statement, function: GlobalFunctionBuilder): Boolean =
         when (statement) {
             is ast.BlockStatement -> addStatement(statement, function)
