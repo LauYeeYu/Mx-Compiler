@@ -44,16 +44,14 @@ class Dominance(val body: List<Block>, private val controlFlow: ControlFlow) {
                     ?: throw InternalError("Block $block not found")
                 val predecessors = controlFlow.predecessors[block]
                     ?: throw InternalError("Block $block does not exist in the control flow graph")
-                if (predecessors.isNotEmpty()) {
-                    var predDomInCommon = bodySet
-                    predecessors.forEach { pred ->
-                        predDomInCommon = predDomInCommon intersect dominateSetMap[pred]!!.toSet()
-                    }
-                    val newDominateSet = predDomInCommon union setOf(block)
-                    if (newDominateSet != dominateSet) {
-                        updated = true
-                        dominateSetMap[block] = newDominateSet
-                    }
+                val predDomInCommon = predecessors
+                    .map { dominateSetMap[it]!!.toSet() }
+                    .reduceOrNull { acc, set -> acc intersect set }
+                    ?: setOf()
+                val newDominateSet = predDomInCommon union setOf(block)
+                if (newDominateSet != dominateSet) {
+                    updated = true
+                    dominateSetMap[block] = newDominateSet
                 }
             }
         }
