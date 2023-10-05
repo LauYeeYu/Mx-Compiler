@@ -49,7 +49,6 @@ fun processSource(config: Config) {
 }
 
 fun main(args: Array<String>) {
-    println(args.joinToString(" "))
     val config = Config(args)
     when (config.compileTask) {
         Config.CompileTask.HELP -> printHelp()
