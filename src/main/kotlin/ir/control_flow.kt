@@ -31,3 +31,21 @@ class ControlFlow(body: List<Block>) {
             }
         }.mapValues { (_, predecessors) -> predecessors.toList() }
 }
+
+fun removeUnusedBlocks(body: List<Block>): List<Block> {
+    var newBody = body
+    var update = true
+    while (update) {
+        update = false
+        val cfg = ControlFlow(newBody)
+        newBody = newBody.mapNotNull { block ->
+            if (cfg.predecessors[block]!!.isNotEmpty() || block.label == "entry") {
+                block
+            } else {
+                update = true
+                null
+            }
+        }
+    }
+    return newBody
+}
