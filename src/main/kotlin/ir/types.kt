@@ -46,6 +46,19 @@ enum class TypeProperty {
             SIZE_T -> ptrSize
             ARRAY  -> ptrSize
         }
+
+    fun defaultValue(): Argument = when (this) {
+        I32    -> I32Literal(0)
+        I8     -> I8Literal(0)
+        I1     -> I1Literal(0)
+        PTR    -> NullLiteral()
+        VOID   -> throw InternalError("Cannot get default value of void type")
+        SIZE_T -> when (ptrSize) {
+            4 -> I32Literal(0)
+            else -> throw InternalError("Invalid pointer size")
+        }
+        ARRAY  -> NullLiteral()
+    }
 }
 
 abstract class Type

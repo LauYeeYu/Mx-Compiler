@@ -170,6 +170,8 @@ class PhiPromotion(val body: List<Block>) {
             phis[successor]!!.forEach {(variable, phi) ->
                 if (!versions[variable]!!.empty()) {
                     phi.incoming.add(versions[variable]!!.peek() to block.label)
+                } else {
+                    phi.incoming.add(phi.dest.type.type.defaultValue() to block.label)
                 }
             }
         }
