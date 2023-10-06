@@ -35,10 +35,12 @@ class MemToReg(val function: GlobalFunction) {
     }
 
     private fun memToReg(body: List<Block>): List<Block> {
-        return PhiPromotion(body).phiPromotion()
+        return PhiPromotion(removeUnusedBlocks(body)).phiPromotion()
     }
 }
 
+// Promote the alloca/load/store statements to phi statements
+// Note: the `body` should have no unused blocks
 class PhiPromotion(val body: List<Block>) {
     private val allocas: List<AllocaStatement> = body
         .flatMap { it.statements }.filterIsInstance<AllocaStatement>()
