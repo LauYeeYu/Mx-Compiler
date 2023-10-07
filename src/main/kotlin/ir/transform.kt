@@ -32,3 +32,17 @@ class MemToRegTransformer : Transformer() {
             else -> MemToReg(function).promote()
         }
 }
+
+class MoveSageTransformer : Transformer() {
+    override fun transformFunction(function: GlobalFunction): GlobalFunction =
+        when (function.body) {
+            null -> function
+            else -> GlobalFunction(
+                name = function.name,
+                parameters = function.parameters,
+                returnType = function.returnType,
+                body = removeCriticalEdges(function.body),
+                moveSafe = true,
+            )
+        }
+}

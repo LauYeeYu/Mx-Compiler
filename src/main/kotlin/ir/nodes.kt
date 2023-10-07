@@ -341,6 +341,12 @@ class BranchStatement(
 
     override fun replace(map: MutableMap<Variable, Argument>) =
         BranchStatement(condition?.replace(map), trueBlockLabel, falseBlockLabel)
+
+    fun replaceLabel(map: MutableMap<String, String>) = BranchStatement(
+        condition,
+        if (trueBlockLabel in map) map[trueBlockLabel]!! else trueBlockLabel,
+        if (falseBlockLabel != null && falseBlockLabel in map) map[falseBlockLabel]!! else falseBlockLabel,
+    )
 }
 
 class LoadStatement(
@@ -464,6 +470,14 @@ class PhiStatement(
         val newIncoming = incoming.map { (value, label) -> value.replace(map) to label }
         return PhiStatement(dest, newIncoming.toMutableList())
     }
+
+    fun replaceLabel(map: MutableMap<String, String>) = PhiStatement(
+        dest,
+        incoming.map { (value, label) ->
+            if (label in map) value to map[label]!!
+            else value to label
+        }.toMutableList(),
+    )
 }
 
 class StringLiteralDecl(

@@ -43,3 +43,51 @@ fun removeUnusedBlocks(body: List<Block>): List<Block> {
     dfs(body[0])
     return body.filter { it in visited }
 }
+
+fun removeCriticalEdges(body: List<Block>): List<Block> {
+    val controlFlow = ControlFlow(body)
+    fun convert(block: Block): Block {
+        val phiReplaceMap = mutableMapOf<String, String>()
+        if (controlFlow.predecessors[block]!!.size > 1) {
+            controlFlow.predecessors[block]!!.forEach { predecessor ->
+                if (controlFlow.successors[predecessor]!!.size > 1) {
+                    phiReplaceMap[predecessor.label] =
+                        "critical_edge_${predecessor.label}_to_${block.label}"
+                }
+            }
+        }
+        val branchReplaceMap = mutableMapOf<String, String>()
+        if (controlFlow.successors[block]!!.size > 1) {
+            controlFlow.successors[block]!!.forEach { successor ->
+                if (controlFlow.predecessors[successor]!!.size > 1) {
+                    branchReplaceMap[successor.label] =
+                        "critical_edge_${block.label}_to_${successor.label}"
+                }
+            }
+        }
+
+        return Block(
+            block.label,
+            block.statements.map { statement ->
+                when (statement) {
+                    is PhiStatement -> statement.replaceLabel(phiReplaceMap)
+                    is BranchStatement -> statement.replaceLabel(branchReplaceMap)
+                    else -> statement
+                }
+            }.toMutableList()
+        )
+    }
+    return body.flatMap { block ->
+        val successors = controlFlow.successors[block]!!
+        if (successors.size <= 1) listOf(convert(block))
+        else listOf(convert(block)) + successors.mapNotNull { successor ->
+            if (controlFlow.predecessors[successor]!!.size <= 1) null
+            else Block(
+                "critical_edge_${block.label}_to_${successor.label}",
+                mutableListOf(
+                    BranchStatement(successor.label)
+                )
+            )
+        }
+    }
+}
