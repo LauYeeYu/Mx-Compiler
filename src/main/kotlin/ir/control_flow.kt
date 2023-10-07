@@ -33,19 +33,13 @@ class ControlFlow(body: List<Block>) {
 }
 
 fun removeUnusedBlocks(body: List<Block>): List<Block> {
-    var newBody = body
-    var update = true
-    while (update) {
-        update = false
-        val cfg = ControlFlow(newBody)
-        newBody = newBody.mapNotNull { block ->
-            if (cfg.predecessors[block]!!.isNotEmpty() || block.label == "entry") {
-                block
-            } else {
-                update = true
-                null
-            }
-        }
+    val controlFlow = ControlFlow(body)
+    val visited = mutableSetOf<Block>()
+    fun dfs(block: Block) {
+        if (block in visited) return
+        visited.add(block)
+        controlFlow.successors[block]?.forEach { dfs(it) }
     }
-    return newBody
+    dfs(body[0])
+    return body.filter { it in visited }
 }
