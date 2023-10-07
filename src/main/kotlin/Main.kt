@@ -24,6 +24,18 @@ import ir.buildIr
 import typecheck.checkAndRecord
 import kotlin.system.exitProcess
 
+fun main(args: Array<String>) {
+    val config = Config(args)
+    when (config.compileTask) {
+        Config.CompileTask.HELP -> printHelp()
+        Config.CompileTask.VERSION -> printVersion()
+
+        Config.CompileTask.SYNTAX,
+        Config.CompileTask.ASM,
+        Config.CompileTask.IR -> processSource(config)
+    }
+}
+
 fun processSource(config: Config) {
     try {
         // Syntax check (parse, build AST, and type check)
@@ -35,25 +47,20 @@ fun processSource(config: Config) {
             throw MxException("No main function", null)
         }
         if (config.compileTask == Config.CompileTask.SYNTAX) return
+
+        // Generate IR & Optimizations on IR
         val ir = buildIr(ast).transform(MemToRegTransformer())
         if (config.compileTask == Config.CompileTask.IR) {
             config.output.write(ir.toString().encodeToByteArray())
             return
         }
+
+        // Generate assembly
         val asm = naiveAllocation(ir, source.fileName)
         config.output.write(asm.toString().encodeToByteArray())
     } catch (e: MxException) {
         System.err.println(e.toString())
         exitProcess(1)
-    }
-}
-
-fun main(args: Array<String>) {
-    val config = Config(args)
-    when (config.compileTask) {
-        Config.CompileTask.HELP -> printHelp()
-        Config.CompileTask.VERSION -> printVersion()
-        Config.CompileTask.SYNTAX, Config.CompileTask.ASM, Config.CompileTask.IR -> processSource(config)
     }
 }
 
