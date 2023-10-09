@@ -480,6 +480,23 @@ class PhiStatement(
     )
 }
 
+class PackedMoveStatement(
+    val movePairs: List<Pair<Variable, Argument>>,
+) : Statement(
+    newVariableCount = 0,
+    def = movePairs.map { it.first }.toSet(),
+    use = movePairs.map { it.second }.filterIsInstance<Variable>().toSet(),
+) {
+    override fun toString(): String = throw InternalError("Packed move statement is an internal statement")
+
+    override fun replace(map: MutableMap<Variable, Argument>): Statement {
+        val newMovePairs = movePairs.map { (variable, value) ->
+            variable to value.replace(map)
+        }
+        return PackedMoveStatement(newMovePairs)
+    }
+}
+
 class StringLiteralDecl(
     val name: String,
     val content: String,
