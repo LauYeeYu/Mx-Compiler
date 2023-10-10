@@ -15,10 +15,10 @@ RV32-I。如需獲取更多關於此大作業的内容，點此檢視[詳情](ht
 
 This project compiles the code written by Mx* (the grammar of Mx* is
 defined [here](https://github.com/ACMClassCourses/Compiler-Design-Implementation)),
-into assembly code in RISC-V 32I.
+into assembly code in RISC-V 32IMA.
 
 此項目將 Mx* 語言（語法定義在[此處](https://github.com/ACMClassCourses/Compiler-Design-Implementation)）編譯到
-RISC-V 32I 平臺。
+RISC-V 32IMA 平臺。
 
 ## Development Progress 開發進度
 
