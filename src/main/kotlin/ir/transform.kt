@@ -46,3 +46,46 @@ class MoveSageTransformer : Transformer() {
             )
         }
 }
+
+class RemovePhisTransformer : Transformer() {
+    override fun transformFunction(function: GlobalFunction): GlobalFunction =
+        when (function.body) {
+            null -> function
+            else -> GlobalFunction(
+                name = function.name,
+                parameters = function.parameters,
+                returnType = function.returnType,
+                body = removePhis(function.body),
+                moveSafe = function.moveSafe,
+            )
+        }
+
+    private fun removePhis(body: List<Block>): List<Block> {
+        val cfg = ControlFlow(body)
+        val moves = mutableMapOf<Block, PackedMoveStatement>()
+        body.forEach { block ->
+            val moveBuilder = mutableMapOf<Block, MutableList<Pair<Variable, Argument>>>()
+            block.statements.filterIsInstance<PhiStatement>().forEach { statement->
+                statement.incoming.forEach { (argument, blockName) ->
+                    moveBuilder.getOrPut(cfg.blocks[blockName]!!) { mutableListOf() }
+                        .add(statement.dest to argument)
+                }
+            }
+            moveBuilder.forEach { (block, move) ->
+                if (moves[block] == null) {
+                    throw InternalError("Critical edge not removed")
+                }
+                moves[block] = PackedMoveStatement(move)
+            }
+        }
+        return body.map { block ->
+            Block(
+                label = block.label,
+                statements = block.statements.filterNot { it is PhiStatement }
+                    .toMutableList().apply {
+                        moves[block]?.let { add(this.size - 1, it) }
+                    },
+            )
+        }
+    }
+}
