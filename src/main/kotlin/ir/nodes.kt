@@ -497,6 +497,20 @@ class PackedMoveStatement(
     }
 }
 
+class AssignStatement(
+    val dest: Variable,
+    val src : Argument,
+) : Statement(
+    newVariableCount = 1,
+    def = setOf(dest),
+    use = if (src is Variable) setOf(src) else setOf(),
+) {
+    override fun toString() = throw InternalError("Assign statement is an internal statement")
+
+    override fun replace(map: MutableMap<Variable, Argument>): Statement =
+        AssignStatement(dest, src.replace(map))
+}
+
 class StringLiteralDecl(
     val name: String,
     val content: String,
