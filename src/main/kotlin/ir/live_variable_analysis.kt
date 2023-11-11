@@ -16,32 +16,62 @@
 
 package ir
 
-fun liveVariableAnalysis(function: GlobalFunction) {
-    val blockMap = function.blockMap
-    // Set successor
-    blockMap.values.forEach { block ->
-        block.statements.forEach { statement ->
-            statement.successor.clear()
+import java.util.*
+
+class LiveVariableAnalysis(body: List<Block>) {
+    private val controlFlow = ControlFlow(body)
+    private val blockLiveIn = body
+        .associateWith { block -> block.uses.toSet() }.toMutableMap()
+    private val blockLiveOut = body.associateWith { block ->
+        (controlFlow.successors[block]!!.map { successor -> successor.uses }
+            .reduceOrNull { acc, successorUse -> acc union successorUse }
+            ?: setOf()).toSet()
+    }.toMutableMap()
+    val exits = body.filter { controlFlow.successors[it]!!.isEmpty() }
+
+    // Update the liveIn and liveOut for blocks
+    init {
+        var changed = true
+        while (changed) {
+            changed = false
+            val queue = LinkedList(exits)
+            val visited = exits.toMutableSet()
+            while (queue.isNotEmpty()) {
+                val block = queue.poll() ?: throw InternalError("Queue is empty")
+                val newLiveOut = (controlFlow.successors[block]!!
+                    .map { successor -> blockLiveIn[successor]!! }
+                    .reduceOrNull { acc, successorLiveIn -> acc.toSet() union successorLiveIn }
+                    ?: setOf())
+
+                // No need to check liveIn because it will change only when liveOut changes
+                if (newLiveOut != blockLiveOut[block]) {
+                    changed = true
+                    blockLiveOut[block] = newLiveOut
+                    blockLiveIn[block] = block.uses union (newLiveOut subtract block.defs)
+                    controlFlow.predecessors[block]!!.forEach { predecessor ->
+                        if (predecessor !in visited) {
+                            queue.add(predecessor)
+                            visited.add(predecessor)
+                        }
+                    }
+                }
+            }
         }
     }
-    blockMap.forEach { it.value.setSuccessor(blockMap) }
 
-    // Set active in and active out
-    var changed = true
-    while (changed) {
-        changed = false
-        blockMap.values.reversed().forEach { block ->
-            block.statements.reversed().forEach { statement ->
-                val oldInSize = statement.liveIn.size
-                val oldOutSize = statement.liveOut.size
-                statement.liveIn.addAll(statement.use)
-                statement.liveIn.addAll(statement.liveOut - statement.def)
-                statement.successor.forEach { successor ->
-                    statement.liveOut.addAll(successor.liveIn)
-                }
-                if (oldInSize != statement.liveIn.size || oldOutSize != statement.liveOut.size) {
-                    changed = true
-                }
+    // Update the liveIn and liveOut for statements
+    init {
+        body.forEach { block ->
+            val last = block.statements.last()
+            last.liveOut.clear()
+            last.liveOut += blockLiveOut[block]!!
+            last.liveIn.clear()
+            last.liveIn += last.use union (last.liveOut subtract last.def)
+            block.statements.reversed().zipWithNext().forEach { (successor, statement) ->
+                statement.liveOut.clear()
+                statement.liveOut += successor.liveIn
+                statement.liveIn.clear()
+                statement.liveIn += statement.use union (statement.liveOut subtract statement.def)
             }
         }
     }

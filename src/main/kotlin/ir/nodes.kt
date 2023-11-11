@@ -237,8 +237,10 @@ class Block(
     val label: String,
     val statements: MutableList<Statement>,
 ) {
-    private val statementsString get() =
-        statements.joinToString("\n  ", "  ")
+    private val statementsString
+        get() =
+            statements.joinToString("\n  ", "  ")
+
     override fun toString() = "$label:\n$statementsString"
 
     val successors: Set<String>
@@ -255,22 +257,11 @@ class Block(
             }
         }
 
-    fun setSuccessor(blockMap: Map<String, Block>) {
-        for ((current, next) in statements.zipWithNext()) {
-            current.successor.add(next)
-        }
-        val last = statements.lastOrNull() ?: return
-        if (last is BranchStatement) {
-            val trueStatement = blockMap[last.trueBlockLabel]?.statements?.first()
-                ?: throw InternalException("Block not found: ${last.trueBlockLabel}")
-            last.successor.add(trueStatement)
-            if (last.falseBlockLabel != null) {
-                val falseStatement = blockMap[last.falseBlockLabel]?.statements?.first()
-                    ?: throw InternalException("Block not found: ${last.falseBlockLabel}")
-                last.successor.add(falseStatement)
-            }
-        }
-    }
+    val uses: Set<Variable> = statements[0].use union (statements
+            .zipWithNext { a, b -> b.use - a.def }
+            .reduceOrNull { acc, set -> acc union set } ?: setOf())
+
+    val defs: Set<Variable> = statements.map { it.def }.reduce { acc, set -> acc union set }
 }
 
 abstract class Statement(
@@ -278,7 +269,6 @@ abstract class Statement(
     val def: Set<Variable>,
     val use: Set<Variable>,
 ) {
-    val successor: MutableSet<Statement> = mutableSetOf()
     val liveIn: MutableSet<Variable> = mutableSetOf()
     val liveOut: MutableSet<Variable> = mutableSetOf()
 
