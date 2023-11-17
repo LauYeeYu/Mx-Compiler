@@ -16,7 +16,14 @@
 
 package ir
 
-import java.util.*
+import java.util.LinkedList
+
+fun liveVariableAnalysis(root: Root) {
+    root.globalFunctions.forEach {
+        val body = it.body ?: return@forEach
+        LiveVariableAnalysis(body)
+    }
+}
 
 class LiveVariableAnalysis(body: List<Block>) {
     private val controlFlow = ControlFlow(body)
