@@ -74,7 +74,7 @@ class LiveVariableAnalysis(body: List<Block>) {
             last.liveOut += blockLiveOut[block]!!
             last.liveIn.clear()
             last.liveIn += last.use union (last.liveOut subtract last.def)
-            block.statements.reversed().zipWithNext().forEach { (successor, statement) ->
+            block.statements.asReversed().zipWithNext().forEach { (successor, statement) ->
                 statement.liveOut.clear()
                 statement.liveOut += successor.liveIn
                 statement.liveIn.clear()
