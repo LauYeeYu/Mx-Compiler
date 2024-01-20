@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "1.7.10"
+    kotlin("jvm") version "1.9.20"
     antlr
     application
 }
@@ -14,8 +14,9 @@ repositories {
 }
 
 dependencies {
-    antlr("org.antlr:antlr4:4.11.1")
+    antlr("org.antlr:antlr4:4.13.1")
     testImplementation(kotlin("test"))
+    implementation(kotlin("stdlib-jdk8"))
 }
 
 tasks.test {
@@ -23,7 +24,7 @@ tasks.test {
 }
 
 tasks.withType<KotlinCompile> {
-    kotlinOptions.jvmTarget = "18"
+    kotlinOptions.jvmTarget = "21"
 }
 
 tasks.compileKotlin {
@@ -37,4 +38,12 @@ tasks.getByName("generateGrammarSource") {
 
 application {
     mainClass.set("MainKt")
+}
+val compileKotlin: KotlinCompile by tasks
+compileKotlin.kotlinOptions {
+    jvmTarget = "21"
+}
+val compileTestKotlin: KotlinCompile by tasks
+compileTestKotlin.kotlinOptions {
+    jvmTarget = "21"
 }
