@@ -15,7 +15,7 @@ register when the virtual register is not alive.
 
 To formally explore register allocation, we need to abstract the problem.
 
-## Abstraction: Graph Coloring
+## Abstraction: Graph Colouring
 
 Allocating registers is equivalent to colouring the graph. We can abstract the
 problem as follows:
@@ -62,7 +62,7 @@ opportunity to be coalesced with other nodes.
 
 ### Simplify
 
-One at a time, remove non-move-related nodes of low ($<K$) degree from the
+One at a time, remove non-move-related nodes of low ($< K$) degree from the
 graph.
 
 ### Coalesce
@@ -152,20 +152,20 @@ Besides, the nodes should have a field indicating which set they are in.
 
 If $u \in \texttt{simplifyWorklist} \cup \texttt{freezeWorklist}\cup
 \texttt{spillWorklist}$, then $\texttt{degree}(u) = \left| \texttt{adjList}(u)
-\cap (\texttt{precolored} \cup \texttt{simplifyWorklist} \cup
+\cap (\texttt{precoloured} \cup \texttt{simplifyWorklist} \cup
 \texttt{freezeWorklist} \cup \texttt{spillWorklist}) \right|$.
 
 #### Simplify Work-list Invariant
 
 If $u \in \texttt{simplifyWorklist}$, then $\texttt{degree}(u) < K \land
-\texttt{moveList}[u] cap (\texttt{activeMoves} \cup \texttt{worklistMoves})
-= {}$.
+\texttt{moveList}[u] \cap (\texttt{activeMoves} \cup \texttt{worklistMoves})
+= \emptyset$.
 
 #### Freeze Work-list Invariant
 
 If $u \in \texttt{freezeWorklist}$, then $\texttt{degree}(u) < K \land
 \texttt{moveList}[u] \cap (\texttt{activeMoves} \cup \texttt{worklistMoves})
-\neq {}$.
+\neq \emptyset$.
 
 #### Spill Work-list Invariant
 
@@ -189,15 +189,15 @@ procedure Main()
         else if worklistMoves != {} then Coalesce()
         else if freezeWorklist != {} then Freeze()
         else if spillWorklist != {} then SelectSpill()
-    until (simplifyWorklist = {} and worklistMoves = {} and
-           freezeWorklist = {} and spillWorklist = {})
-    AssignColors()
+    until (simplifyWorklist == {} and worklistMoves == {} and
+           freezeWorklist == {} and spillWorklist == {})
+    AssignColours()
     if spilledNodes != {} then
         RewriteProgram(spilledNodes)
         Main()
 ```
 
-If `AssignColors` spills, then `RewriteProgram` allocates memory locations for
+If `AssignColours` spills, then `RewriteProgram` allocates memory locations for
 the spilled temporaries and inserts store and fetch instructions to access
 them. These stores and fetches are to newly created temporaries (with
 tiny live ranges), so the main loop must be performed on the altered graph.
@@ -231,10 +231,10 @@ procedure Build()
 procedure AddEdge(u, v)
     if ((u, v)  not in adjSet) and (u != v) then
     adjSet <- adjSet union {(u, v), (v, u)}
-    if u not in precolored then
+    if u not in precoloured then
         adjList[u] <- (adjList[u] union {v})
         degree[u]  <- degree[u] + 1
-    if v not in precolored then
+    if v not in precoloured then
         adjList[v] <- (adjList[v] union {u})
         degree[v]  <- degree[v] + 1
 ```
@@ -330,7 +330,7 @@ procedure Coalesce()
     let m (=copy(x,y)) in worklistMoves
     x <- GetAlias(x)
     y <- GetAlias(y)
-    if y in precolored then
+    if y in precoloured then
         let (u, v) = (y, x)
     else
         let (u, v) = (x, y)
@@ -338,12 +338,12 @@ procedure Coalesce()
     if (u = v) then
         coalescedMoves <- coalescedMoves union {m}
         AddWorkList(u)
-    else if v in precolored or (u, v) in adjSet then
+    else if v in precoloured or (u, v) in adjSet then
         constrainedMoves <- constrainedMoves union {m}
         AddWorkList(u)
         AddWorkList(v)
-    else if (u in precolored and (forall t in Adjacent(v), OK(t, u))) or
-        (u not in precolored and Conservative(Adjacent(u) union Adjacent(v))) then
+    else if (u in precoloured and (forall t in Adjacent(v), OK(t, u))) or
+        (u not in precoloured and Conservative(Adjacent(u) union Adjacent(v))) then
         coalescedMoves <- coalescedMoves union {m}
         Combine(u,v)
         AddWorkList(u)
@@ -355,7 +355,7 @@ procedure Coalesce()
 
 ```
 procedure AddWorkList(u)
-if (u not in precolored and not MoveRelated(u) and degree[u] < K) then
+if (u not in precoloured and not MoveRelated(u) and degree[u] < K) then
     freezeWorklist <- freezeWorklist \ {u}
     simplifyWorklist <- simplifyWorklist union {u}
 ```
@@ -364,7 +364,7 @@ if (u not in precolored and not MoveRelated(u) and degree[u] < K) then
 
 ```
 function OK(t, r)
-    degree[t] < K or t in precolored or (t, r) in adjSet 
+    degree[t] < K or t in precoloured or (t, r) in adjSet 
 ```
 
 #### `Conservative`
@@ -443,24 +443,24 @@ procedure SelectSpill()
     FreezeMoves(m)
 ```
 
-#### `AssignColors`
+#### `AssignColours`
 
 ```
-procedure AssignColors()
+procedure AssignColours()
     while SelectStack not empty
         let n = pop(SelectStack)
-        okColors <- {0, ..., K-1}
+        okColours <- {0, ..., K-1}
         forall w in adjList[n]
-            if GetAlias(w) in (coloredNodes union precolored) then
-                okColors <- okColors \ {color[GetAlias(w)]}
-        if okColors = {} then
+            if GetAlias(w) in (colouredNodes union precoloured) then
+                okColours <- okColours \ {colour[GetAlias(w)]}
+        if okColours = {} then
             spilledNodes <- spilledNodes union {n}
         else
-            coloredNodes <- coloredNodes union {n}
-            let c in okColors
-            color[n] <- c
+            colouredNodes <- colouredNodes union {n}
+            let c in okColours
+            colour[n] <- c
     forall n in coalescedNodes
-        color[n] <- color[GetAlias(n)]
+        colour[n] <- colour[GetAlias(n)]
 ```
 
 #### `RewriteProgram`
@@ -473,7 +473,7 @@ procedure RewriteProgram()
     definition of a vi, a fetch before each use of a vi.
     Put all the vi into a set newTemps.
     spilledNodes <- {}
-    initial <- coloredNodes union coalescedNodes union newTemps
-    coloredNodes <- {}
+    initial <- colouredNodes union coalescedNodes union newTemps
+    colouredNodes <- {}
     coalescedNodes <- {}
 ```
