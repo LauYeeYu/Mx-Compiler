@@ -33,7 +33,7 @@ class MemToRegTransformer : Transformer() {
         }
 }
 
-class MoveSageTransformer : Transformer() {
+class MoveSafeTransformer : Transformer() {
     override fun transformFunction(function: GlobalFunction): GlobalFunction =
         when (function.body) {
             null -> function
