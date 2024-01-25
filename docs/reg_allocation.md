@@ -246,7 +246,7 @@ procedure MakeWorklist()
     forall n in initial
         initial <- (initial - {n})
         if degree[n] >= K then
-  `         spillWorklist <- spillWorklist union {n}
+            spillWorklist <- spillWorklist union {n}
         else if MoveRelated(n) then
             freezeWorklist <- freezeWorklist union {n}
         else
