@@ -132,10 +132,16 @@ Besides, the nodes should have a field indicating which set they are in.
 #### Interference Graph
 
 - `adjSet`: the set of interference edges $(u, v)$ in the graph. If
-  $(u, v) \in \texttt{adjSet}$ then $(v, u) \in \texttt{adjSet}$.
+  $(u, v) \in \texttt{adjSet}$, then $(v, u) \in \texttt{adjSet}$.
 - `adjList`: adjacency list representation of the graph; for each
   non-precoloured temporary $u$, $\texttt{adjList}[u]$ is the set of
   nodes that interfere with $u$.
+
+The reason why we choose these two data structures is that there are two
+kinds of queries:
+
+1. Get all the nodes adjacent to a node.
+2. Tell whether two nodes are adjacent.
 
 #### Other Data Structures
 
@@ -229,14 +235,14 @@ procedure Build()
 
 ```
 procedure AddEdge(u, v)
-    if ((u, v)  not in adjSet) and (u != v) then
-    adjSet <- adjSet union {(u, v), (v, u)}
-    if u not in precoloured then
-        adjList[u] <- (adjList[u] union {v})
-        degree[u]  <- degree[u] + 1
-    if v not in precoloured then
-        adjList[v] <- (adjList[v] union {u})
-        degree[v]  <- degree[v] + 1
+    if ((u, v) not in adjSet) and (u != v) then
+        adjSet <- adjSet union {(u, v), (v, u)}
+        if u not in precoloured then
+            adjList[u] <- (adjList[u] union {v})
+            degree[u]  <- degree[u] + 1
+        if v not in precoloured then
+            adjList[v] <- (adjList[v] union {u})
+            degree[v]  <- degree[v] + 1
 ```
 
 #### `MakeWorklist`
