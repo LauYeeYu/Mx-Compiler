@@ -27,9 +27,9 @@ fun liveVariableAnalysis(root: Root) {
 
 class LiveVariableAnalysis(body: List<Block>) {
     private val controlFlow = ControlFlow(body)
-    private val blockLiveIn = body
+    val blockLiveIn = body
         .associateWith { block -> block.uses.toSet() }.toMutableMap()
-    private val blockLiveOut = body.associateWith { block ->
+    val blockLiveOut = body.associateWith { block ->
         (controlFlow.successors[block]!!.map { successor -> successor.uses }
             .reduceOrNull { acc, successorUse -> acc union successorUse }
             ?: setOf()).toSet()

@@ -19,16 +19,41 @@ package ir
 fun registerAllocate(function: GlobalFunction) {
     RegisterAllocator(function).allocate()
 }
+abstract class Register(val name: String) {
+    override fun toString(): String {
+        return name
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (other !is Register) {
+            return false
+        }
+        return name == other.name
+    }
+
+    override fun hashCode(): Int {
+        return name.hashCode()
+    }
+}
+class PhysicalRegister(val id: asm.Register) : Register(id.name)
+class VirtualRegister(name: String) : Register(name)
 
 class RegisterAllocator(val function: GlobalFunction) {
     //TODO
     var body: List<Block> = function.body
         ?: throw InternalError("Function body is null")
-    private val simplifyWorkList: MutableList<InterferenceGraphNode> = mutableListOf()
-    private val worklistMoves: MutableList<InterferenceGraphNode> = mutableListOf()
-    private val freezeWorkList: MutableList<InterferenceGraphNode> = mutableListOf()
-    private val spillWorkList: MutableList<InterferenceGraphNode> = mutableListOf()
-    private val spilledNodes: MutableList<InterferenceGraphNode> = mutableListOf()
+    val precoloured: Set<Register> = setOf()
+    private val simplifyWorkList: MutableSet<Register> = mutableSetOf()
+    private val worklistMoves: MutableSet<Statement> = mutableSetOf()
+    private val freezeWorkList: MutableSet<Register> = mutableSetOf()
+    private val spillWorkList: MutableSet<Register> = mutableSetOf()
+    private val spilledNodes: MutableSet<Register> = mutableSetOf()
+    private val moveList: MutableMap<Register, Set<Statement>> = mutableMapOf()
+
+    // interference graph
+    private val adjList: MutableMap<Register, MutableSet<Register>> = mutableMapOf()
+    private val adjSet: MutableSet<Pair<Register, Register>> = mutableSetOf()
+    private val degree: MutableMap<Register, Int> = mutableMapOf()
 
     fun allocate(): GlobalFunction {
         if (function.regAllocated) {
@@ -46,9 +71,10 @@ class RegisterAllocator(val function: GlobalFunction) {
         )
     }
 
+
     private fun mainProcedure() {
         val liveness = LiveVariableAnalysis(body)
-        this.build()
+        this.build(liveness)
         this.makeWorklist()
         do {
             if (simplifyWorkList.isNotEmpty()) {
@@ -71,8 +97,27 @@ class RegisterAllocator(val function: GlobalFunction) {
         mainProcedure()
     }
 
-    private fun build() {
-        TODO()
+    private fun build(liveness: LiveVariableAnalysis) {
+        body.forEach { block ->
+            var live = liveness.blockLiveOut[block] ?: throw InternalError("LiveOut is null")
+            block.statements.asReversed().forEach { inst ->
+                if (inst is PackedMoveStatement) {
+                    live = live subtract inst.use
+                    (inst.def union inst.use).forEach { n ->
+                        moveList[n.toVirtualRegister()] =
+                            moveList[n.toVirtualRegister()]?.union(setOf(inst)) ?: setOf(inst)
+                    }
+                    worklistMoves.add(inst)
+                }
+                live = live union inst.def
+                inst.def.forEach { d ->
+                    live.forEach { l ->
+                        addEdge(d.toVirtualRegister(), l.toVirtualRegister())
+                    }
+                }
+                live = inst.use union (live subtract inst.def)
+            }
+        }
     }
 
     private fun makeWorklist() {
@@ -102,17 +147,19 @@ class RegisterAllocator(val function: GlobalFunction) {
     private fun rewriteProgram() {
         TODO()
     }
-}
 
-abstract class Register(val name: String)
-class PhysicalRegister(val id: asm.Register) : Register(id.name)
-class VirtualRegister(name: String) : Register(name)
-data class InterferenceGraphNode(val register: Register)
-
-class InterferenceGraph(
-    val originalFunction: GlobalFunction,
-    val realBody: List<Block>,
-    val liveVariableAnalysis: LiveVariableAnalysis,
-) {
-    //TODO
+    private fun addEdge(u: Register, v: Register) {
+        if (Pair(u, v) !in adjSet && u != v) {
+            adjSet.add(Pair(u, v))
+            adjSet.add(Pair(v, u))
+            if (u !in precoloured) {
+                adjList.getOrPut(u) { mutableSetOf() }.add(v)
+                degree[u] = degree.getOrDefault(u, 0) + 1
+            }
+            if (v !in precoloured) {
+                adjList.getOrPut(v) { mutableSetOf() }.add(u)
+                degree[v] = degree.getOrDefault(v, 0) + 1
+            }
+        }
+    }
 }

@@ -66,6 +66,10 @@ abstract class Variable(name: String, type: PrimitiveType) : Argument(name, type
     fun variableName(): String {
         return name.substring(1)
     }
+
+    fun toVirtualRegister(): VirtualRegister {
+        return VirtualRegister(name)
+    }
 }
 
 class GlobalVariable(
