@@ -161,6 +161,7 @@ class GlobalFunction(
     val parameters: List<FunctionParameter>,
     val body: List<Block>? = null,
     val moveSafe: Boolean = false, // This indicates that this function doesn't have a critical edge
+    val regAllocated: Boolean = false,
     val const: Boolean = false,
 ) {
     val blockMap: LinkedHashMap<String, Block>

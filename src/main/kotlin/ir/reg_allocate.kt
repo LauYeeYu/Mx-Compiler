@@ -16,6 +16,10 @@
 
 package ir
 
+fun registerAllocate(function: GlobalFunction) {
+    RegisterAllocator(function).allocate()
+}
+
 class RegisterAllocator(val function: GlobalFunction) {
     //TODO
     var body: List<Block> = function.body
@@ -26,7 +30,23 @@ class RegisterAllocator(val function: GlobalFunction) {
     private val spillWorkList: MutableList<InterferenceGraphNode> = mutableListOf()
     private val spilledNodes: MutableList<InterferenceGraphNode> = mutableListOf()
 
-    fun mainProcedure() {
+    fun allocate(): GlobalFunction {
+        if (function.regAllocated) {
+            return function
+        }
+        mainProcedure()
+        return GlobalFunction(
+            name = function.name,
+            returnType = function.returnType,
+            parameters = function.parameters,
+            body = body,
+            moveSafe = function.moveSafe,
+            regAllocated = true,
+            const = function.const,
+        )
+    }
+
+    private fun mainProcedure() {
         val liveness = LiveVariableAnalysis(body)
         this.build()
         this.makeWorklist()
