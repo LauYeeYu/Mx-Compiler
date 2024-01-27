@@ -208,7 +208,7 @@ the spilled temporaries and inserts store and fetch instructions to access
 them. These stores and fetches are to newly created temporaries (with
 tiny live ranges), so the main loop must be performed on the altered graph.
 
-#### Build
+#### `Build`
 
 Procedure `Build` constructs the interference graph (and bit matrix) using
 the results of static liveness analysis, and also initializes the
