@@ -32,14 +32,47 @@ enum class Register {
     enum class Saver {
         CALLER, CALLEE, PRESERVED;
     }
+
     val saver: Saver = when {
         name == "ra" -> Saver.CALLER
-        name == "gp"|| name == "tp" -> Saver.PRESERVED
-        name.startsWith("a", true)|| name.startsWith("s", true) -> Saver.CALLEE
+        name == "gp" || name == "tp" -> Saver.PRESERVED
+        name.startsWith("a", true) || name.startsWith("s", true) -> Saver.CALLEE
         name.startsWith("t", true) -> Saver.CALLER
         else -> Saver.PRESERVED
     }
 }
+
+fun precolouredPhysicalRegisters(numberOfArguments: Int) = setOf(
+    Register.RA,
+    Register.SP,
+    Register.GP,
+    Register.TP,
+    Register.S0,
+    Register.S1,
+    Register.S2,
+    Register.S3,
+    Register.S4,
+    Register.S5,
+    Register.S6,
+    Register.S7,
+    Register.S8,
+    Register.S9,
+    Register.S10,
+    Register.S11,
+) + (0 until minOf(numberOfArguments, 8)).map { toRegister("a${it}") }.toSet()
+
+fun initialPhysicalRegisters(numberOfArguments: Int) = setOf(
+    Register.T0,
+    Register.T1,
+    Register.T2,
+    Register.T3,
+    Register.T4,
+    Register.T5,
+    Register.T6,
+) + (minOf(numberOfArguments, 8) until 8).map { toRegister("a${it}") }.toSet()
+
+val numberOfAvailablePhysicalRegisters =
+    (precolouredPhysicalRegisters(0) + initialPhysicalRegisters(0)).size
 
 fun toRegister(register: String) = when (register) {
     "zero" -> Register.ZERO

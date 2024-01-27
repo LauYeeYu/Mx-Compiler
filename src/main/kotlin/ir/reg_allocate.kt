@@ -16,6 +16,10 @@
 
 package ir
 
+import asm.initialPhysicalRegisters
+import asm.numberOfAvailablePhysicalRegisters
+import asm.precolouredPhysicalRegisters
+
 fun registerAllocate(function: GlobalFunction) {
     RegisterAllocator(function).allocate()
 }
@@ -40,15 +44,22 @@ class VirtualRegister(name: String) : Register(name)
 
 class RegisterAllocator(val function: GlobalFunction) {
     //TODO
-    var body: List<Block> = function.body
+    private var body: List<Block> = function.body
         ?: throw InternalError("Function body is null")
-    val precoloured: Set<Register> = setOf()
+    private val regNumber = numberOfAvailablePhysicalRegisters
+    private val precoloured: Set<Register> =
+        precolouredPhysicalRegisters(function.parameters.size)
+            .map { PhysicalRegister(it) }.toSet()
+    private val initial: MutableSet<Register> =
+        initialPhysicalRegisters(function.parameters.size)
+            .map { PhysicalRegister(it) }.toMutableSet()
     private val simplifyWorkList: MutableSet<Register> = mutableSetOf()
     private val worklistMoves: MutableSet<Statement> = mutableSetOf()
     private val freezeWorkList: MutableSet<Register> = mutableSetOf()
     private val spillWorkList: MutableSet<Register> = mutableSetOf()
     private val spilledNodes: MutableSet<Register> = mutableSetOf()
     private val moveList: MutableMap<Register, Set<Statement>> = mutableMapOf()
+    private val activeMoves: MutableSet<Register> = mutableSetOf()
 
     // interference graph
     private val adjList: MutableMap<Register, MutableSet<Register>> = mutableMapOf()
@@ -121,7 +132,15 @@ class RegisterAllocator(val function: GlobalFunction) {
     }
 
     private fun makeWorklist() {
-        TODO()
+        initial.forEach { n ->
+            if ((degree[n] ?: 0) >= regNumber) {
+                spillWorkList.add(n)
+            } else if (moveRelated(n)) {
+                freezeWorkList.add(n)
+            } else {
+                simplifyWorkList.add(n)
+            }
+        }
     }
 
     private fun simplify() {
@@ -162,4 +181,9 @@ class RegisterAllocator(val function: GlobalFunction) {
             }
         }
     }
+
+    private fun nodeMoves(n: Register) =
+        moveList.getOrDefault(n, setOf()) intersect (activeMoves union worklistMoves)
+
+    private fun moveRelated(n: Register) = nodeMoves(n).isNotEmpty()
 }
