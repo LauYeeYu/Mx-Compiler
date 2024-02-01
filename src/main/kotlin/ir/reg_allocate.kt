@@ -19,6 +19,7 @@ package ir
 import asm.initialPhysicalRegisters
 import asm.numberOfAvailablePhysicalRegisters
 import asm.precolouredPhysicalRegisters
+import java.util.*
 
 fun registerAllocate(function: GlobalFunction) {
     RegisterAllocator(function).allocate()
@@ -54,17 +55,27 @@ class RegisterAllocator(val function: GlobalFunction) {
         initialPhysicalRegisters(function.parameters.size)
             .map { PhysicalRegister(it) }.toMutableSet()
     private val simplifyWorkList: MutableSet<Register> = mutableSetOf()
-    private val worklistMoves: MutableSet<Statement> = mutableSetOf()
     private val freezeWorkList: MutableSet<Register> = mutableSetOf()
     private val spillWorkList: MutableSet<Register> = mutableSetOf()
     private val spilledNodes: MutableSet<Register> = mutableSetOf()
-    private val moveList: MutableMap<Register, Set<Statement>> = mutableMapOf()
-    private val activeMoves: MutableSet<Register> = mutableSetOf()
+    private val coalescedNodes: MutableSet<Register> = mutableSetOf()
+    private val colouredNodes: MutableSet<Register> = mutableSetOf()
+    private val selectStack: Stack<Register> = Stack()
+
+    // moveSets
+    private val coalescedMoves: MutableSet<Statement> = mutableSetOf()
+    private val constrainedMoves: MutableSet<Statement> = mutableSetOf()
+    private val frozenMoves: MutableSet<Statement> = mutableSetOf()
+    private val worklistMoves: MutableSet<Statement> = mutableSetOf()
+    private val activeMoves: MutableSet<Statement> = mutableSetOf()
 
     // interference graph
     private val adjList: MutableMap<Register, MutableSet<Register>> = mutableMapOf()
     private val adjSet: MutableSet<Pair<Register, Register>> = mutableSetOf()
     private val degree: MutableMap<Register, Int> = mutableMapOf()
+    private val moveList: MutableMap<Register, Set<Statement>> = mutableMapOf()
+    private val alias: MutableMap<Register, Register> = mutableMapOf()
+    private val colour: MutableMap<Register, Register> = mutableMapOf()
 
     fun allocate(): GlobalFunction {
         if (function.regAllocated) {
@@ -144,7 +155,13 @@ class RegisterAllocator(val function: GlobalFunction) {
     }
 
     private fun simplify() {
-        TODO()
+        if (simplifyWorkList.isEmpty()) {
+            return
+        }
+        val n = simplifyWorkList.first()
+        simplifyWorkList.remove(n)
+        selectStack.push(n)
+        adjacent(n).forEach { m -> decrementDegree(m) }
     }
 
     private fun coalesce() {
@@ -167,6 +184,29 @@ class RegisterAllocator(val function: GlobalFunction) {
         TODO()
     }
 
+    private fun decrementDegree(m: Register) {
+        val d = degree[m] ?: throw InternalError("Degree is null")
+        degree[m] = d - 1
+        if (d == regNumber) {
+            enableMoves(adjacent(m) union setOf(m))
+            spillWorkList.remove(m)
+            if (moveRelated(m)) {
+                freezeWorkList.add(m)
+            } else {
+                simplifyWorkList.add(m)
+            }
+        }
+    }
+
+    private fun enableMoves(nodes: Set<Register>) {
+        nodes.forEach { n ->
+            nodeMoves(n).filter { it in activeMoves }.forEach { m ->
+                activeMoves.remove(m)
+                worklistMoves.add(m)
+            }
+        }
+    }
+
     private fun addEdge(u: Register, v: Register) {
         if (Pair(u, v) !in adjSet && u != v) {
             adjSet.add(Pair(u, v))
@@ -182,8 +222,11 @@ class RegisterAllocator(val function: GlobalFunction) {
         }
     }
 
-    private fun nodeMoves(n: Register) =
+    private fun nodeMoves(n: Register): Set<Statement> =
         moveList.getOrDefault(n, setOf()) intersect (activeMoves union worklistMoves)
 
     private fun moveRelated(n: Register) = nodeMoves(n).isNotEmpty()
+
+    private fun adjacent(n: Register): Set<Register> =
+        adjList.getOrDefault(n, setOf()) subtract (selectStack union coalescedNodes)
 }
