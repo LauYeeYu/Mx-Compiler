@@ -490,6 +490,12 @@ class PackedMoveStatement(
         }
         return PackedMoveStatement(newMovePairs)
     }
+
+    fun toMoveInstructions(): List<MoveInstruction> {
+        return movePairs.filter {(_, value) -> value is Variable }.map { (variable, value) ->
+            MoveInstruction((value as Variable).toVirtualRegister(), variable.toVirtualRegister())
+        }
+    }
 }
 
 class AssignStatement(

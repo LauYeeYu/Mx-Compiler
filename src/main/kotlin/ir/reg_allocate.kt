@@ -43,8 +43,9 @@ abstract class Register(val name: String) {
 class PhysicalRegister(val id: asm.Register) : Register(id.name)
 class VirtualRegister(name: String) : Register(name)
 
+class MoveInstruction(val src: Register, val dst: Register)
+
 class RegisterAllocator(val function: GlobalFunction) {
-    //TODO
     private var body: List<Block> = function.body
         ?: throw InternalError("Function body is null")
     private val regNumber = numberOfAvailablePhysicalRegisters
@@ -63,17 +64,17 @@ class RegisterAllocator(val function: GlobalFunction) {
     private val selectStack: Stack<Register> = Stack()
 
     // moveSets
-    private val coalescedMoves: MutableSet<Statement> = mutableSetOf()
-    private val constrainedMoves: MutableSet<Statement> = mutableSetOf()
-    private val frozenMoves: MutableSet<Statement> = mutableSetOf()
-    private val worklistMoves: MutableSet<Statement> = mutableSetOf()
-    private val activeMoves: MutableSet<Statement> = mutableSetOf()
+    private val coalescedMoves: MutableSet<MoveInstruction> = mutableSetOf()
+    private val constrainedMoves: MutableSet<MoveInstruction> = mutableSetOf()
+    private val frozenMoves: MutableSet<MoveInstruction> = mutableSetOf()
+    private val worklistMoves: MutableSet<MoveInstruction> = mutableSetOf()
+    private val activeMoves: MutableSet<MoveInstruction> = mutableSetOf()
 
     // interference graph
     private val adjList: MutableMap<Register, MutableSet<Register>> = mutableMapOf()
     private val adjSet: MutableSet<Pair<Register, Register>> = mutableSetOf()
     private val degree: MutableMap<Register, Int> = mutableMapOf()
-    private val moveList: MutableMap<Register, Set<Statement>> = mutableMapOf()
+    private val moveList: MutableMap<Register, Set<MoveInstruction>> = mutableMapOf()
     private val alias: MutableMap<Register, Register> = mutableMapOf()
     private val colour: MutableMap<Register, Register> = mutableMapOf()
 
@@ -125,11 +126,11 @@ class RegisterAllocator(val function: GlobalFunction) {
             block.statements.asReversed().forEach { inst ->
                 if (inst is PackedMoveStatement) {
                     live = live subtract inst.use
-                    (inst.def union inst.use).forEach { n ->
-                        moveList[n.toVirtualRegister()] =
-                            moveList[n.toVirtualRegister()]?.union(setOf(inst)) ?: setOf(inst)
+                    inst.toMoveInstructions().forEach { move ->
+                        moveList[move.src] = moveList[move.src]?.union(setOf(move)) ?: setOf(move)
+                        moveList[move.dst] = moveList[move.dst]?.union(setOf(move)) ?: setOf(move)
+                        worklistMoves.add(move)
                     }
-                    worklistMoves.add(inst)
                 }
                 live = live union inst.def
                 inst.def.forEach { d ->
@@ -222,7 +223,7 @@ class RegisterAllocator(val function: GlobalFunction) {
         }
     }
 
-    private fun nodeMoves(n: Register): Set<Statement> =
+    private fun nodeMoves(n: Register): Set<MoveInstruction> =
         moveList.getOrDefault(n, setOf()) intersect (activeMoves union worklistMoves)
 
     private fun moveRelated(n: Register) = nodeMoves(n).isNotEmpty()
