@@ -190,7 +190,10 @@ class RegisterAllocator(val function: GlobalFunction) {
     }
 
     private fun freeze() {
-        TODO()
+        val u = freezeWorkList.first()
+        freezeWorkList.remove(u)
+        simplifyWorkList.add(u)
+        freezeMoves(u)
     }
 
     private fun selectSpill() {
@@ -288,6 +291,18 @@ class RegisterAllocator(val function: GlobalFunction) {
         if ((degree[u] ?: 0) >= regNumber && u in freezeWorkList) {
             freezeWorkList.remove(u)
             spillWorkList.add(u)
+        }
+    }
+
+    private fun freezeMoves(u: Register) {
+        nodeMoves(u).forEach { m ->
+            val v = if (getAlias(m.src) == getAlias(u)) getAlias(m.dst) else getAlias(m.src)
+            activeMoves.remove(m)
+            frozenMoves.add(m)
+            if (nodeMoves(v).isEmpty() && (degree[v] ?: 0) < regNumber) {
+                freezeWorkList.remove(v)
+                simplifyWorkList.add(v)
+            }
         }
     }
 }
