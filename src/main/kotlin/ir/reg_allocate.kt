@@ -166,7 +166,27 @@ class RegisterAllocator(val function: GlobalFunction) {
     }
 
     private fun coalesce() {
-        TODO()
+        val m = worklistMoves.first()
+        val src = getAlias(m.src)
+        val dst = getAlias(m.dst)
+        val u = if (src in precoloured) src else dst
+        val v = if (src in precoloured) dst else src
+        worklistMoves.remove(m)
+        if (u == v) {
+            coalescedMoves.add(m)
+            addWorkList(u)
+        } else if (v in precoloured ||Pair(u, v) in adjSet) {
+            constrainedMoves.add(m)
+            addWorkList(u)
+            addWorkList(v)
+        } else if ((u in precoloured && adjacent(v).all { w -> ok(w, v) }) ||
+            (u !in precoloured && conservative(adjacent(u) union adjacent(v)))) {
+            coalescedMoves.add(m)
+            combine(u, v)
+            addWorkList(u)
+        } else {
+            activeMoves.add(m)
+        }
     }
 
     private fun freeze() {
@@ -230,4 +250,44 @@ class RegisterAllocator(val function: GlobalFunction) {
 
     private fun adjacent(n: Register): Set<Register> =
         adjList.getOrDefault(n, setOf()) subtract (selectStack union coalescedNodes)
+
+    private fun getAlias(n: Register): Register {
+        val aliasOfN = alias[n] ?: return n
+        return getAlias(aliasOfN)
+    }
+
+    private fun addWorkList(u: Register) {
+        if (u !in precoloured && !moveRelated(u) && (degree[u] ?: 0) < regNumber) {
+            freezeWorkList.remove(u)
+            simplifyWorkList.add(u)
+        }
+    }
+
+    private fun ok(t: Register, r: Register): Boolean =
+        (degree[t] ?: 0) < regNumber || t in precoloured || Pair(t, r) in adjSet
+
+    private fun conservative(nodes: Set<Register>): Boolean {
+        val k = nodes.count { (degree[it] ?: 0) >= regNumber }
+        return k < regNumber
+    }
+
+    private fun combine(u: Register, v: Register) {
+        if (v in freezeWorkList) {
+            freezeWorkList.remove(v)
+        } else {
+            spillWorkList.remove(v)
+        }
+        coalescedNodes.add(v)
+        alias[v] = u
+        moveList[u] = moveList.getOrDefault(u, setOf()) union moveList.getOrDefault(v, setOf())
+        enableMoves(setOf(v))
+        adjacent(v).forEach { t ->
+            addEdge(t, u)
+            decrementDegree(t)
+        }
+        if ((degree[u] ?: 0) >= regNumber && u in freezeWorkList) {
+            freezeWorkList.remove(u)
+            spillWorkList.add(u)
+        }
+    }
 }
