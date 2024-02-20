@@ -112,7 +112,7 @@ class RegisterAllocator(val function: GlobalFunction) {
         } while (simplifyWorkList.isNotEmpty() || worklistMoves.isNotEmpty() ||
             freezeWorkList.isNotEmpty() || spillWorkList.isNotEmpty()
         )
-        assignColors()
+        assignColours()
         if (spilledNodes.isEmpty()) {
             return
         }
@@ -197,11 +197,32 @@ class RegisterAllocator(val function: GlobalFunction) {
     }
 
     private fun selectSpill() {
-        TODO()
+        val m = selectNodeForSpill()
+        spillWorkList.remove(m)
+        simplifyWorkList.add(m)
+        freezeMoves(m)
     }
 
-    private fun assignColors() {
-        TODO()
+    private fun assignColours() {
+        while (selectStack.isNotEmpty()) {
+            val n = selectStack.pop()
+            val okColors = (precoloured union colouredNodes).toMutableSet()
+            adjList.getOrDefault(n, setOf()).forEach { w ->
+                val aliasOfW = getAlias(w)
+                if (aliasOfW in (colouredNodes union precoloured)) {
+                    okColors.remove(colour[aliasOfW])
+                }
+            }
+            if (okColors.isEmpty()) {
+                spilledNodes.add(n)
+            } else {
+                colouredNodes.add(n)
+                colour[n] = okColors.first()
+            }
+        }
+        coalescedNodes.forEach { n ->
+            colour[n] = colour[getAlias(n)] ?: throw InternalError("Colour is null")
+        }
     }
 
     private fun rewriteProgram() {
@@ -303,6 +324,12 @@ class RegisterAllocator(val function: GlobalFunction) {
                 freezeWorkList.remove(v)
                 simplifyWorkList.add(v)
             }
+        }
+    }
+
+    private fun selectNodeForSpill(): Register {
+        return spillWorkList.reduce { acc, register ->
+            if ((degree[register] ?: 0) > (degree[acc] ?: 0)) register else acc
         }
     }
 }
